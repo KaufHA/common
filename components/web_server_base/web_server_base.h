@@ -129,10 +129,14 @@ class OTARequestHandler : public AsyncWebHandler {
 
   bool isRequestHandlerTrivial() override { return false; }
 
+  void report_ota_error();
+
  protected:
   uint32_t last_ota_progress_{0};
   uint32_t ota_read_length_{0};
   WebServerBase *parent_;
+  bool last_ota_error = false;
+
 };
 
 }  // namespace web_server_base

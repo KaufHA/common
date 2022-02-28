@@ -33,10 +33,13 @@ void WebServerBase::add_handler(AsyncWebHandler *handler) {
     this->server_->addHandler(handler);
 }
 
-void report_ota_error() {
+void OTARequestHandler::report_ota_error() {
   StreamString ss;
   Update.printError(ss);
   ESP_LOGW(TAG, "OTA Update failed! Error: %s", ss.c_str());
+
+  this->last_ota_error = true;
+
 }
 
 void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const String &filename, size_t index,
@@ -45,7 +48,13 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Strin
 
   std::string str = filename.c_str();
 
-// kill process if "minimal" is found in string
+  // kill process if errored out last time
+  if ( this->last_ota_error ) {
+    ESP_LOGD(TAG, "Last OTA try errored out; reboot firmware to try again.");
+    return;
+    }
+
+  // kill process if "minimal" is found in string
   std::size_t found = str.find("minimal");
   if (found!=std::string::npos) {
      ESP_LOGD(TAG, "*****  DO NOT TRY TO FLASH TASMOTA-MINIMAL *****");
@@ -53,7 +62,7 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Strin
      return;
   }
 
-// kill process if "WLED" is found in string
+  // kill process if "WLED" is found in string
   found = str.find("WLED");
   if (found!=std::string::npos) {
      ESP_LOGD(TAG, "*****  DO NOT TRY TO FLASH WLED *****");
@@ -61,7 +70,7 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Strin
      return;
   }
 
-// kill process if "wled" is found in string
+  // kill process if "wled" is found in string
   found = str.find("wled");
   if (found!=std::string::npos) {
      ESP_LOGD(TAG, "*****  DO NOT TRY TO FLASH WLED *****");
@@ -126,7 +135,7 @@ void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
     response = request->beginResponse(200, "text/plain", "Update Successful!");
   } else {
     StreamString ss;
-    ss.print("Update Failed: ");
+    ss.print("Update Failed.  Restart firmware before trying again.  ");
     Update.printError(ss);
     response = request->beginResponse(200, "text/plain", ss);
   }
