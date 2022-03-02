@@ -339,10 +339,15 @@ void WebServer::handle_index_request(AsyncWebServerRequest *request) {
   stream->print(F("</tbody></table><p>See <a href=\"https://esphome.io/web-api/index.html\">ESPHome Web API</a> for "
                   "REST API documentation.</p>"));
   if (this->allow_ota_) {
-    stream->print(F("<h2>OTA Update</h2>"
-                    "**** DO NOT USE <b>TASMOTA-MINIMAL</b>.BIN or .BIN.GZ. **** Use tasmota.bin.gz.<br />"
-                    "After the firmware is uploaded, a blank page will appear with the message <b>Update Successful!</b>.  If anything strange or different happens, please remove power to the plug before trying to flash again. <br /><br /> "
-                    "<form method=\"POST\" action=\"/update\" enctype=\"multipart/form-data\"><input "
+    // add warning about not flashing tasmota-minimal.
+    stream->print(F("<h1>OTA Update: </h1>"
+                    "**** DO NOT USE <b>TASMOTA-MINIMAL</b>.BIN or .BIN.GZ. **** Use tasmota.bin.gz.<br /><br />"));
+
+     // add warning about WLED for bulbs only.
+    if ( strcmp(ESPHOME_PROJECT_NAME,"kauf.rgbww") == 0 ) {
+      stream->print(F("**** DO NOT USE ANY <b>WLED</b> firmware file.  WLED is not going to work properly on this bulb.  Use the included DDP functionality to control this bulb from another WLED instance or xLights.<br /><br />"));
+    }
+                    stream->print(F("<form method=\"POST\" action=\"/update\" enctype=\"multipart/form-data\"><input "
                     "type=\"file\" name=\"update\"><input type=\"submit\" value=\"Update\"></form>"));
   }
   stream->print(F("<h2>Debug Log</h2><pre id=\"log\"></pre>"));
