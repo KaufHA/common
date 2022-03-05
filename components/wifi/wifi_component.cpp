@@ -258,6 +258,10 @@ void WiFiComponent::set_sta(const WiFiAP &ap) {
 }
 void WiFiComponent::clear_sta() { this->sta_.clear(); }
 void WiFiComponent::save_wifi_sta(const std::string &ssid, const std::string &password) {
+
+  // always use fast connect for saved credentials
+  this->set_fast_connect(true);
+  
   SavedWifiSettings save{};
   strncpy(save.ssid, ssid.c_str(), sizeof(save.ssid));
   strncpy(save.password, password.c_str(), sizeof(save.password));
