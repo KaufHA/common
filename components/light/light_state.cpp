@@ -60,7 +60,7 @@ void LightState::setup() {
       } else {
         this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->get_object_id_hash());
       }
-      
+
       // Attempt to load from preferences, else fall back to default values
       if (!this->rtc_.load(&recovered)) {
         recovered.state = false;
@@ -73,6 +73,18 @@ void LightState::setup() {
         // Inverted restore state
         recovered.state = !recovered.state;
       }
+      break;
+    case LIGHT_RESTORE_AND_OFF:
+    case LIGHT_RESTORE_AND_ON:
+
+      if ( this->has_forced_hash ) {
+        this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
+      } else {
+        this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->get_object_id_hash());
+      }
+
+      this->rtc_.load(&recovered);
+      recovered.state = (this->restore_mode_ == LIGHT_RESTORE_AND_ON);
       break;
     case LIGHT_ALWAYS_OFF:
       recovered.state = false;
