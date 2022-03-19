@@ -80,6 +80,10 @@ export default class EspApp extends LitElement {
       return "Plug";
     else if ( this.config.proj_n == "kauf.rgbww")
       return "RGBWW Bulb";
+    else if ( this.config.proj_n == "Kauf.PLF10")
+      return "Plug";
+    else if ( this.config.proj_n == "Kauf.RGBWW")
+      return "RGBWW Bulb";
     else
       return "";
   }
@@ -88,6 +92,10 @@ export default class EspApp extends LitElement {
     if ( this.config.proj_n == "kauf.plf10")
       return "plf10";
     else if ( this.config.proj_n == "kauf.rgbww")
+      return "blf10";
+    else if ( this.config.proj_n == "Kauf.PLF10")
+      return "plf10";
+    else if ( this.config.proj_n == "Kauf.RGBWW")
       return "blf10";
     else
       return "";
@@ -98,12 +106,18 @@ export default class EspApp extends LitElement {
       return html`<br><a href="https://github.com/KaufHA/PLF10/releases" target="_blank" rel="noopener noreferrer">Check for Updates</a>`;
     else if ( this.config.proj_n == "kauf.rgbww")
       return html`<br><a href="https://github.com/KaufHA/kauf-rgbww-bulbs/releases" target="_blank" rel="noopener noreferrer">Check for Updates</a>`;
+    else if ( this.config.proj_n == "Kauf.PLF10")
+      return html`<br><a href="https://github.com/KaufHA/PLF10/releases" target="_blank" rel="noopener noreferrer">Check for Updates</a>`;
+    else if ( this.config.proj_n == "Kauf.RGBWW")
+      return html`<br><a href="https://github.com/KaufHA/kauf-rgbww-bulbs/releases" target="_blank" rel="noopener noreferrer">Check for Updates</a>`;
     else
       return html`<br>Project Name: ${this.config.proj_n}`;
   }
 
   kauf_ota_extra() {
     if ( this.config.proj_n == "kauf.rgbww")
+      return html`<p>**** DO NOT USE ANY <b>WLED</b> BIN file.<br>**** WLED is not going to work properly on this bulb.<br>**** Use the included DDP functionality to control this bulb from another WLED instance or xLights.</p>`;
+    else if ( this.config.proj_n == "Kauf.RGBWW")
       return html`<p>**** DO NOT USE ANY <b>WLED</b> BIN file.<br>**** WLED is not going to work properly on this bulb.<br>**** Use the included DDP functionality to control this bulb from another WLED instance or xLights.</p>`;
     else
       return "";
