@@ -23,11 +23,13 @@ void Switch::toggle() {
 }
 optional<bool> Switch::get_initial_state() {
 
+  if ( this->has_global_forced_addr ) { id(global_forced_addr) = this->forced_addr; }
   if ( this->has_forced_hash ) {
     this->rtc_ = global_preferences->make_preference<bool>(this->forced_hash);
   } else {
     this->rtc_ = global_preferences->make_preference<bool>(this->get_object_id_hash());
   }
+
   bool initial_state;
   if (!this->rtc_.load(&initial_state))
     return {};

@@ -45,7 +45,6 @@ SwitchTurnOffTrigger = switch_ns.class_(
 
 icon = cv.icon
 
-
 SWITCH_SCHEMA = cv.ENTITY_BASE_SCHEMA.extend(cv.MQTT_COMMAND_COMPONENT_SCHEMA).extend(
     {
         cv.OnlyWith(CONF_MQTT_ID, "mqtt"): cv.declare_id(mqtt.MQTTSwitchComponent),
@@ -62,16 +61,14 @@ SWITCH_SCHEMA = cv.ENTITY_BASE_SCHEMA.extend(cv.MQTT_COMMAND_COMPONENT_SCHEMA).e
         ),
         cv.Optional(CONF_DEVICE_CLASS): cv.one_of(*DEVICE_CLASSES, lower=True),
         cv.Optional("forced_hash"): cv.int_,
+        cv.Optional("forced_addr", default="12345"): cv.int_,
+        cv.Optional("global_addr"): cv.use_id(globals),
     }
 )
 
 
 async def setup_switch_core_(var, config):
     await setup_entity(var, config)
-
-    if "forced_hash" in config:
-        cg.add(var.set_forced_hash(config["forced_hash"]))
-
 
     if CONF_INVERTED in config:
         cg.add(var.set_inverted(config[CONF_INVERTED]))
@@ -89,6 +86,14 @@ async def setup_switch_core_(var, config):
     if CONF_DEVICE_CLASS in config:
         cg.add(var.set_device_class(config[CONF_DEVICE_CLASS]))
 
+    if "forced_hash" in config:
+        cg.add(var.set_forced_hash(config["forced_hash"]))
+
+    cg.add(var.set_forced_addr(config["forced_addr"]))
+
+    if "global_addr" in config:
+        ga = await cg.get_variable(config["global_addr"])
+        cg.add(var.set_global_addr(ga))
 
 async def register_switch(var, config):
     if not CORE.has_id(config[CONF_ID]):
