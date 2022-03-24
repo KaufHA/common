@@ -270,6 +270,8 @@ CONFIG_SCHEMA = cv.All(
                 "new mdns component instead."
             ),
             cv.Optional("forced_hash"): cv.int_,
+            cv.Optional("forced_addr", default="12345"): cv.int_,
+            cv.Optional("global_addr"): cv.use_id(globals),
         }
     ),
     _validate,
@@ -356,9 +358,6 @@ async def to_code(config):
         cg.add(var.set_ap(wifi_network(conf, ip_config)))
         cg.add(var.set_ap_timeout(conf[CONF_AP_TIMEOUT]))
 
-    if "forced_hash" in config:
-        cg.add(var.set_forced_hash(config["forced_hash"]))
-
     cg.add(var.set_reboot_timeout(config[CONF_REBOOT_TIMEOUT]))
     cg.add(var.set_power_save_mode(config[CONF_POWER_SAVE_MODE]))
     cg.add(var.set_fast_connect(config[CONF_FAST_CONNECT]))
@@ -374,6 +373,15 @@ async def to_code(config):
 
     # Register at end for OTA safe mode
     await cg.register_component(var, config)
+
+    if "forced_hash" in config:
+        cg.add(var.set_forced_hash(config["forced_hash"]))
+
+    cg.add(var.set_forced_addr(config["forced_addr"]))
+
+    if "global_addr" in config:
+        ga = await cg.get_variable(config["global_addr"])
+        cg.add(var.set_global_addr(ga))
 
 
 @automation.register_condition("wifi.connected", WiFiConnectedCondition, cv.Schema({}))
