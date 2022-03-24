@@ -40,6 +40,8 @@ SELECT_SCHEMA = cv.ENTITY_BASE_SCHEMA.extend(cv.MQTT_COMMAND_COMPONENT_SCHEMA).e
             }
         ),
         cv.Optional("forced_hash"): cv.int_,
+        cv.Optional("forced_addr", default="12345"): cv.int_,
+        cv.Optional("global_addr"): cv.use_id(globals),
     }
 )
 
@@ -49,9 +51,6 @@ async def setup_select_core_(var, config, *, options: List[str]):
 
     cg.add(var.traits.set_options(options))
 
-    if "forced_hash" in config:
-        cg.add(var.set_forced_hash(config["forced_hash"]))
-
     for conf in config.get(CONF_ON_VALUE, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [(cg.std_string, "x")], conf)
@@ -59,6 +58,15 @@ async def setup_select_core_(var, config, *, options: List[str]):
     if CONF_MQTT_ID in config:
         mqtt_ = cg.new_Pvariable(config[CONF_MQTT_ID], var)
         await mqtt.register_mqtt_component(mqtt_, config)
+
+    if "forced_hash" in config:
+        cg.add(var.set_forced_hash(config["forced_hash"]))
+
+    cg.add(var.set_forced_addr(config["forced_addr"]))
+
+    if "global_addr" in config:
+        ga = await cg.get_variable(config["global_addr"])
+        cg.add(var.set_global_addr(ga))
 
 
 async def register_select(var, config, *, options: List[str]):
