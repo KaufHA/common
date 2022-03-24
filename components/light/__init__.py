@@ -78,7 +78,10 @@ LIGHT_SCHEMA = cv.ENTITY_BASE_SCHEMA.extend(cv.MQTT_COMMAND_COMPONENT_SCHEMA).ex
                 cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(LightStateTrigger),
             }
         ),
-        cv.Optional("forced_hash"): cv.int_,        
+        cv.Optional("forced_hash"): cv.int_,
+        cv.Optional("forced_addr", default="12345"): cv.int_,
+        cv.Optional("global_addr"): cv.use_id(globals),
+
     }
 )
 
@@ -138,9 +141,7 @@ async def setup_light_core_(light_var, output_var, config):
 
     cg.add(light_var.set_restore_mode(config[CONF_RESTORE_MODE]))
 
-    # set forced hash if it exists
-    if "forced_hash" in config:
-        cg.add(light_var.set_forced_hash(config["forced_hash"]))
+
 
     if CONF_DEFAULT_TRANSITION_LENGTH in config:
         cg.add(
@@ -179,6 +180,16 @@ async def setup_light_core_(light_var, output_var, config):
     if CONF_MQTT_ID in config:
         mqtt_ = cg.new_Pvariable(config[CONF_MQTT_ID], light_var)
         await mqtt.register_mqtt_component(mqtt_, config)
+
+    # set forced hash if it exists
+    if "forced_hash" in config:
+        cg.add(light_var.set_forced_hash(config["forced_hash"]))
+
+    cg.add(light_var.set_forced_addr(config["forced_addr"]))
+
+    if "global_addr" in config:
+        ga = await cg.get_variable(config["global_addr"])
+        cg.add(light_var.set_global_addr(ga))
 
 
 async def register_light(output_var, config):

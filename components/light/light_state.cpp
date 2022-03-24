@@ -55,6 +55,7 @@ void LightState::setup() {
     case LIGHT_RESTORE_INVERTED_DEFAULT_OFF:
     case LIGHT_RESTORE_INVERTED_DEFAULT_ON:
 
+      if ( this->has_global_forced_addr ) { id(global_forced_addr) = this->forced_addr; }
       if ( this->has_forced_hash ) {
         this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
       } else {
@@ -77,6 +78,7 @@ void LightState::setup() {
     case LIGHT_RESTORE_AND_OFF:
     case LIGHT_RESTORE_AND_ON:
 
+      if ( this->has_global_forced_addr ) { id(global_forced_addr) = this->forced_addr; }
       if ( this->has_forced_hash ) {
         this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
       } else {
