@@ -219,6 +219,8 @@ class WebServer : public Controller, public Component, public AsyncWebHandler {
   /// This web handle is not trivial.
   bool isRequestHandlerTrivial() override;
 
+  void reset_flash(AsyncWebServerRequest *request);
+
  protected:
   friend ListEntitiesIterator;
   web_server_base::WebServerBase *base_;
