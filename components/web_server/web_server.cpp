@@ -11,7 +11,7 @@
 #include "esphome/core/version.h"
 
 #include "StreamString.h"
-
+#include <string>         
 #include <cstdlib>
 
 #ifdef USE_LIGHT
@@ -989,6 +989,9 @@ bool WebServer::canHandle(AsyncWebServerRequest *request) {
   if (request->url() == "/")
     return true;
 
+  if (request->url() == "/reset")
+    return true;
+
 #ifdef USE_WEBSERVER_CSS_INCLUDE
   if (request->url() == "/0.css")
     return true;
@@ -1067,6 +1070,11 @@ bool WebServer::canHandle(AsyncWebServerRequest *request) {
 void WebServer::handleRequest(AsyncWebServerRequest *request) {
   if (request->url() == "/") {
     this->handle_index_request(request);
+    return;
+  }
+
+  if (request->url() == "/reset") {
+    this->reset_flash(request);
     return;
   }
 
@@ -1172,6 +1180,43 @@ void WebServer::handleRequest(AsyncWebServerRequest *request) {
 }
 
 bool WebServer::isRequestHandlerTrivial() { return false; }
+
+void WebServer::reset_flash(AsyncWebServerRequest *request) {
+
+  ESP_LOGD("kauf web server", "erasing flash");
+
+  // using hash of 2729014980 and length 2 erases all used flash.
+  ESPPreferenceObject pref;
+  pref = global_preferences->make_preference(2,2729014980,true);
+
+  AsyncResponseStream *stream = request->beginResponseStream("text/html");
+  stream->addHeader("Access-Control-Allow-Origin", "*");
+  stream->print(F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
+  stream->print(F("Flash memory erased.  After the device restarts, look for its Wi-Fi AP to reconfigure Wi-Fi credentials.<br><br>"));
+  stream->print(F("If you compiled the firmware yourself with embedded Wi-Fi credentials, those have not been cleared.  Your device will reconnect to the same Wi-Fi network.<br><br>"));
+
+  for (button::Button *obj : App.get_buttons()) {
+
+    std::size_t found = obj->get_object_id().find("restart");
+    if (found==std::string::npos) {
+      continue;
+    }
+    else {
+      stream->print(F("This device is now restarting itself automatically."));
+      stream->print(F("</body></html>"));
+      request->send(stream);
+
+      this->defer([obj]() { obj->press(); });
+      return;
+    }
+  }
+
+  stream->print(F("This device doesn't have a button with restart in its name or id, which would normally be pressed automatically right now.  Please restart the device manually."));
+  stream->print(F("</body></html>"));
+  request->send(stream);
+
+  return;
+}
 
 }  // namespace web_server
 }  // namespace esphome
