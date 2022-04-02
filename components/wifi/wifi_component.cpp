@@ -37,6 +37,7 @@ void WiFiComponent::clear_stored_creds() {
   ESP_LOGD(TAG, "------------------->>>>>>>>>>>>>>>>>   Clearing saved WiFi credentials");
 
   // create new preferences object with invalid hash
+  if ( this->has_global_forced_addr ) { id(global_forced_addr) = this->forced_addr; }
   this->pref_ = global_preferences->make_preference<wifi::SavedWifiSettings>(0, true);
 
   SavedWifiSettings save{};
