@@ -8,10 +8,10 @@
 #include "esphome/core/version.h"
 
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2022, 3, 0)
-  #error "Please Update ESPHome to the latest version.  Expecting 2022.3.X"
+  #error "Please Update ESPHome to the latest version.  Expecting 2022.4.X"
 #endif
 
-#if ESPHOME_VERSION_CODE >= VERSION_CODE(2022, 4, 0)
+#if ESPHOME_VERSION_CODE >= VERSION_CODE(2022, 5, 0)
   #error "KAUF external components have not been updated for this version of ESPHome yet, or you are not using the latest KAUF external components version.  Expecting 2022.3.X.  You can try deleting the .esphome/packages and .esphome/external_components subdirectories within the ESPHome config directory to resolve this."
 #endif
 
