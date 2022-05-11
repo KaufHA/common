@@ -11,8 +11,9 @@
     <main>
       <h1 id="h1">WiFi Networks</h1>
       <aside>
-        The KAUF device will now try to connect to the network...<br><br>
+        The ESP will now try to connect to the network...<br>
         Please give it some time to connect.<br>
+        Note: Copy the changed network to your YAML file - the next OTA update will overwrite these settings.
       </aside>
       <span id="net">
       </span>
@@ -29,10 +30,6 @@
       <br>
 
       <h1>OTA Update</h1>
-      **** DO NOT USE <b>TASMOTA-MINIMAL</b>.BIN or .BIN.GZ.<br>
-      **** Use tasmota.bin.gz or tasmota-lite.bin.gz.<br><br>
-      **** Do not use any <b>WLED</b> firmware.<br>
-      **** KAUF bulbs have WLED support built in.<br><br>
       <form method="POST" action="/update" enctype="multipart/form-data">
         <input type="file" name="update" />
         <button type="submit">Update</button>
