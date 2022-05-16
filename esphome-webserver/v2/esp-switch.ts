@@ -44,7 +44,7 @@ export class EspSwitch extends LitElement {
         this.toggleCallback = resolve;
         setTimeout(() => {
           reject();
-        }, 250);
+        }, 1500);
       }).catch(() => {
         this.state = prevState;
         this.requestUpdate();
