@@ -1,7 +1,7 @@
 #!/bin/bash
 cat <<EOT > ./$1/$2
 #pragma once
-// Generated from https://github.com/esphome/esphome-webserver
+// Generated from https://github.com/KaufHA/common/tree/main/esphome-webserver
 #include "esphome/core/hal.h"
 namespace esphome {
 
