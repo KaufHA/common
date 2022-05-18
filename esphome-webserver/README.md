@@ -1,5 +1,5 @@
 # esphome-webserver
-A Lit Element web component htm webserver for esphome devices. 
+A Lit Element web component htm webserver for esphome devices.  This is a fork of sorts modified for Kaufman Home Automation products.  The original can be found at https://github.com/esphome/esphome-webserver
 
 ###  Features
 
