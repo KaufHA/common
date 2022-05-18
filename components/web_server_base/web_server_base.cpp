@@ -5,10 +5,7 @@
 #include "esphome/core/application.h"
 #include <StreamString.h>
 
-// KAUF edit
-// needed for string searching below
-#include <string>         // std::string
-// KAUF edit end
+#include <string>
 
 #ifdef USE_ESP32
 #include <Update.h>

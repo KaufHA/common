@@ -1,5 +1,5 @@
 #pragma once
-// Generated from https://github.com/KaufHA/common/tree/main/esphome-webserver
+// Generated from https://github.com/esphome/esphome-webserver
 #include "esphome/core/hal.h"
 namespace esphome {
 

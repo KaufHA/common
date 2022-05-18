@@ -9,7 +9,6 @@
 
 #include "esphome/components/globals/globals_component.h"
 
-
 #ifdef USE_ESP32_FRAMEWORK_ARDUINO
 #include <esp_wifi.h>
 #include <WiFiType.h>
@@ -197,7 +196,6 @@ class WiFiComponent : public Component {
     has_global_forced_addr = true;
     global_forced_addr = ga_in;
   }
-
 
   /// Construct a WiFiComponent.
   WiFiComponent();
