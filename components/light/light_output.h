@@ -27,7 +27,6 @@ class LightOutput {
   /// should write the new state to hardware. Every call to write_state() is
   /// preceded by (at least) one call to update_state().
   virtual void write_state(LightState *state) = 0;
-
 };
 
 }  // namespace light

@@ -141,8 +141,6 @@ async def setup_light_core_(light_var, output_var, config):
 
     cg.add(light_var.set_restore_mode(config[CONF_RESTORE_MODE]))
 
-
-
     if CONF_DEFAULT_TRANSITION_LENGTH in config:
         cg.add(
             light_var.set_default_transition_length(

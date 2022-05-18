@@ -3,19 +3,19 @@
 #include "esphome/core/component.h"
 #include "esphome/core/entity_base.h"
 #include "esphome/core/helpers.h"
+#include "number_call.h"
+#include "number_traits.h"
 
 #include "esphome/components/globals/globals_component.h"
 #include "esphome/core/version.h"
 
-#if ESPHOME_VERSION_CODE < VERSION_CODE(2022, 3, 0)
-  #error "Please Update ESPHome to the latest version.  Expecting 2022.4.X"
+#if ESPHOME_VERSION_CODE < VERSION_CODE(2022, 5, 0)
+  #error "Please Update ESPHome to the latest version.  Expecting 2022.5.X"
 #endif
 
-#if ESPHOME_VERSION_CODE >= VERSION_CODE(2022, 5, 0)
-  #error "KAUF external components have not been updated for this version of ESPHome yet, or you are not using the latest KAUF external components version.  Expecting 2022.3.X.  You can try deleting the .esphome/packages and .esphome/external_components subdirectories within the ESPHome config directory to resolve this."
+#if ESPHOME_VERSION_CODE >= VERSION_CODE(2022, 6, 0)
+  #error "KAUF external components have not been updated for this version of ESPHome yet, or you are not using the latest KAUF external components version.  Expecting 2022.5.X.  You can try deleting the .esphome/packages and .esphome/external_components subdirectories within the ESPHome config directory to resolve this."
 #endif
-
-
 
 namespace esphome {
 namespace number {
@@ -33,54 +33,6 @@ namespace number {
 
 class Number;
 
-class NumberCall {
- public:
-  explicit NumberCall(Number *parent) : parent_(parent) {}
-  void perform();
-
-  NumberCall &set_value(float value) {
-    value_ = value;
-    return *this;
-  }
-  const optional<float> &get_value() const { return value_; }
-
- protected:
-  Number *const parent_;
-  optional<float> value_;
-};
-
-enum NumberMode : uint8_t {
-  NUMBER_MODE_AUTO = 0,
-  NUMBER_MODE_BOX = 1,
-  NUMBER_MODE_SLIDER = 2,
-};
-
-class NumberTraits {
- public:
-  void set_min_value(float min_value) { min_value_ = min_value; }
-  float get_min_value() const { return min_value_; }
-  void set_max_value(float max_value) { max_value_ = max_value; }
-  float get_max_value() const { return max_value_; }
-  void set_step(float step) { step_ = step; }
-  float get_step() const { return step_; }
-
-  /// Get the unit of measurement, using the manual override if set.
-  std::string get_unit_of_measurement();
-  /// Manually set the unit of measurement.
-  void set_unit_of_measurement(const std::string &unit_of_measurement);
-
-  // Get/set the frontend mode.
-  NumberMode get_mode() const { return this->mode_; }
-  void set_mode(NumberMode mode) { this->mode_ = mode; }
-
- protected:
-  float min_value_ = NAN;
-  float max_value_ = NAN;
-  float step_ = NAN;
-  optional<std::string> unit_of_measurement_;  ///< Unit of measurement override
-  NumberMode mode_{NUMBER_MODE_AUTO};
-};
-
 /** Base-class for all numbers.
  *
  * A number can use publish_state to send out a new value.
@@ -92,7 +44,6 @@ class Number : public EntityBase {
   void publish_state(float state);
 
   NumberCall make_call() { return NumberCall(this); }
-  void set(float value) { make_call().set_value(value).perform(); }
 
   void add_on_state_callback(std::function<void(float)> &&callback);
 
