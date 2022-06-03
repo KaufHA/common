@@ -120,12 +120,18 @@ export default class EspApp extends LitElement {
   ota() {
     if (this.config.ota)
       return html`<h2>OTA Update</h2>
+        <p>Either .bin or .bin.gz files will work, but the file size needs to be under ${this.config.free_sp} bytes.  For KAUF update files, the .bin.gz file is recommended, and the .bin files are typically too large to work anyway.</p>
         <p>**** DO NOT USE <b>TASMOTA-MINIMAL</b>.BIN or .BIN.GZ<br>**** Use tasmota.bin.gz or tasmota-lite.bin.gz</p>
         ${this.kauf_ota_extra()}
         <form method="POST" action="/update" enctype="multipart/form-data">
           <input class="btn" type="file" name="update" />
           <input class="btn" type="submit" value="Update" />
         </form>`;
+  }
+
+  clear() {
+    if ( this.config.soft_ssid != "" )
+      return html `<p><a href="/clear" target="_blank">/clear</a> - Clears the software-configured Wi-Fi credentials.  The device will reboot and try to connect to the hard-coded Wi-Fi credentials.  If this firwmare has the AP enabled, and the hard-coded Wi-Fi credentials cannot be connected to, then this device will put up a Wi-Fi AP allowing new software-configured Wi-Fi credential to be entered.</p>`
   }
 
   render() {
@@ -158,6 +164,36 @@ export default class EspApp extends LitElement {
             Color Scheme
           </h2>
           ${this.ota()}
+          <h2>Web-Based Utilities</h2>
+          <p><a href="/reset" target="_blank">/reset</a> - Erases all software-stored data, including the current states of all modifiable entities.  Firmware defaults will be restored.  If this device has a relay, the relay may toggle.  Any software-configured Wi-Fi credentials will be erased, but hard-coded credentials will not be erased.</p>
+          ${this.clear()}
+          <h2>Device Parameters</h2>
+          <table><tbody>
+            <tr>
+              <td>Hostname</td>
+              <td>${this.config.title}</td>
+            </tr>
+            <tr>
+              <td>MAC Address</td>
+              <td>${this.config.mac_addr}</td>
+            </tr>
+            <tr>
+              <td>Hard-Coded SSID</td>
+              <td>${this.config.hard_ssid}</td>
+            </tr>
+            <tr>
+              <td>Software-Configured SSID</td>
+              <td>${this.config.soft_ssid}</td>
+            </tr>
+            <tr>
+              <td>Firmware has AP?</td>
+              <td>${this.config.has_ap}</td>
+            </tr>
+            <tr>
+              <td>Free Space for OTA</td>
+              <td>${this.config.free_sp} bytes</td>
+            </tr>
+          </tbody></table>
         </section>
         <section class="col">
           <esp-log rows="50"></esp-log>
@@ -224,6 +260,44 @@ export default class EspApp extends LitElement {
         .right {
           float: right;
         }
+        table {
+          border-spacing: 0;
+          border-collapse: collapse;
+          width: 100%;
+          border: 1px solid currentColor;
+        }
+
+        th {
+          font-weight: 600;
+          text-align: left;
+        }
+        th,
+        td {
+          padding: 0.25rem 0.5rem;
+          border: 1px solid currentColor;
+        }
+        td:nth-child(2),
+        th:nth-child(2) {
+          text-align: center;
+        }
+        tr th,
+        tr:nth-child(2n) {
+          background-color: rgba(127, 127, 127, 0.3);
+        }
+        select {
+          background-color: inherit;
+          color: inherit;
+          width: 100%;
+          border-radius: 4px;
+        }
+        option {
+          color: currentColor;
+          background-color: var(--primary-color, currentColor);
+        }
+        input[type="range"] {
+          width: calc(100% - 4rem);
+        }
+
       `,
     ];
   }
