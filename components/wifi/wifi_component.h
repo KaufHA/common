@@ -197,6 +197,9 @@ class WiFiComponent : public Component {
     global_forced_addr = ga_in;
   }
 
+  std::string hard_ssid = "";
+  std::string soft_ssid = "";
+
   /// Construct a WiFiComponent.
   WiFiComponent();
 
