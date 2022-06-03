@@ -10,8 +10,11 @@
 #include "esphome/components/network/util.h"
 #include "esphome/core/version.h"
 
+#include "esphome/components/wifi/wifi_component.h"
+#include "esphome/core/helpers.h"
+
 #include "StreamString.h"
-#include <string>         
+#include <string>
 
 #include <cstdlib>
 
@@ -120,6 +123,11 @@ void WebServer::setup() {
                    root["proj_v"] = "unknown";
 #endif
 
+                   root["soft_ssid"] = wifi::global_wifi_component->soft_ssid;
+                   root["hard_ssid"] = wifi::global_wifi_component->hard_ssid;
+                   root["has_ap"]    = wifi::global_wifi_component->has_ap();
+                   root["free_sp"]   = ESP.getFreeSketchSpace();
+                   root["mac_addr"]  = get_mac_address_pretty();
 
                  }).c_str(),
                  "ping", millis(), 30000);
@@ -992,6 +1000,8 @@ bool WebServer::canHandle(AsyncWebServerRequest *request) {
 
   if (request->url() == "/reset")
     return true;
+  if (request->url() == "/clear")
+    return true;
 
 #ifdef USE_WEBSERVER_CSS_INCLUDE
   if (request->url() == "/0.css")
@@ -1076,6 +1086,11 @@ void WebServer::handleRequest(AsyncWebServerRequest *request) {
 
   if (request->url() == "/reset") {
     this->reset_flash(request);
+    return;
+  }
+
+  if (request->url() == "/clear") {
+    this->clear_wifi(request);
     return;
   }
 
@@ -1198,26 +1213,70 @@ void WebServer::reset_flash(AsyncWebServerRequest *request) {
 
   for (button::Button *obj : App.get_buttons()) {
 
-    std::size_t found = obj->get_object_id().find("restart");
-    if (found==std::string::npos) {
-      continue;
-    }
+    if ( obj->get_object_id().find("restart_firmware") == std::string::npos ) { continue; }
     else {
       stream->print(F("This device is now restarting itself automatically."));
       stream->print(F("</body></html>"));
       request->send(stream);
 
       this->defer([obj]() { obj->press(); });
-      return;
-    }
+      return; }
   }
 
-  stream->print(F("This device doesn't have a button with restart in its name or id, which would normally be pressed automatically right now.  Please restart the device manually."));
+  stream->print(F("This device doesn't have a button with Restart Firmware in its name, which would normally be pressed automatically right now.  Please restart the device manually."));
   stream->print(F("</body></html>"));
   request->send(stream);
 
   return;
 }
+
+void WebServer::clear_wifi(AsyncWebServerRequest *request) {
+
+  AsyncResponseStream *stream = request->beginResponseStream("text/html");
+  stream->addHeader("Access-Control-Allow-Origin", "*");
+  stream->print(F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
+
+  // if there is no soft ssid, provide message nothing to clear
+  if ( strcmp(wifi::global_wifi_component->soft_ssid.c_str(),"") == 0 ) {
+    stream->print(F("This utility currently only clears Wi-Fi credentials that were configured using the captive portal after "));
+    stream->print(F("the firmware was compiled.  Since this device has no such Wi-Fi credentials, nothing has been cleared.  "));
+    stream->print(F("<br /><br />This device will continue to try to connect to the hard-coded Wi-Fi network with SSID <b>"));
+    stream->print(wifi::global_wifi_component->hard_ssid.c_str());
+    stream->print(F("</b>.<br /><br />"));
+    stream->print(F("</body></html>"));
+    request->send(stream);
+  } else {
+    wifi::global_wifi_component->clear_stored_creds();
+    stream->print(F("The Wi-Fi credentials with SSID <b>"));
+    stream->print(wifi::global_wifi_component->soft_ssid.c_str());
+    stream->print(F("</b>, which were configured via the captive portal, are being cleared.  "));
+    stream->print(F("<br /><br />This device will continue to try to connect to the hard-coded Wi-Fi network with SSID <b>"));
+    stream->print(wifi::global_wifi_component->hard_ssid.c_str());
+    stream->print(F("</b>.<br /><br />"));
+
+    for (button::Button *obj : App.get_buttons()) {
+
+      if ( obj->get_object_id().find("restart_firmware") == std::string::npos ) { continue; }
+      else {
+        stream->print(F("This device is now restarting itself automatically."));
+        stream->print(F("</body></html>"));
+        request->send(stream);
+
+        this->defer([obj]() { obj->press(); });
+        return; }
+    }
+
+    stream->print(F("This device doesn't have a button with Restart Firmware in its name, which would normally be pressed automatically right now.  Please restart the device manually."));
+    stream->print(F("</body></html>"));
+    request->send(stream);
+
+  }
+
+  return;
+}
+
+
+
 
 }  // namespace web_server
 }  // namespace esphome
