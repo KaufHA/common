@@ -220,6 +220,7 @@ class WebServer : public Controller, public Component, public AsyncWebHandler {
   bool isRequestHandlerTrivial() override;
 
   void reset_flash(AsyncWebServerRequest *request);
+  void clear_wifi(AsyncWebServerRequest *request);
 
  protected:
   friend ListEntitiesIterator;
