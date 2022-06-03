@@ -60,9 +60,15 @@ void WiFiComponent::setup() {
     this->pref_ = global_preferences->make_preference<wifi::SavedWifiSettings>(hash, true);
   }
 
+  // save current sta as hard_ssid for reference later
+  if (this->has_sta())
+    this->hard_ssid = this->sta_[0].get_ssid();
+
   SavedWifiSettings save{};
   if (this->pref_.load(&save)) {
     ESP_LOGD(TAG, "Loaded saved wifi settings: %s", save.ssid);
+
+    this->soft_ssid = save.ssid;
 
     WiFiAP sta{};
     sta.set_ssid(save.ssid);
@@ -263,7 +269,7 @@ void WiFiComponent::save_wifi_sta(const std::string &ssid, const std::string &pa
 
   // always use fast connect for saved credentials
   this->set_fast_connect(true);
-  
+
   SavedWifiSettings save{};
   strncpy(save.ssid, ssid.c_str(), sizeof(save.ssid));
   strncpy(save.password, password.c_str(), sizeof(save.password));
