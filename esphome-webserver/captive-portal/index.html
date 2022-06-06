@@ -25,9 +25,12 @@
         <button type="submit">Save</button>
       </form>
       <br>
+      <div style="display:flex">
+        <p>Show password:</p>
+        <p><input type="checkbox" onclick="togglepass()" style="width:auto"></p>
+      </div>
       <hr>
       <br>
-
       <h1>OTA Update</h1>
       **** DO NOT USE <b>TASMOTA-MINIMAL</b>.BIN or .BIN.GZ.<br>
       **** Use tasmota.bin.gz or tasmota-lite.bin.gz.<br><br>
@@ -40,5 +43,17 @@
     </main>
 
     <script type="module" src="/src/main.ts?module"></script>
+
+    <script>
+      function togglepass() {
+        var x = document.getElementById("psk");
+        if (x.type === "password") {
+          x.type = "text";
+        } else {
+          x.type = "password";
+        }
+      }
+    </script>
+
   </body>
 </html>
