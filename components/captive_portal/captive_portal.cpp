@@ -5,6 +5,7 @@
 #include "esphome/core/application.h"
 #include "esphome/components/wifi/wifi_component.h"
 #include "captive_index.h"
+#include "esphome/core/version.h"
 
 namespace esphome {
 namespace captive_portal {
