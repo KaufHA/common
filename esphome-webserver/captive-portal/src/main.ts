@@ -9,9 +9,9 @@ function svg(el:String) {
 }
 function lock(show: boolean) {
   return show
-    ? svg(`<path d='M12 17a2 2 0 0 0 2-2 2 2 0 0 0-2-2 2 2 0 0 0-2 2 2 2 0 0 0 2 
+    ? svg(`<path d='M12 17a2 2 0 0 0 2-2 2 2 0 0 0-2-2 2 2 0 0 0-2 2 2 2 0 0 0 2
   2m6-9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V10a2
-   2 0 0 1 2-2h1V6a5 5 0 0 1 5-5 5 5 0 0 1 5 
+   2 0 0 1 2-2h1V6a5 5 0 0 1 5-5 5 5 0 0 1 5
    5v2h1m-6-5a3 3 0 0 0-3 3v2h6V6a3 3 0 0 0-3-3z'/>`)
     : ""
 }
@@ -21,9 +21,9 @@ function html(h: String[]) {
 fetch("/config.json").then(function (response) {
   response.json().then(function (config) {
     document.title = config.name;
-    document.body.getElementsByTagName("h1")[0].innerText = "WiFi Networks: " + config.name
+    // document.body.getElementsByTagName("h1")[0].innerText = "WiFi Networks: " + config.name
     let result = config.aps.slice(1).map(function (ap) {
-      return `<div class="network" 
+      return `<div class="network"
       onclick="document.getElementById('ssid').value = this.innerText;document.getElementById('psk').focus()">
       <a href="#" class="network-left">
         ${wifi(ap.rssi)}
@@ -34,5 +34,16 @@ fetch("/config.json").then(function (response) {
     })
     document.querySelector("#net").innerHTML = html(result)
     document.querySelector("link[rel~='icon']").href = `data:image/svg+xml,${wifi(-65)}`;
+
+    // fill in kauf-added params
+    document.querySelector("#t_host").innerHTML = config.name
+    document.querySelector("#t_mac").innerHTML = config.mac_addr
+    document.querySelector("#t_hard").innerHTML = config.hard_ssid
+    document.querySelector("#t_soft").innerHTML = config.soft_ssid
+    document.querySelector("#t_free").innerHTML = config.free_sp
+    document.querySelector("#t_esphv").innerHTML = config.esph_v
+    document.querySelector("#t_projn").innerHTML = config.proj_n
+    document.querySelector("#t_projv").innerHTML = config.proj_v
+
   })
 })
