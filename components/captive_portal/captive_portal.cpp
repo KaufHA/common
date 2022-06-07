@@ -24,9 +24,34 @@ void CaptivePortal::handle_config(AsyncWebServerRequest *request) {
     stream->printf(R"(,{"ssid":"%s","rssi":%d,"lock":%d})", scan.get_ssid().c_str(), scan.get_rssi(),
                    scan.get_with_auth());
   }
-  stream->print(F("]}"));
+
+  // close AP list
+  stream->print(F("],"));
+
+  // print out kauf added stuff
+  stream->printf("\"esph_v\":\"%s\",", ESPHOME_VERSION );
+  stream->printf(R"("soft_ssid":"%s",)", wifi::global_wifi_component->soft_ssid.c_str());
+  stream->printf(R"("hard_ssid":"%s",)", wifi::global_wifi_component->hard_ssid.c_str());
+  stream->printf(R"("free_sp":"%d",)", ESP.getFreeSketchSpace());
+  stream->printf(R"("mac_addr":"%s",)", get_mac_address_pretty().c_str());
+
+#ifdef ESPHOME_PROJECT_NAME
+  stream->printf("\"proj_n\":\"%s\",", ESPHOME_PROJECT_NAME );
+#else
+  stream->printf(R"("proj_n":"Kauf.unknown",)");
+#endif
+
+#ifdef ESPHOME_PROJECT_NAME
+  stream->printf("\"proj_v\":\"%s\"", ESPHOME_PROJECT_VERSION );
+#else
+  stream->printf(R"("proj_v":"unknown")");
+#endif
+
+  // close json
+  stream->print(F("}"));
   request->send(stream);
 }
+
 void CaptivePortal::handle_wifisave(AsyncWebServerRequest *request) {
   std::string ssid = request->arg("ssid").c_str();
   std::string psk = request->arg("psk").c_str();
