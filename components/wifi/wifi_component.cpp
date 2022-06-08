@@ -107,6 +107,7 @@ void WiFiComponent::setup() {
     if (this->output_power_.has_value() && !this->wifi_apply_output_power_(*this->output_power_)) {
       ESP_LOGV(TAG, "Setting Output Power Option failed!");
     }
+    this->start_scanning();
 #ifdef USE_CAPTIVE_PORTAL
     if (captive_portal::global_captive_portal != nullptr)
       captive_portal::global_captive_portal->start();
@@ -130,7 +131,7 @@ void WiFiComponent::loop() {
       case WIFI_COMPONENT_STATE_COOLDOWN: {
         this->status_set_warning();
         if (millis() - this->action_started_ > 5000) {
-          if (this->fast_connect_) {
+          if (this->fast_connect_ && !this->ap_setup_) {
             this->start_connecting(this->sta_[0], false);
           } else {
             this->start_scanning();
@@ -267,15 +268,18 @@ void WiFiComponent::set_sta(const WiFiAP &ap) {
 void WiFiComponent::clear_sta() { this->sta_.clear(); }
 void WiFiComponent::save_wifi_sta(const std::string &ssid, const std::string &password) {
 
-  // always use fast connect for saved credentials
-  this->set_fast_connect(true);
-
   SavedWifiSettings save{};
   strncpy(save.ssid, ssid.c_str(), sizeof(save.ssid));
   strncpy(save.password, password.c_str(), sizeof(save.password));
   this->pref_.save(&save);
   // ensure it's written immediately
   global_preferences->sync();
+
+  // always use fast connect for saved credentials
+  this->set_fast_connect(true);
+
+  // save as soft_ssid for display in web interface
+  this->soft_ssid = save.ssid;
 
   WiFiAP sta{};
   sta.set_ssid(ssid);
