@@ -1187,25 +1187,12 @@ void WebServer::reset_flash(AsyncWebServerRequest *request) {
   stream->print(F("Flash memory erased.  After the device restarts, look for its Wi-Fi AP to reconfigure Wi-Fi credentials.<br><br>"));
   stream->print(F("If you compiled the firmware yourself with embedded Wi-Fi credentials, those have not been cleared.  Your device will reconnect to the same Wi-Fi network.<br><br>"));
 
-#ifdef USE_BUTTON
-  for (button::Button *obj : App.get_buttons()) {
-
-    if ( obj->get_object_id().find("restart_firmware") == std::string::npos ) { continue; }
-    else {
-      stream->print(F("This device is now restarting itself automatically."));
-      stream->print(F("</body></html>"));
-      request->send(stream);
-
-      this->defer([obj]() { obj->press(); });
-      return; }
-  }
-#endif
-
-  stream->print(F("This device doesn't have a button with Restart Firmware in its name, which would normally be pressed automatically right now.  Please restart the device manually."));
+  stream->print(F("This device is now restarting itself automatically."));
   stream->print(F("</body></html>"));
   request->send(stream);
 
-  return;
+  this->set_timeout(100, []() { App.safe_reboot(); });
+
 }
 
 void WebServer::clear_wifi(AsyncWebServerRequest *request) {
@@ -1232,24 +1219,11 @@ void WebServer::clear_wifi(AsyncWebServerRequest *request) {
     stream->print(wifi::global_wifi_component->hard_ssid.c_str());
     stream->print(F("</b>.<br /><br />"));
 
-#ifdef USE_BUTTON
-    for (button::Button *obj : App.get_buttons()) {
-
-      if ( obj->get_object_id().find("restart_firmware") == std::string::npos ) { continue; }
-      else {
-        stream->print(F("This device is now restarting itself automatically."));
-        stream->print(F("</body></html>"));
-        request->send(stream);
-
-        this->defer([obj]() { obj->press(); });
-        return; }
-    }
-#endif
-
-    stream->print(F("This device doesn't have a button with Restart Firmware in its name, which would normally be pressed automatically right now.  Please restart the device manually."));
+    stream->print(F("This device is now restarting itself automatically."));
     stream->print(F("</body></html>"));
     request->send(stream);
 
+    this->set_timeout(100, []() { App.safe_reboot(); });
   }
 
   return;
