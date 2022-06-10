@@ -40,7 +40,7 @@ fetch("/config.json").then(function (response) {
     document.querySelector("#t_mac").innerHTML = config.mac_addr
     document.querySelector("#t_hard").innerHTML = config.hard_ssid
     document.querySelector("#t_soft").innerHTML = config.soft_ssid
-    document.querySelector("#t_free").innerHTML = config.free_sp
+    document.querySelector("#t_free").innerHTML = config.free_sp + " bytes"
     document.querySelector("#t_esphv").innerHTML = config.esph_v
     document.querySelector("#t_projn").innerHTML = config.proj_n
     document.querySelector("#t_projv").innerHTML = config.proj_v
