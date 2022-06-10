@@ -128,16 +128,23 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Strin
 }
 void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
   AsyncWebServerResponse *response;
+
   if (!Update.hasError()) {
+    // normal response if no error
     response = request->beginResponse(200, "text/plain", "Update Successful!");
+    response->addHeader("Connection", "close");
+    request->send(response);
   } else {
+    // error, rebooting
     StreamString ss;
-    ss.print("Update Failed.  Restart firmware before trying again.  ");
+    ss.print("Update Failed.  This device is now restarting itself automatically, which could resolve the error in some cases.\n\n");
     Update.printError(ss);
     response = request->beginResponse(200, "text/plain", ss);
+    response->addHeader("Connection", "close");
+    request->send(response);
+
+    this->parent_->set_timeout(100, []() { App.safe_reboot(); });
   }
-  response->addHeader("Connection", "close");
-  request->send(response);
 }
 
 void WebServerBase::add_ota_handler() {
