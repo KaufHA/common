@@ -224,12 +224,37 @@ void WiFiComponent::setup_ap_config_() {
 
   if (this->ap_.get_ssid().empty()) {
     std::string name = App.get_name();
-    if (name.length() > 32) {
+    int version_length = 0;
+
+#ifdef ESPHOME_PROJECT_VERSION
+    // grab version number and its length if it exists
+    name = name + " v" + ESPHOME_PROJECT_VERSION;
+    version_length = strlen(ESPHOME_PROJECT_VERSION) + 2;
+#endif
+
+    // erase past 7 characters of version number, including " v".  limits to just x.xxx.
+    if ( version_length > 7 ) {
+      name.erase(name.end() - version_length + 7, name.end() );
+      version_length = 7;
+    }
+
+    // erase last character if it is an open paren to limit to x.xx
+    if ( name.back() == '(' ) {
+      name = name.substr(0, name.length() - 1);
+      version_length--;
+    }
+
+    // if total name is > 32, shorten to 32 by erasing end of hostname not mac or version
+    if ( name.length() > 32) {
+
+      // add mac address length to version length
       if (App.is_name_add_mac_suffix_enabled()) {
-        name.erase(name.begin() + 25, name.end() - 7);  // Remove characters between 25 and the mac address
-      } else {
-        name = name.substr(0, 32);
+        version_length += 7;
       }
+
+      // Remove characters right before version length to get down to 32
+      name.erase(name.end() - version_length - (name.length()-32), name.end() - version_length);
+
     }
     this->ap_.set_ssid(name);
   }
