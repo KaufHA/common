@@ -174,6 +174,7 @@ class WiFiComponent : public Component {
   // and whether it was successful.
   bool tried_loading_creds = false;
   bool loaded_creds = false;
+  bool even_number = false;
 
   // add function to clear stored wifi credentials to force AP without taking down wifi network.
   void clear_stored_creds();
