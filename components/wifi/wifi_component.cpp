@@ -131,11 +131,15 @@ void WiFiComponent::loop() {
       case WIFI_COMPONENT_STATE_COOLDOWN: {
         this->status_set_warning();
         if (millis() - this->action_started_ > 5000) {
-          if (this->fast_connect_ && !this->ap_setup_) {
+          if (this->fast_connect_ && this->even_number) {
+            this->even_number = false;
             this->start_connecting(this->sta_[0], false);
-          } else {
+          }
+          else {
+            this->even_number = true;
             this->start_scanning();
           }
+
         }
         break;
       }
