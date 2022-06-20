@@ -115,8 +115,14 @@ void WebServer::setup() {
 
 #ifdef ESPHOME_PROJECT_VERSION
                    root["proj_v"] = ESPHOME_PROJECT_VERSION;
+                   std::string project_version = ESPHOME_PROJECT_VERSION;
+                   if ( project_version.find("(f)") != std::string::npos ) {
+                     root["proj_l"] = "f"; }
+                   else { root["proj_l"] = ""; }
+
 #else
                    root["proj_v"] = "unknown";
+                   root["proj_l"] = "";
 #endif
 
                    root["soft_ssid"] = wifi::global_wifi_component->soft_ssid;
