@@ -129,6 +129,11 @@ export default class EspApp extends LitElement {
         </form>`;
   }
 
+  factory_reset() {
+    if ( this.config.proj_l == "f" )
+      return html `<p><b> Important note for factory images, with version suffix (f)</b> - /reset will place the firmware into factory test mode.  Factory test mode can typically be cleared easily by pressing a button on the device.  For bulbs, factory test mode cannot be cleared and will cause the bulb to cycle through colors for 10 minutes with no way to stop the routine.  <b>It is strongly recommended</b> to update the firmware with a bin.gz file downloaded from the "check for updates" link above, even if the version number is the same, in order to get rid of the factory test routine before trying to reset the flash memory using this method.</p>`
+  }
+
   clear() {
     if ( this.config.soft_ssid != "" )
       return html `<p><a href="/clear" target="_blank">/clear</a> - Clears the software-configured Wi-Fi credentials.  The device will reboot and try to connect to the hard-coded Wi-Fi credentials.  If this firwmare has the AP enabled, and the hard-coded Wi-Fi credentials cannot be connected to, then this device will put up a Wi-Fi AP allowing new software-configured Wi-Fi credential to be entered.</p>`
@@ -166,6 +171,7 @@ export default class EspApp extends LitElement {
           ${this.ota()}
           <h2>Web-Based Utilities</h2>
           <p><a href="/reset" target="_blank">/reset</a> - Erases all software-stored data, including the current states of all modifiable entities.  Firmware defaults will be restored.  If this device has a relay, the relay may toggle.  Any software-configured Wi-Fi credentials will be erased, but hard-coded credentials will not be erased.</p>
+          ${this.factory_reset()}
           ${this.clear()}
           <h2>Device Parameters</h2>
           <table><tbody>
