@@ -18,7 +18,7 @@ If you are stuck on ESPHome version 2022.3.1, you need to uninstall the Home Ass
 
 ### Device Not Being Detected by Home Assistant
 
-The ESPHome integration in Home Assistant requires that [zeroconf](https://www.home-assistant.io/integrations/zeroconf) be enabled to automatically detect ESPHome devices on the network. Zeroconf is enabled by default, but may not be enabled if you are not using the default config. Add zeroconf: to your configuration.yaml file to enable zeroconf.
+The ESPHome integration in Home Assistant requires that [zeroconf](https://www.home-assistant.io/integrations/zeroconf) be enabled to automatically detect ESPHome devices on the network. Zeroconf is enabled by default, but may not be enabled if you are not using the [default config](https://www.home-assistant.io/integrations/default_config/). Add zeroconf: to your configuration.yaml file to enable zeroconf.
 
 You can also manually add a device to Home Assistant once the device is connected to Wi-Fi on the same network as your Home Assistant server. You will need to figure out the IP address of the device by logging into your router or by using a network scanning app.
 
