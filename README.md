@@ -47,3 +47,9 @@ When you are connected to a KAUF product’s WiFi AP, you should be able to acce
 To configure credentials from a Linux command line, use the curl command like so:
 
 `curl 'http://192.168.4.1/wifisave?ssid=YOUR_SSID&psk=YOUR_PASSWORD'`
+
+### Device-Specific Troubleshooting
+
+Some device repos have troubleshooting tips specificaly for those devices:
+
+- [RGB Switch](https://github.com/KaufHA/kauf-rgb-switch#troubleshooting)
