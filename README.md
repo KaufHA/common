@@ -48,6 +48,10 @@ To configure credentials from a Linux command line, use the curl command like so
 
 `curl 'http://192.168.4.1/wifisave?ssid=YOUR_SSID&psk=YOUR_PASSWORD'`
 
+### Device not Connecting to Wi-Fi Network with Hidden SSID
+
+ESPHome requires the fast_connect option to be enabled in order to connect to hidden networks.  Some of our devices are still shipping with older firmwarwe versions that did not have fast_connect enabled.  If you want to connect a device to a Wi-Fi network with a hidden SSID, you may need to connect to a different network first to update the bulb.
+
 ### Device-Specific Troubleshooting
 
 Some device repos have troubleshooting tips specificaly for those devices:
