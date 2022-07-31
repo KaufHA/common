@@ -30,11 +30,11 @@ From Home Assistant’s Integrations configuration page, press the add integrati
 
 ### Can’t Connect to Device’s WiFi AP
 
-If you see a device’s WiFi AP being broadcast, but are having trouble connecting, there is another option. Each KAUF device is pre-programmed to try to connect to a WiFi network with the ssid being either initial_ap or initial_ap2, and the password being asdfasdfasdfasdf. Currently, initial_ap2 is more likely to be right. If you set up a temporary WiFi network with those credentials, the plug or bulb will connect to it instead of broadcasting its own AP. Then you can simply determine the IP address of the device, browse to the IP address, and flash a new firmware from there. Either Tasmota or your own build of ESPHome with your local network credentials built in would work.
+If you see a device’s WiFi AP being broadcast, but are having trouble connecting, there is another option. Each KAUF device is pre-programmed to try to connect to a WiFi network with the SSID being either initial_ap or initial_ap2, and the password being asdfasdfasdfasdf. Currently, initial_ap is more likely to be right. If you set up a temporary WiFi network with those credentials, the plug or bulb will connect to it instead of broadcasting its own AP. Then you can simply determine the IP address of the device, browse to the IP address, and flash a new firmware from there. Either Tasmota or your own build of ESPHome with your local network credentials built in would work.
 
 ### Not Seeing a Device’s WiFi AP
 
-If you are not seeing a device broadcast a WiFi AP as it should, there are ways to re-enable the Wifi AP that may work. For the bulbs, you have to power cycle the bulb without the bulb connecting to WiFi. Let the bulb power on for at least 10-15 seconds before removing power. After powering up a second time, the WiFi AP will be re-enabled. For the plug, hold down the button for at least 5 seconds and the plug will reboot with the WiFi AP enabled.
+If you are not seeing a device broadcast a WiFi AP as it should, there are ways to re-enable the WiFi AP that may work. For the bulbs, you have to power cycle the bulb without the bulb connecting to WiFi. Let the bulb power on for at least 10-15 seconds before removing power. After powering up a second time, the WiFi AP will be re-enabled. For the plug, hold down the button for at least 5 seconds and the plug will reboot with the WiFi AP enabled.
 
 If the device is connecting to your local WiFi network, then the above procedures will not work. You will need to clear the existing credentials by toggling the “Clear WiFi Credentials” switch. This can be done by browsing to the device’s IP address in a web browser.
 
@@ -50,10 +50,10 @@ To configure credentials from a Linux command line, use the curl command like so
 
 ### Device not Connecting to Wi-Fi Network with Hidden SSID
 
-ESPHome requires the fast_connect option to be enabled in order to connect to hidden networks.  Some of our devices are still shipping with older firmwarwe versions that did not have fast_connect enabled.  If you want to connect a device to a Wi-Fi network with a hidden SSID, you may need to connect to a different network first to update the bulb.
+ESPHome requires the fast_connect option to be enabled in order to connect to hidden networks.  Some of our devices are still shipping with older firmware versions that did not have fast_connect enabled.  If you want to connect a device to a Wi-Fi network with a hidden SSID, you may need to connect to a different network first to update the bulb.
 
 ### Device-Specific Troubleshooting
 
-Some device repos have troubleshooting tips specificaly for those devices:
+Some device repos have troubleshooting tips specifically for those devices:
 
 - [RGB Switch](https://github.com/KaufHA/kauf-rgb-switch#troubleshooting)
