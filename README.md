@@ -56,4 +56,6 @@ ESPHome requires the fast_connect option to be enabled in order to connect to hi
 
 Some device repos have troubleshooting tips specifically for those devices:
 
+- [RGBWW Bulbs](https://github.com/KaufHA/kauf-rgbww-bulbs#troubleshooting)
 - [RGB Switch](https://github.com/KaufHA/kauf-rgb-switch#troubleshooting)
+
