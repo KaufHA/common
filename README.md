@@ -58,5 +58,5 @@ Some device repos have troubleshooting tips specifically for those devices:
 
 - [RGBWW Bulbs](https://github.com/KaufHA/kauf-rgbww-bulbs#troubleshooting)
 - [RGB Switch](https://github.com/KaufHA/kauf-rgb-switch#troubleshooting)
-- [PLF10 Smart Plug](https://github.com/KaufHA/PLF10/edit/main/README.md#troubleshooting)
+- [PLF10 Smart Plug](https://github.com/KaufHA/PLF10#troubleshooting)
 
