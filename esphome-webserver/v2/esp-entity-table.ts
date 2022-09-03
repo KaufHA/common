@@ -15,6 +15,8 @@ interface entityConfig {
   icon?: string;
   option?: string[];
   target_temperature?: Number;
+  target_temperature_low?: Number;
+  target_temperature_high?: Number;
   current_temperature?: Number;
   mode?: Number;
   speed_count?: Number;
@@ -97,21 +99,21 @@ export class EntityTable extends LitElement {
     max: Number,
     step: Number
   ) {
-    return html`<label>${min || 0}</label>
+    return html`<div class=range><label>${min || 0}</label>
       <input
         type="${entity.mode == 1 ? "number" : "range"}"
         name="${entity.unique_id}"
         id="${entity.unique_id}"
-        value="${value}"
         step="${step}"
         min="${min}"
         max="${max}"
+        value="${value}"
         @change="${(e: Event) => {
           let val = e.target?.value;
           this.restAction(entity, `${action}?${opt}=${val}`);
         }}"
       />
-      <label>${max || 100}</label>`;
+      <label>${max || 100}</label></div>`;
   }
 
   switch(entity: entityConfig) {
@@ -184,35 +186,59 @@ export class EntityTable extends LitElement {
         entity.step
       );
     }
-    if (entity.domain === "climate")
-      return html`
-        ${entity.state}
-        <label>${entity.current_temperature}</label>
-        ${entity.target_temperature_low} ${entity.target_temperature_high}
-        <div>
+    if (entity.domain === "climate") {
+      let target_temp_slider, target_temp_label;
+      if (entity.target_temperature_low !== undefined) {
+        target_temp_label= html`${entity.target_temperature_low}&nbsp;..&nbsp;${entity.target_temperature_high}`;
+        target_temp_slider = html`
+          ${this.range(
+            entity,
+            "set",
+            "target_temperature_low",
+            entity.target_temperature_low,
+            entity.min_temp,
+            entity.max_temp,
+            entity.step
+          )}
+          ${this.range(
+             entity,
+            "set",
+            "target_temperature_high",
+            entity.target_temperature_high,
+            entity.min_temp,
+            entity.max_temp,
+            entity.step
+          )}
+        `;
+      } else {
+        target_temp_label= html`${entity.target_temperature}`;
+        target_temp_slider = html`
           ${this.range(
             entity,
             "set",
             "target_temperature",
-            entity.value,
+            entity.target_temperature,
             entity.min_temp,
             entity.max_temp,
-            entity.step,
-            0
+            entity.step
           )}
-        </div>
-        <br /><label
-          >Mode:
-          ${entity.modes.map(
-            (mode) => html`
-      <input type="radio" name="mode" @change="${(e: Event) => {
-        let val = e.target?.value;
-        this.restAction(entity, `set?mode=${val}`);
-      }}"
-         value="${mode}" ?checked=${entity.mode === mode}>${mode}</input> `
-          )}
-        </label>
+        `;
+      }
+      return html`
+        <label>Current:&nbsp;${entity.current_temperature}, Target:&nbsp;${target_temp_label}</label>
+        ${target_temp_slider}
+        <br />Mode:
+        ${entity.modes.map(
+          (mode) => html`
+            <label><input type="radio" name="${entity.unique_id}_mode" @change="${(e: Event) => {
+              let val = e.target?.value;
+              this.restAction(entity, `set?mode=${val}`);
+            }}"
+            value="${mode}" ?checked=${entity.mode === mode}>${mode}</label>`
+          )
+        }
       `;
+    }
     return html``;
   }
 
@@ -290,8 +316,13 @@ export class EntityTable extends LitElement {
           background-color: var(--primary-color, currentColor);
         }
         input[type="range"] {
-          width: calc(100% - 4rem);
+          width: calc(100% - 8rem);
+          height: 0.75rem;
         }
+        .range {
+          text-align: center;
+        }
+
       `,
     ];
   }
