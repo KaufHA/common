@@ -1204,9 +1204,7 @@ void WebServer::reset_flash(AsyncWebServerRequest *request) {
 
   ESP_LOGD("kauf web server", "erasing flash");
 
-  // using hash of 2729014980 and length 2 erases all used flash.
-  ESPPreferenceObject pref;
-  pref = global_preferences->make_preference(2,2729014980,true);
+  global_preferences->reset();
 
   AsyncResponseStream *stream = request->beginResponseStream("text/html");
   stream->addHeader("Access-Control-Allow-Origin", "*");
@@ -1228,36 +1226,33 @@ void WebServer::clear_wifi(AsyncWebServerRequest *request) {
   stream->addHeader("Access-Control-Allow-Origin", "*");
   stream->print(F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
 
-  // if there is no soft ssid, provide message nothing to clear
-  if ( strcmp(wifi::global_wifi_component->soft_ssid.c_str(),"") == 0 ) {
-    stream->print(F("This utility currently only clears Wi-Fi credentials that were configured using the captive portal after "));
-    stream->print(F("the firmware was compiled.  Since this device has no such Wi-Fi credentials, nothing has been cleared.  "));
-    stream->print(F("<br /><br />This device will continue to try to connect to the hard-coded Wi-Fi network with SSID <b>"));
-    stream->print(wifi::global_wifi_component->hard_ssid.c_str());
-    stream->print(F("</b>.<br /><br />"));
-    stream->print(F("</body></html>"));
-    request->send(stream);
-  } else {
-    wifi::global_wifi_component->clear_stored_creds();
-    stream->print(F("The Wi-Fi credentials with SSID <b>"));
-    stream->print(wifi::global_wifi_component->soft_ssid.c_str());
-    stream->print(F("</b>, which were configured via the captive portal, are being cleared.  "));
-    stream->print(F("<br /><br />This device will continue to try to connect to the hard-coded Wi-Fi network with SSID <b>"));
-    stream->print(wifi::global_wifi_component->hard_ssid.c_str());
-    stream->print(F("</b>.<br /><br />"));
+  if ( wifi::global_wifi_component->has_ap() ) {
 
-    stream->print(F("This device is now restarting itself automatically."));
+    // store default credentials in flash, overwrites both soft and hard-coded credentials to ensure that Wi-Fi AP comes up.
+    stream->print(F("The following Wi-Fi credentials are being saved into flash memory:<br>"));
+    stream->print(F("SSID: <b>initial_ap</b><br>"));
+    stream->print(F("Password: <b>asdfasdfasdfasdf</b><br><br>"));
+
+    stream->print(F("This will overwrite any previous credentials that were stored in flash memory via the captive portal.  "));
+    stream->print(F("This will also take precedence over any credentials that were hard-coded in yaml.  "));
+    stream->print(F("This device will now reboot and put up it's Wi-Fi AP to allow setting of new credentials.  However, if a network with the above credentials exists, this device will connect to that network instead of putting up its Wi-Fi AP."));
     stream->print(F("</body></html>"));
     request->send(stream);
+
+    wifi::global_wifi_component->save_wifi_sta("initial_ap","asdfasdfasdfasdf");
 
     this->set_timeout(100, []() { App.safe_reboot(); });
+
+  }
+
+  else {
+    stream->print(F("This function is only available for devices that have the Wi-Fi AP enabled."));
+    stream->print(F("</body></html>"));
+    request->send(stream);
   }
 
   return;
 }
-
-
-
 
 }  // namespace web_server
 }  // namespace esphome

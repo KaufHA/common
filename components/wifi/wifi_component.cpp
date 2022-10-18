@@ -128,6 +128,12 @@ void WiFiComponent::loop() {
   this->wifi_loop_();
   const uint32_t now = millis();
 
+  // hard code an AP timeout of 15 seconds for all devices if Wi-Fi credentials are not configured.
+  if ( (this->soft_ssid == "initial_ap") ||
+      ((this->hard_ssid == "initial_ap") && this->tried_loading_creds && !this->loaded_creds ) ) {
+    this->set_ap_timeout(15000);
+  }
+
   if (this->has_sta()) {
     switch (this->state_) {
       case WIFI_COMPONENT_STATE_COOLDOWN: {

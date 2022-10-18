@@ -188,19 +188,6 @@ class ESP8266Preferences : public ESPPreferences {
 
     if (in_flash) {
 
-      // looking for type 2729014980 and length 2 to erase all flash.  Length 2 just to make it less likely to occur accidentally.
-      if ( (type==2729014980) && (length==2) && (current_flash_offset!=0)) {
-        auto *pref = new ESP8266PreferenceBackend();  // NOLINT(cppcoreguidelines-owning-memory)
-        ESP_LOGD("KAUF Preferences", "              !!!! ERASING FLASH THROUGH ADDR %d !!!!", current_flash_offset - 1);
-        pref->offset = 0;
-        pref->type = type;
-        pref->length_words = current_flash_offset - 1;
-        pref->in_flash = true;
-        uint8_t fake_data = 0;
-        pref->save(&fake_data,(current_flash_offset-1)*4);
-        return {};
-      }
-
       uint32_t start;
       uint32_t end;
 

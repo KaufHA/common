@@ -16,3 +16,11 @@ cat <<EOT >> ./$1/$2
 }  // namespace esphome
 EOT
 ls -l ./$1/$2
+
+if [ "web_server" = "$3" ]; then
+    cp ./_static/v2/server_index.h ../components/web_server/
+fi
+
+if [ "captive_portal" = "$3" ]; then
+    cp ./dist/captive_index.h ../../components/captive_portal/
+fi
