@@ -75,6 +75,11 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Strin
      return;
   }
 
+  // remember whether a gzip file was used
+  found = str.find(".gz");
+  if (found!=std::string::npos) {
+    last_gzip = true;
+  }
 
 
   if (index == 0) {
@@ -127,22 +132,33 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Strin
   }
 }
 void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
-  AsyncWebServerResponse *response;
 
   if (!Update.hasError()) {
-    // normal response if no error
+    AsyncWebServerResponse *response;
     response = request->beginResponse(200, "text/plain", "Update Successful!");
     response->addHeader("Connection", "close");
     request->send(response);
   } else {
-    // error, rebooting
-    StreamString ss;
-    ss.print("Update Failed.  This device is now restarting itself automatically, which could resolve the error in some cases.\n\n");
-    Update.printError(ss);
-    response = request->beginResponse(200, "text/plain", ss);
-    response->addHeader("Connection", "close");
-    request->send(response);
 
+    // Get error string
+    StreamString ss;
+    Update.printError(ss);
+
+    // create response
+    AsyncResponseStream *stream = request->beginResponseStream("text/html");
+    stream->addHeader("Access-Control-Allow-Origin", "*");
+    stream->print(F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
+
+    stream->print(F("Update Failed.  This device is now restarting itself automatically, which could resolve the error in some cases.<br><br>"));
+    stream->print(ss);
+    if ( ss.find("Not Enough Space") && !last_gzip ) {
+      stream->print(F(" - Using a .bin.gz file instead of a .bin file might help."));
+    }
+
+    stream->print(F("</body></html>"));
+    request->send(stream);
+
+    // reboot
     this->parent_->set_timeout(100, []() { App.safe_reboot(); });
   }
 }
