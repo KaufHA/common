@@ -33,20 +33,6 @@ static const char *const TAG = "wifi";
 
 float WiFiComponent::get_setup_priority() const { return setup_priority::WIFI; }
 
-void WiFiComponent::clear_stored_creds() {
-  ESP_LOGD(TAG, "------------------->>>>>>>>>>>>>>>>>   Clearing saved WiFi credentials");
-
-  // create new preferences object with invalid hash
-  if ( this->has_global_forced_addr ) { id(global_forced_addr) = this->forced_addr; }
-  this->pref_ = global_preferences->make_preference<wifi::SavedWifiSettings>(0, true);
-
-  SavedWifiSettings save{};
-  strncpy(save.ssid, "", sizeof(save.ssid));
-  strncpy(save.password, "", sizeof(save.password));
-  this->pref_.save(&save);
-
-}
-
 void WiFiComponent::setup() {
   ESP_LOGCONFIG(TAG, "Setting up WiFi...");
   this->last_connected_ = millis();
@@ -129,8 +115,8 @@ void WiFiComponent::loop() {
   const uint32_t now = millis();
 
   // hard code an AP timeout of 15 seconds for all devices if Wi-Fi credentials are not configured.
-  if ( (this->soft_ssid == "initial_ap") ||
-      ((this->hard_ssid == "initial_ap") && this->tried_loading_creds && !this->loaded_creds ) ) {
+  if ( str_startswith(this->soft_ssid,"initial_ap") ||
+      (str_startswith(this->hard_ssid,"initial_ap") && this->tried_loading_creds && !this->loaded_creds ) ) {
     this->set_ap_timeout(15000);
   }
 
