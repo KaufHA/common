@@ -168,8 +168,6 @@ class LightState : public EntityBase, public Component {
   }
 
 
-
-
  protected:
   friend LightOutput;
   friend LightCall;

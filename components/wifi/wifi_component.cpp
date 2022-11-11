@@ -35,16 +35,21 @@ float WiFiComponent::get_setup_priority() const { return setup_priority::WIFI; }
 
 void WiFiComponent::setup() {
   ESP_LOGCONFIG(TAG, "Setting up WiFi...");
+  ESP_LOGCONFIG(TAG, "  Local MAC: %s", get_mac_address_pretty().c_str());
   this->last_connected_ = millis();
   this->wifi_pre_setup_();
 
   if ( this->has_global_forced_addr ) { id(global_forced_addr) = this->forced_addr; }
-  if ( this-> has_forced_hash ) {
-    this->pref_ = global_preferences->make_preference<wifi::SavedWifiSettings>(forced_hash, true);
-  } else {
-    uint32_t hash = fnv1_hash(App.get_compilation_time());
-    this->pref_ = global_preferences->make_preference<wifi::SavedWifiSettings>(hash, true);
-  }
+
+  uint32_t hash;
+  if ( this->has_forced_hash ) {hash = forced_hash;}
+  else                         {hash = fnv1_hash(App.get_compilation_time());}
+
+#ifdef USE_CAPTIVE_PORTAL_KEEP_USER_CREDENTIALS
+  hash = 88491487UL;
+#endif
+
+  this->pref_ = global_preferences->make_preference<wifi::SavedWifiSettings>(hash, true);
 
   // save current sta as hard_ssid for reference later
   if (this->has_sta())
@@ -766,6 +771,8 @@ uint8_t WiFiScanResult::get_channel() const { return this->channel_; }
 int8_t WiFiScanResult::get_rssi() const { return this->rssi_; }
 bool WiFiScanResult::get_with_auth() const { return this->with_auth_; }
 bool WiFiScanResult::get_is_hidden() const { return this->is_hidden_; }
+
+bool WiFiScanResult::operator==(const WiFiScanResult &rhs) const { return this->bssid_ == rhs.bssid_; }
 
 WiFiComponent *global_wifi_component;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 

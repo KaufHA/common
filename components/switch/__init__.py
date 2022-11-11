@@ -66,7 +66,7 @@ SWITCH_SCHEMA = cv.ENTITY_BASE_SCHEMA.extend(cv.MQTT_COMMAND_COMPONENT_SCHEMA).e
         ),
         cv.Optional(CONF_DEVICE_CLASS): validate_device_class,
         cv.Optional("forced_hash"): cv.int_,
-        cv.Optional("forced_addr", default="12345"): cv.int_,
+        cv.Optional("forced_addr"): cv.int_,
         cv.Optional("global_addr"): cv.use_id(globals),
     }
 )
@@ -136,7 +136,8 @@ async def setup_switch_core_(var, config):
     if "forced_hash" in config:
         cg.add(var.set_forced_hash(config["forced_hash"]))
 
-    cg.add(var.set_forced_addr(config["forced_addr"]))
+    if "forced_addr" in config:
+        cg.add(var.set_forced_addr(config["forced_addr"]))
 
     if "global_addr" in config:
         ga = await cg.get_variable(config["global_addr"])

@@ -1,5 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
+import esphome.final_validate as fv
 from esphome import automation
 from esphome.components import switch
 from esphome.const import (
@@ -27,6 +28,10 @@ def validate(config):
             "Either optimistic mode must be enabled, or turn_on_action or turn_off_action must be set, "
             "to handle the switch being set."
         )
+    if "forced_addr" in config and "global_addr" not in config:
+        raise cv.Invalid(
+            "Forced_addr requires global_addr"
+        )
     return config
 
 
@@ -49,6 +54,24 @@ CONFIG_SCHEMA = cv.All(
     .extend(cv.COMPONENT_SCHEMA),
     validate,
 )
+
+def final_validate(config):
+    if ("esp8266" in fv.full_config.get()):
+        esp8266_config = fv.full_config.get()["esp8266"]
+        if ( ("start_free" in esp8266_config) and ("forced_addr" in config)):
+            if ( (esp8266_config["start_free"] <= config["forced_addr"] + 1) ):
+                start_free_num = esp8266_config["start_free"]
+                forced_addr_num = config["forced_addr"]
+                raise cv.Invalid(
+                    f"Forced address ({forced_addr_num}) conflicts with esp8266: start_free ({start_free_num})"
+                )
+    else:
+        if ("forced_addr" in config):
+            raise cv.Invalid(
+                "Forced_addr is only compatible with esp8266 platform"
+            )
+
+FINAL_VALIDATE_SCHEMA = final_validate
 
 
 async def to_code(config):

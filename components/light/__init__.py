@@ -79,9 +79,8 @@ LIGHT_SCHEMA = cv.ENTITY_BASE_SCHEMA.extend(cv.MQTT_COMMAND_COMPONENT_SCHEMA).ex
             }
         ),
         cv.Optional("forced_hash"): cv.int_,
-        cv.Optional("forced_addr", default="12345"): cv.int_,
+        cv.Optional("forced_addr"): cv.int_,
         cv.Optional("global_addr"): cv.use_id(globals),
-
     }
 )
 
@@ -183,7 +182,8 @@ async def setup_light_core_(light_var, output_var, config):
     if "forced_hash" in config:
         cg.add(light_var.set_forced_hash(config["forced_hash"]))
 
-    cg.add(light_var.set_forced_addr(config["forced_addr"]))
+    if "forced_addr" in config:
+        cg.add(light_var.set_forced_addr(config["forced_addr"]))
 
     if "global_addr" in config:
         ga = await cg.get_variable(config["global_addr"])

@@ -155,6 +155,21 @@ def final_validate(config):
             "Please specify at least an SSID or an Access Point to create."
         )
 
+    if ("esp8266" in fv.full_config.get()):
+        esp8266_config = fv.full_config.get()["esp8266"]
+        if ( ("start_free" in esp8266_config) and ("forced_addr" in config) ):
+            if ( esp8266_config["start_free"] <= config["forced_addr"] + 25):
+                start_free_num = esp8266_config["start_free"]
+                forced_addr_num = config["forced_addr"]
+                raise cv.Invalid(
+                    f"Forced address ({forced_addr_num}) conflicts with esp8266: start_free ({start_free_num})"
+                )
+    else:
+        if ("forced_addr" in config):
+            raise cv.Invalid(
+                "Forced_addr is only compatible with esp8266 platform"
+            )
+
 
 def final_validate_power_esp32_ble(value):
     if not CORE.is_esp32:
@@ -248,6 +263,11 @@ def _validate(config):
 
         config[CONF_USE_ADDRESS] = use_address
 
+    if "forced_addr" in config and "global_addr" not in config:
+        raise cv.Invalid(
+            "Forced_addr requires global_addr"
+        )
+
     return config
 
 
@@ -267,7 +287,7 @@ CONFIG_SCHEMA = cv.All(
                 CONF_REBOOT_TIMEOUT, default="15min"
             ): cv.positive_time_period_milliseconds,
             cv.SplitDefault(
-                CONF_POWER_SAVE_MODE, esp8266="none", esp32="light"
+                CONF_POWER_SAVE_MODE, esp8266="none", esp32="light", rp2040="light"
             ): cv.enum(WIFI_POWER_SAVE_MODES, upper=True),
             cv.Optional(CONF_FAST_CONNECT, default=False): cv.boolean,
             cv.Optional(CONF_USE_ADDRESS): cv.string_strict,
@@ -285,7 +305,7 @@ CONFIG_SCHEMA = cv.All(
                 "new mdns component instead."
             ),
             cv.Optional("forced_hash"): cv.int_,
-            cv.Optional("forced_addr", default="12345"): cv.int_,
+            cv.Optional("forced_addr"): cv.int_,
             cv.Optional("global_addr"): cv.use_id(globals),
         }
     ),
@@ -389,6 +409,8 @@ async def to_code(config):
         cg.add_library("ESP8266WiFi", None)
     elif CORE.is_esp32 and CORE.using_arduino:
         cg.add_library("WiFi", None)
+    elif CORE.is_rp2040:
+        cg.add_library("WiFi", None)
 
     if CORE.is_esp32 and CORE.using_esp_idf:
         if config[CONF_ENABLE_BTM] or config[CONF_ENABLE_RRM]:
@@ -407,7 +429,8 @@ async def to_code(config):
     if "forced_hash" in config:
         cg.add(var.set_forced_hash(config["forced_hash"]))
 
-    cg.add(var.set_forced_addr(config["forced_addr"]))
+    if "forced_addr" in config:
+        cg.add(var.set_forced_addr(config["forced_addr"]))
 
     if "global_addr" in config:
         ga = await cg.get_variable(config["global_addr"])

@@ -200,7 +200,7 @@ class ESP8266Preferences : public ESPPreferences {
       }
 
       if ( !forced ) {
-        ESP_LOGD("KAUF Preferences", "              !!!! STORING IN FREE FLASH SPACE !!!!");
+        ESP_LOGD("KAUF Preferences", "              Storing a preference in free flash space.");
         start = current_flash_offset;
         end = start + length_words + 1;
         current_flash_offset = end;
@@ -208,13 +208,13 @@ class ESP8266Preferences : public ESPPreferences {
         start = id(global_forced_addr);
         end = start + length_words + 1;
         if ( start >= init_flash_offset ) {
-          ESP_LOGD("KAUF Preferences", "            !!!! FORCING ADDRESS THAT WAS SUPPOSED TO BE FREE !!!!");
+          ESP_LOGE("KAUF Preferences", "            !!!! FORCING ADDRESS THAT WAS SUPPOSED TO BE FREE !!!!");
         }
         id(global_forced_addr) = 12345; // served its purpose, reset to default
       }
 
       if (end > ESP8266_FLASH_STORAGE_SIZE) {
-        ESP_LOGD("KAUF Preferences", "              !!!! WENT PAST ESP8266_FLASH_STORAGE_SIZE !!!!");
+        ESP_LOGE("KAUF Preferences", "              !!!! WENT PAST ESP8266_FLASH_STORAGE_SIZE !!!!");
         return {};
       }
 

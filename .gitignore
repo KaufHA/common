@@ -2,3 +2,4 @@ __pycache__
 _static
 node_modules
 esphome-webserver/captive-portal/package-lock.json
+notes.txt
