@@ -42,12 +42,10 @@ void WiFiComponent::setup() {
   if ( this->has_global_forced_addr ) { id(global_forced_addr) = this->forced_addr; }
 
   uint32_t hash;
-  if ( this->has_forced_hash ) {hash = forced_hash;}
-  else                         {hash = fnv1_hash(App.get_compilation_time());}
+  if (this->has_forced_hash) {hash = forced_hash;}
+  else if (this->has_sta())  {hash = fnv1_hash(App.get_compilation_time());}
+  else                       {hash = 88491487UL;}
 
-#ifdef USE_CAPTIVE_PORTAL_KEEP_USER_CREDENTIALS
-  hash = 88491487UL;
-#endif
 
   this->pref_ = global_preferences->make_preference<wifi::SavedWifiSettings>(hash, true);
 
