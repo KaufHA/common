@@ -170,7 +170,7 @@ class ESP8266PreferenceBackend : public ESPPreferenceBackend {
 class ESP8266Preferences : public ESPPreferences {
  public:
   uint32_t current_offset = 0;
-  uint32_t current_flash_offset;  // in words
+  uint32_t current_flash_offset = 0;  // in words
   uint32_t init_flash_offset;
 
   void setup() {
@@ -185,7 +185,6 @@ class ESP8266Preferences : public ESPPreferences {
 
   ESPPreferenceObject make_preference(size_t length, uint32_t type, bool in_flash) override {
     uint32_t length_words = (length + 3) / 4;
-
     if (in_flash) {
 
       uint32_t start;
@@ -207,7 +206,7 @@ class ESP8266Preferences : public ESPPreferences {
       } else {
         start = id(global_forced_addr);
         end = start + length_words + 1;
-        if ( start >= init_flash_offset ) {
+        if ( end > init_flash_offset ) {
           ESP_LOGE("KAUF Preferences", "            !!!! FORCING ADDRESS THAT WAS SUPPOSED TO BE FREE !!!!");
         }
         id(global_forced_addr) = 12345; // served its purpose, reset to default

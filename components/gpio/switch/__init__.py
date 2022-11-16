@@ -18,7 +18,6 @@ RESTORE_MODES = {
     "RESTORE_INVERTED_DEFAULT_ON": GPIOSwitchRestoreMode.GPIO_SWITCH_RESTORE_INVERTED_DEFAULT_ON,
 }
 
-
 CONF_INTERLOCK_WAIT_TIME = "interlock_wait_time"
 CONFIG_SCHEMA = (
     switch.switch_schema(GPIOSwitch)

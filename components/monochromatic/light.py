@@ -37,7 +37,6 @@ def final_validate(config):
             "Forced_addr requires global_addr"
         )
 
-
 FINAL_VALIDATE_SCHEMA = final_validate
 
 
