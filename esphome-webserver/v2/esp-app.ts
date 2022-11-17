@@ -1,5 +1,6 @@
 import { LitElement, html, css, PropertyValues } from "lit";
 import { customElement, state, query } from "lit/decorators.js";
+import { getBasePath } from "./esp-entity-table";
 
 import "./esp-entity-table";
 import "./esp-log";
@@ -7,7 +8,7 @@ import "./esp-switch";
 import cssReset from "./css/reset";
 import cssButton from "./css/button";
 
-window.source = new EventSource("/events");
+window.source = new EventSource(getBasePath() + "/events");
 
 interface Config {
   ota: boolean;
@@ -124,15 +125,21 @@ export default class EspApp extends LitElement {
   }
 
   ota() {
-    if (this.config.ota)
+    if (this.config.ota) {
+      let basePath = getBasePath();
       return html`<h2>OTA Update</h2>
         <p>Either .bin or .bin.gz files will work, but the file size needs to be under ${this.config.free_sp} bytes.  For KAUF update files, the .bin.gz file is recommended, and the .bin files are typically too large to work anyway.</p>
         <p>**** DO NOT USE <b>TASMOTA-MINIMAL</b>.BIN or .BIN.GZ<br>**** Use tasmota.bin.gz or tasmota-lite.bin.gz</p>
         ${this.kauf_ota_extra()}
-        <form method="POST" action="/update" enctype="multipart/form-data">
+        <form
+          method="POST"
+          action="${basePath}/update"
+          enctype="multipart/form-data"
+        >
           <input class="btn" type="file" name="update" />
           <input class="btn" type="submit" value="Update" />
         </form>`;
+    }
   }
 
   factory_reset() {
