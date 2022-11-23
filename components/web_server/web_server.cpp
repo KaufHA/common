@@ -95,6 +95,12 @@ void WebServer::set_js_include(const char *js_include) { this->js_include_ = js_
 
 void WebServer::setup() {
   ESP_LOGCONFIG(TAG, "Setting up web server...");
+
+#ifdef DISABLE_WEBSERVER
+  ESP_LOGCONFIG(TAG,"Web server disabled.");
+  return;
+#endif
+
   this->setup_controller(this->include_internal_);
   this->base_->init();
 
