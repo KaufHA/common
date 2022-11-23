@@ -71,6 +71,7 @@ CONFIG_SCHEMA = cv.All(
             ),
             cv.Optional(CONF_INCLUDE_INTERNAL, default=False): cv.boolean,
             cv.Optional(CONF_OTA, default=True): cv.boolean,
+            cv.Optional("disable", default=False): cv.boolean,
             cv.Optional(CONF_LOCAL): cv.boolean,
         }
     ).extend(cv.COMPONENT_SCHEMA),
@@ -113,3 +114,6 @@ async def to_code(config):
     cg.add(var.set_include_internal(config[CONF_INCLUDE_INTERNAL]))
     if CONF_LOCAL in config and config[CONF_LOCAL]:
         cg.add_define("USE_WEBSERVER_LOCAL")
+
+    if config["disable"]:
+        cg.add_define("DISABLE_WEBSERVER")
