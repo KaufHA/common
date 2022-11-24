@@ -16,16 +16,22 @@ void IRAM_ATTR PulseWidthSensorStore::gpio_intr(PulseWidthSensorStore *arg) {
     arg->last_width_ = (now - arg->last_rise_);
   }
 
-  // track average, ignore first cycle after resetting average
+  // ignore first cycle after resetting
   if ( !new_level) {
     return;
   }
-  else if ( arg->avg_skip_ < 2) {
-    arg->avg_skip_++;
-  } else {
-    arg->avg_num_++;
-    arg->avg_sum_ += arg->last_period_;
+  else if ( arg->skip_ ) {
+    arg->skip_ = false;
   }
+  else {
+    arg->valid_ = true;
+  }
+
+void PulseWidthSensorStore::reset() {
+  this->skip_      = true;      // skip first received edge
+  this->valid_     = false;     // data no longer valid
+  this->last_rise_ = micros();  // consider this the new previous rise time for new analysis
+}
 
 
 //  ESP_LOGD("KAUF PW TEST","------------ AVG: %d", arg->avg_num_ / arg->avg_sum_);

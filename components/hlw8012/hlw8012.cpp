@@ -48,7 +48,81 @@ void HLW8012Component::dump_config() {
   LOG_SENSOR("  ", "Energy", this->energy_sensor_)
 }
 float HLW8012Component::get_setup_priority() const { return setup_priority::DATA; }
+
+float HLW8012Component::period_to_power(float period_in) {
+    float hz;
+
+    if ( period_in == 0.0f ) { hz = 0.0f;}
+    else                     { hz = 1 / (period_in / 1000000.0f); }
+
+    return hz * this->power_multiplier_;
+    // float power = hz * this->power_multiplier_;
+    // ESP_LOGD("KAUF HLW 8012 UPDATE", "CF Valid: %d -- CF LAST: %d -- HZ: %f -- Power: %f", cf_store_.get_valid(), cf_store_.get_last_period(), hz, power);
+    // return (power);
+}
+
+float HLW8012Component::period_to_current(float period_in) {
+    float hz;
+
+    if ( period_in == 0.0f ) { hz = 0.0f;}
+    else                     { hz = 1 / (period_in / 1000000.0f); }
+
+    // return hz * this->current_multiplier_;
+    float current = hz * this->current_multiplier_;
+    ESP_LOGD("KAUF HLW 8012 UPDATE", "CF1 Valid: %d -- CF1 LAST: %d -- HZ: %f -- Current: %f", cf1_store_.get_valid(), cf1_store_.get_last_period(), hz, current);
+    return (current);
+}
+
+
 void HLW8012Component::update() {
+
+  if (this->nth_value_ < 2) {
+    this->nth_value_++
+    return;
+  }
+
+  if (this->power_sensor_ != nullptr) {
+
+    // if more than 10 seconds since last rising edge, consider power to be zero
+    if ((micros()-cf_store_.get_last_rise()) > 10000000)  {
+  //    ESP_LOGD("KAUF HLW 8012 UPDATE", "============ hard setting power to zero");
+      this->power_sensor_->publish_state(0.0f);
+    }
+
+    // if more than update interval, publish as if edge occured now (if already zero, stay there)
+    else if ( ((micros()-cf_store_.get_last_rise()) > (this->get_update_interval()*1000)) &&
+              ((micros()-cf_store_.get_last_rise()) > cf_store_.get_last_period()) &&
+              (this->power_sensor_->state != 0.0f) ) {
+    //  ESP_LOGD("KAUF HLW 8012 UPDATE", "============ fading power down -- micros: %d -- last_rise: %d -- interval: %d ", micros(), cf_store_.get_last_rise(), this->get_update_interval());
+      this->power_sensor_->publish_state(this->period_to_power(micros()-cf_store_.get_last_rise()));
+    }
+
+    // otherwise, publish actual value based on last period
+    else {
+      //ESP_LOGD("KAUF HLW 8012 UPDATE", "============ doing normal publish");
+      this->power_sensor_->publish_state(this->period_to_power(cf_store_.get_last_period()));
+    }
+
+  }
+
+  // do current if current sensor exists and in current mode
+  if ( (this->current_sensor_ != nullptr) && this->current_mode_) {
+
+    // if we don't have a valid period value, either stay at zero or scale down as if edge occurred now.
+    if ( !cf1_store_.get_valid() ) {
+
+      if ( ((micros()-cf1_store_.get_last_rise()) > (this->get_update_interval()*1000)) &&
+           ((micros()-cf1_store_.get_last_rise()) > cf1_store_.get_last_period()) &&
+           (this->current_sensor_->state != 0.0f) ) {
+        this->power_sensor_->publish_state(this->period_to_power(micros()-cf1_store_.get_last_rise()));
+      }
+
+    }
+
+  }
+
+////  this->cf1_store_.reset();
+
   // HLW8012 has 50% duty cycle
   // pulse_counter::pulse_counter_t raw_cf = 0 //this->cf_store_.read_raw_value();
   // pulse_counter::pulse_counter_t raw_cf1 = 0 //this->cf1_store_.read_raw_value();
@@ -62,14 +136,6 @@ void HLW8012Component::update() {
   //   // don't count single pulse as anything
   //   cf1_hz = 0.0f;
   // }
-
-  //ESP_LOGD("KAUF HLW 8012 UPDATE","Trying to update.");
-  ESP_LOGD("KAUF HLW 8012 UPDATE", "CF AVG: %d -- CF LAST: %d -- CF1 AVG: %d -- CF1 LAST: %d", cf_store_.get_avg(), cf_store_.get_last_period(), cf1_store_.get_avg(), cf1_store_.get_last_period());
-
-  this->cf_store_.reset_avg();
-  this->cf1_store_.reset_avg();
-
-
 
 //   if (this->nth_value_++ < 2) {
 //     return;

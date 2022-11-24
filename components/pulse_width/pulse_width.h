@@ -22,16 +22,8 @@ class PulseWidthSensorStore {
   uint32_t get_last_rise() const { return last_rise_; }
 
   uint32_t get_last_period() const { return this->last_period_; }
-  uint32_t get_avg() const {
-    if ( this->avg_num_ != 0 ) { return (this->avg_sum_/this->avg_num_); }
-    else                       { return 0; }
-  }
-
-  void reset_avg() {
-    this->avg_num_ = 0;
-    this->avg_sum_ = 0;
-    this->avg_skip_ = 0;
-  }
+  bool get_valid() const { return this->valid_; }
+  void reset();
 
  protected:
   ISRInternalGPIOPin pin_;
@@ -39,9 +31,8 @@ class PulseWidthSensorStore {
   volatile uint32_t last_period_{0};
   volatile uint32_t last_rise_{0};
 
-  volatile uint32_t avg_num_{0};
-  volatile uint32_t avg_sum_{0};
-  volatile uint32_t avg_skip_{0};
+  volatile bool skip_{true};
+  volatile bool valid_{false};
 };
 
 class PulseWidthSensor : public sensor::Sensor, public PollingComponent {

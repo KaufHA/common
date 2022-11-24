@@ -48,6 +48,8 @@ class HLW8012Component : public PollingComponent {
   void set_energy_sensor(sensor::Sensor *energy_sensor) { energy_sensor_ = energy_sensor; }
 
  protected:
+  float period_to_power(float period_in);
+
   uint32_t nth_value_{0};
   bool current_mode_{false};
   uint32_t change_mode_at_{0};
