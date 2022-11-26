@@ -187,7 +187,11 @@ class WiFiComponent : public Component {
   bool tried_loading_creds = false;
   bool loaded_creds = false;
   bool even_number = false;
+
   bool disable_scanning = false;
+  void set_disable_scanning(bool disable_arg) {
+    disable_scanning = disable_arg;
+  }
 
   bool has_forced_hash = false;
   uint32_t forced_hash = 0;

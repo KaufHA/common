@@ -307,6 +307,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional("forced_hash"): cv.int_,
             cv.Optional("forced_addr"): cv.int_,
             cv.Optional("global_addr"): cv.use_id(globals),
+            cv.Optional("disable_scanning", default=False): cv.boolean,
         }
     ),
     _validate,
@@ -435,6 +436,8 @@ async def to_code(config):
     if "global_addr" in config:
         ga = await cg.get_variable(config["global_addr"])
         cg.add(var.set_global_addr(ga))
+
+    cg.add(var.set_disable_scanning(config["disable_scanning"]))
 
 
 @automation.register_condition("wifi.connected", WiFiConnectedCondition, cv.Schema({}))
