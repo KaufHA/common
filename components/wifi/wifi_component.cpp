@@ -88,7 +88,7 @@ void WiFiComponent::setup() {
     if (this->fast_connect_) {
       this->selected_ap_ = this->sta_[0];
       this->start_connecting(this->selected_ap_, false);
-    } else {
+    } else if (!this->disable_scanning) {
       this->start_scanning();
     }
   } else if (this->has_ap()) {
@@ -99,7 +99,7 @@ void WiFiComponent::setup() {
 #ifdef USE_CAPTIVE_PORTAL
     if (captive_portal::global_captive_portal != nullptr) {
       this->wifi_sta_pre_setup_();
-      this->start_scanning();
+      if (!this->disable_scanning) this->start_scanning();
       captive_portal::global_captive_portal->start();
     }
 #endif
@@ -134,7 +134,7 @@ void WiFiComponent::loop() {
           }
           else {
             this->even_number = true;
-            this->start_scanning();
+            if (!this->disable_scanning) this->start_scanning();
           }
         }
         break;
