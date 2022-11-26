@@ -26,6 +26,7 @@ void IRAM_ATTR PulseWidthSensorStore::gpio_intr(PulseWidthSensorStore *arg) {
   else {
     arg->valid_ = true;
   }
+}
 
 void PulseWidthSensorStore::reset() {
   this->skip_      = true;      // skip first received edge
@@ -37,7 +38,6 @@ void PulseWidthSensorStore::reset() {
 //  ESP_LOGD("KAUF PW TEST","------------ AVG: %d", arg->avg_num_ / arg->avg_sum_);
 
 
-}
 
 void PulseWidthSensor::dump_config() {
   LOG_SENSOR("", "Pulse Width", this)

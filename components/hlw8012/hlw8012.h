@@ -49,6 +49,10 @@ class HLW8012Component : public PollingComponent {
 
  protected:
   float period_to_power(float period_in);
+  float period_to_current(float period_in);
+  float period_to_voltage(float period_in);
+  float period_to_hz(float period_in);
+  void change_mode();
 
   uint32_t nth_value_{0};
   bool current_mode_{false};
