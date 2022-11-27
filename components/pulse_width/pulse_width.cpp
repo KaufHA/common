@@ -29,10 +29,10 @@ void IRAM_ATTR PulseWidthSensorStore::gpio_intr(PulseWidthSensorStore *arg) {
 }
 
 void PulseWidthSensorStore::reset() {
-  this->skip_       = true;      // skip first received edge
-  this->valid_      = false;     // data no longer valid
-  this->last_rise_  = micros();  // consider this the new previous rise time for new analysis
-  this->last_period = 0;
+  this->skip_        = true;      // skip first received edge
+  this->valid_       = false;     // data no longer valid
+  this->last_rise_   = micros();  // consider this the new previous rise time for new analysis
+  this->last_period_ = 0;
 }
 
 
