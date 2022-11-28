@@ -9,13 +9,11 @@ from esphome.const import (
     CONF_CURRENT_RESISTOR,
     CONF_ID,
     CONF_POWER,
-    CONF_ENERGY,
     CONF_SEL_PIN,
     CONF_MODEL,
     CONF_VOLTAGE,
     CONF_VOLTAGE_DIVIDER,
     DEVICE_CLASS_CURRENT,
-    DEVICE_CLASS_ENERGY,
     DEVICE_CLASS_POWER,
     DEVICE_CLASS_VOLTAGE,
     STATE_CLASS_MEASUREMENT,
@@ -25,8 +23,6 @@ from esphome.const import (
     UNIT_WATT,
     UNIT_WATT_HOURS,
 )
-
-AUTO_LOAD = ["pulse_width"]
 
 hlw8012_ns = cg.esphome_ns.namespace("hlw8012")
 HLW8012Component = hlw8012_ns.class_("HLW8012Component", cg.PollingComponent)
@@ -70,12 +66,6 @@ CONFIG_SCHEMA = cv.Schema(
             device_class=DEVICE_CLASS_POWER,
             state_class=STATE_CLASS_MEASUREMENT,
         ),
-        cv.Optional(CONF_ENERGY): sensor.sensor_schema(
-            unit_of_measurement=UNIT_WATT_HOURS,
-            accuracy_decimals=1,
-            device_class=DEVICE_CLASS_ENERGY,
-            state_class=STATE_CLASS_TOTAL_INCREASING,
-        ),
         cv.Optional(CONF_CURRENT_RESISTOR, default=0.001): cv.resistance,
         cv.Optional(CONF_VOLTAGE_DIVIDER, default=2351): cv.positive_float,
         cv.Optional(CONF_MODEL, default="HLW8012"): cv.enum(MODELS, upper=True),
@@ -109,9 +99,6 @@ async def to_code(config):
     if CONF_POWER in config:
         sens = await sensor.new_sensor(config[CONF_POWER])
         cg.add(var.set_power_sensor(sens))
-    if CONF_ENERGY in config:
-        sens = await sensor.new_sensor(config[CONF_ENERGY])
-        cg.add(var.set_energy_sensor(sens))
     cg.add(var.set_current_resistor(config[CONF_CURRENT_RESISTOR]))
     cg.add(var.set_voltage_divider(config[CONF_VOLTAGE_DIVIDER]))
     cg.add(var.set_change_mode_every(config[CONF_CHANGE_MODE_EVERY]))

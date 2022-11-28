@@ -3,7 +3,6 @@
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
 #include "esphome/components/sensor/sensor.h"
-#include "esphome/components/pulse_width/pulse_width.h"
 
 namespace esphome {
 namespace hlw8012 {
@@ -16,17 +15,39 @@ enum HLW8012SensorModels {
   HLW8012_SENSOR_MODEL_BL0937
 };
 
-#ifdef HAS_PCNT
-#define USE_PCNT true
-#else
-#define USE_PCNT false
-#endif
+// copied from pulse_width component
+/// Store data in a class that doesn't use multiple-inheritance (vtables in flash)
+class HLWSensorStore {
+ public:
+  void setup(InternalGPIOPin *pin) {
+    pin->setup();
+    this->pin_ = pin->to_isr();
+    this->last_rise_ = micros();
+    pin->attach_interrupt(&HLWSensorStore::gpio_intr, this, gpio::INTERRUPT_ANY_EDGE);
+  }
+  static void gpio_intr(HLWSensorStore *arg);
+  uint32_t get_pulse_width_us() const { return this->last_width_; }
+  float get_pulse_width_s() const { return this->last_width_ / 1e6f; }
+  uint32_t get_last_rise() const { return last_rise_; }
+
+  uint32_t get_last_period() const { return this->last_period_; }
+  bool get_valid() const { return this->valid_; }
+  void reset();
+
+ protected:
+  ISRInternalGPIOPin pin_;
+  volatile uint32_t last_width_{0};
+  volatile uint32_t last_period_{0};
+  volatile uint32_t last_rise_{0};
+
+  volatile bool skip_{true};
+  volatile bool valid_{false};
+};
+
+
 
 class HLW8012Component : public PollingComponent {
  public:
-  // HLW8012Component()
-  //     : cf_store_(*pulse_counter::get_storage(USE_PCNT)), cf1_store_(*pulse_counter::get_storage(USE_PCNT)) {}
-
   void setup() override;
   void dump_config() override;
   float get_setup_priority() const override;
@@ -45,7 +66,6 @@ class HLW8012Component : public PollingComponent {
   void set_voltage_sensor(sensor::Sensor *voltage_sensor) { voltage_sensor_ = voltage_sensor; }
   void set_current_sensor(sensor::Sensor *current_sensor) { current_sensor_ = current_sensor; }
   void set_power_sensor(sensor::Sensor *power_sensor) { power_sensor_ = power_sensor; }
-  void set_energy_sensor(sensor::Sensor *energy_sensor) { energy_sensor_ = energy_sensor; }
 
  protected:
   float period_to_power(float period_in);
@@ -64,13 +84,12 @@ class HLW8012Component : public PollingComponent {
   uint64_t cf_total_pulses_{0};
   GPIOPin *sel_pin_;
   InternalGPIOPin *cf_pin_;
-  pulse_width::PulseWidthSensorStore cf_store_;
+  HLWSensorStore cf_store_;
   InternalGPIOPin *cf1_pin_;
-  pulse_width::PulseWidthSensorStore cf1_store_;
+  HLWSensorStore cf1_store_;
   sensor::Sensor *voltage_sensor_{nullptr};
   sensor::Sensor *current_sensor_{nullptr};
   sensor::Sensor *power_sensor_{nullptr};
-  sensor::Sensor *energy_sensor_{nullptr};
 
   float voltage_multiplier_{0.0f};
   float current_multiplier_{0.0f};

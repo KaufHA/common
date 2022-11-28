@@ -6,6 +6,37 @@ namespace hlw8012 {
 
 static const char *const TAG = "hlw8012";
 
+
+void IRAM_ATTR HLWSensorStore::gpio_intr(HLWSensorStore *arg) {
+  const bool new_level = arg->pin_.digital_read();
+  const uint32_t now = micros();
+  if (new_level) {
+    arg->last_period_ = (now - arg->last_rise_);
+    arg->last_rise_ = now;
+  } else {
+    arg->last_width_ = (now - arg->last_rise_);
+  }
+
+  // ignore first cycle after resetting
+  if ( !new_level) {
+    return;
+  }
+  else if ( arg->skip_ ) {
+    arg->skip_ = false;
+  }
+  else {
+    arg->valid_ = true;
+  }
+}
+
+void HLWSensorStore::reset() {
+  this->skip_        = true;      // skip first received edge
+  this->valid_       = false;     // data no longer valid
+  this->last_rise_   = micros();  // consider this the new previous rise time for new analysis
+  this->last_period_ = 0;
+}
+
+
 // valid for HLW8012 and CSE7759
 static const uint32_t HLW8012_CLOCK_FREQUENCY = 3579000;
 
@@ -45,7 +76,6 @@ void HLW8012Component::dump_config() {
   LOG_SENSOR("  ", "Voltage", this->voltage_sensor_)
   LOG_SENSOR("  ", "Current", this->current_sensor_)
   LOG_SENSOR("  ", "Power", this->power_sensor_)
-  LOG_SENSOR("  ", "Energy", this->energy_sensor_)
 }
 float HLW8012Component::get_setup_priority() const { return setup_priority::DATA; }
 
@@ -77,8 +107,7 @@ void HLW8012Component::update() {
   if (this->power_sensor_ != nullptr) {
 
     // if more than 10 seconds since last rising edge, consider power to be zero.  or if no value exists
-    if ( ((micros()-cf_store_.get_last_rise()) > 10000000) ||
-           std::isnan(this->power_sensor_->state) ) {
+    if ((micros()-cf_store_.get_last_rise()) > 10000000) {
       this->power_sensor_->publish_state(0.0f);
     }
 
@@ -108,8 +137,7 @@ void HLW8012Component::update() {
     if ( !cf1_store_.get_valid() ) {
 
       // force zero if over 10 seconds
-      if ( ((micros()-cf1_store_.get_last_rise()) > 10000000) ||
-           std::isnan(this->current_sensor_->state) ) {
+      if ((micros()-cf1_store_.get_last_rise()) > 10000000) {
         this->current_sensor_->publish_state(0.0f);
       }
 
@@ -138,8 +166,7 @@ void HLW8012Component::update() {
     if ( !cf1_store_.get_valid() ) {
 
       // force zero if over 10 seconds
-      if ( ((micros()-cf1_store_.get_last_rise()) > 10000000) ||
-             std::isnan(this->voltage_sensor_->state) ) {
+      if ((micros()-cf1_store_.get_last_rise()) > 10000000) {
         this->voltage_sensor_->publish_state(0.0f);
       }
 
