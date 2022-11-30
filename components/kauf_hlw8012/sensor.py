@@ -3,8 +3,6 @@ import esphome.config_validation as cv
 from esphome import pins
 from esphome.components import sensor
 from esphome.const import (
-    CONF_CHANGE_MODE_EVERY,
-    CONF_INITIAL_MODE,
     CONF_CURRENT,
     CONF_CURRENT_RESISTOR,
     CONF_ID,
@@ -24,15 +22,9 @@ from esphome.const import (
     UNIT_WATT_HOURS,
 )
 
-hlw8012_ns = cg.esphome_ns.namespace("hlw8012")
-HLW8012Component = hlw8012_ns.class_("HLW8012Component", cg.PollingComponent)
-HLW8012InitialMode = hlw8012_ns.enum("HLW8012InitialMode")
-HLW8012SensorModels = hlw8012_ns.enum("HLW8012SensorModels")
-
-INITIAL_MODES = {
-    CONF_CURRENT: HLW8012InitialMode.HLW8012_INITIAL_MODE_CURRENT,
-    CONF_VOLTAGE: HLW8012InitialMode.HLW8012_INITIAL_MODE_VOLTAGE,
-}
+kauf_hlw8012_ns = cg.esphome_ns.namespace("kauf_hlw8012")
+Kauf_HLW8012Component = kauf_hlw8012_ns.class_("Kauf_HLW8012Component", cg.PollingComponent)
+HLW8012SensorModels = kauf_hlw8012_ns.enum("HLW8012SensorModels")
 
 MODELS = {
     "HLW8012": HLW8012SensorModels.HLW8012_SENSOR_MODEL_HLW8012,
@@ -44,7 +36,7 @@ CONF_CF1_PIN = "cf1_pin"
 CONF_CF_PIN = "cf_pin"
 CONFIG_SCHEMA = cv.Schema(
     {
-        cv.GenerateID(): cv.declare_id(HLW8012Component),
+        cv.GenerateID(): cv.declare_id(Kauf_HLW8012Component),
         cv.Required(CONF_SEL_PIN): pins.gpio_output_pin_schema,
         cv.Required(CONF_CF_PIN): cv.All(pins.internal_gpio_input_pullup_pin_schema),
         cv.Required(CONF_CF1_PIN): cv.All(pins.internal_gpio_input_pullup_pin_schema),
@@ -69,12 +61,7 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_CURRENT_RESISTOR, default=0.001): cv.resistance,
         cv.Optional(CONF_VOLTAGE_DIVIDER, default=2351): cv.positive_float,
         cv.Optional(CONF_MODEL, default="HLW8012"): cv.enum(MODELS, upper=True),
-        cv.Optional(CONF_CHANGE_MODE_EVERY, default=8): cv.All(
-            cv.uint32_t, cv.Range(min=1)
-        ),
-        cv.Optional(CONF_INITIAL_MODE, default=CONF_VOLTAGE): cv.one_of(
-            *INITIAL_MODES, lower=True
-        ),
+        cv.Optional("timeout", default="9s"): cv.positive_time_period_milliseconds,
     }
 ).extend(cv.polling_component_schema("60s"))
 
@@ -101,6 +88,4 @@ async def to_code(config):
         cg.add(var.set_power_sensor(sens))
     cg.add(var.set_current_resistor(config[CONF_CURRENT_RESISTOR]))
     cg.add(var.set_voltage_divider(config[CONF_VOLTAGE_DIVIDER]))
-    cg.add(var.set_change_mode_every(config[CONF_CHANGE_MODE_EVERY]))
-    cg.add(var.set_initial_mode(INITIAL_MODES[config[CONF_INITIAL_MODE]]))
     cg.add(var.set_sensor_model(config[CONF_MODEL]))
