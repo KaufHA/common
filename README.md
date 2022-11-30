@@ -34,9 +34,11 @@ If you see a device’s WiFi AP being broadcast, but are having trouble connecti
 
 ### Not Seeing a Device’s WiFi AP
 
-If you are not seeing a device broadcast a WiFi AP as it should, there are ways to re-enable the WiFi AP that may work. For the bulbs, you have to power cycle the bulb without the bulb connecting to WiFi. Let the bulb power on for at least 10-15 seconds before removing power. After powering up a second time, the WiFi AP will be re-enabled. For the plug, hold down the button for at least 5 seconds and the plug will reboot with the WiFi AP enabled.
+If you are not seeing a device broadcast a WiFi AP as it should, there are ways to re-enable the WiFi AP that may work.
 
-If the device is connecting to your local WiFi network, then the above procedures will not work. You will need to clear the existing credentials by toggling the “Clear WiFi Credentials” switch. This can be done by browsing to the device’s IP address in a web browser.
+**Latest Updates:** If the device has a button, holding the button for 30 seconds will clear the current Wi-Fi credentials and cause the device to put its Wi-Fi AP back up.  For bulbs, power cycling 5 times in row with the bulb having power from between 2-10 seconds each time will do the same.  The bulb will turn on yellow 3 times in a row, and then turn on red when the credentials are cleared.
+
+**Older Firmware:**  For the bulbs, you have to power cycle the bulb without the bulb connecting to WiFi. Let the bulb power on for at least 10-15 seconds before removing power. After powering up a second time, the WiFi AP will be re-enabled. For the plug, hold down the button for at least 5 seconds and the plug will reboot with the WiFi AP enabled.  If the device is connecting to your local WiFi network, then these procedures will not work. You will need to clear the existing credentials by pressing the “Clear WiFi Credentials” button. This can be done by browsing to the device’s IP address in a web browser.
 
 ### Captive Portal not Showing SSID and Password Fields
 
