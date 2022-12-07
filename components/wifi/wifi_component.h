@@ -5,7 +5,9 @@
 #include "esphome/core/automation.h"
 #include "esphome/core/helpers.h"
 #include "esphome/components/network/ip_address.h"
+
 #include <string>
+#include <vector>
 
 #include "esphome/components/globals/globals_component.h"
 

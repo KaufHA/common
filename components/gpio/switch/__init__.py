@@ -3,20 +3,10 @@ import esphome.config_validation as cv
 import esphome.final_validate as fv
 from esphome import pins
 from esphome.components import switch
-from esphome.const import CONF_INTERLOCK, CONF_PIN, CONF_RESTORE_MODE
+from esphome.const import CONF_INTERLOCK, CONF_PIN
 from .. import gpio_ns
 
 GPIOSwitch = gpio_ns.class_("GPIOSwitch", switch.Switch, cg.Component)
-GPIOSwitchRestoreMode = gpio_ns.enum("GPIOSwitchRestoreMode")
-
-RESTORE_MODES = {
-    "RESTORE_DEFAULT_OFF": GPIOSwitchRestoreMode.GPIO_SWITCH_RESTORE_DEFAULT_OFF,
-    "RESTORE_DEFAULT_ON": GPIOSwitchRestoreMode.GPIO_SWITCH_RESTORE_DEFAULT_ON,
-    "ALWAYS_OFF": GPIOSwitchRestoreMode.GPIO_SWITCH_ALWAYS_OFF,
-    "ALWAYS_ON": GPIOSwitchRestoreMode.GPIO_SWITCH_ALWAYS_ON,
-    "RESTORE_INVERTED_DEFAULT_OFF": GPIOSwitchRestoreMode.GPIO_SWITCH_RESTORE_INVERTED_DEFAULT_OFF,
-    "RESTORE_INVERTED_DEFAULT_ON": GPIOSwitchRestoreMode.GPIO_SWITCH_RESTORE_INVERTED_DEFAULT_ON,
-}
 
 CONF_INTERLOCK_WAIT_TIME = "interlock_wait_time"
 CONFIG_SCHEMA = (
@@ -24,9 +14,6 @@ CONFIG_SCHEMA = (
     .extend(
         {
             cv.Required(CONF_PIN): pins.gpio_output_pin_schema,
-            cv.Optional(CONF_RESTORE_MODE, default="RESTORE_DEFAULT_OFF"): cv.enum(
-                RESTORE_MODES, upper=True, space="_"
-            ),
             cv.Optional(CONF_INTERLOCK): cv.ensure_list(cv.use_id(switch.Switch)),
             cv.Optional(
                 CONF_INTERLOCK_WAIT_TIME, default="0ms"
@@ -65,8 +52,6 @@ async def to_code(config):
 
     pin = await cg.gpio_pin_expression(config[CONF_PIN])
     cg.add(var.set_pin(pin))
-
-    cg.add(var.set_restore_mode(config[CONF_RESTORE_MODE]))
 
     if CONF_INTERLOCK in config:
         interlock = []
