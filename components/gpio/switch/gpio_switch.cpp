@@ -25,6 +25,9 @@ void GPIOSwitch::setup() {
   } else {
     this->turn_off();
   }
+
+  this->is_setup_ = true;
+
 }
 void GPIOSwitch::dump_config() {
   LOG_SWITCH("", "GPIO Switch", this);
@@ -70,6 +73,8 @@ void GPIOSwitch::write_state(bool state) {
   this->publish_state(state);
 }
 void GPIOSwitch::set_interlock(const std::vector<Switch *> &interlock) { this->interlock_ = interlock; }
+
+bool GPIOSwitch::is_setup() { return this->is_setup_; }
 
 }  // namespace gpio
 }  // namespace esphome

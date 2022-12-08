@@ -62,6 +62,18 @@ void Switch::publish_state(bool state) {
   ESP_LOGD(TAG, "'%s': Sending state %s", this->name_.c_str(), ONOFF(this->state));
   this->state_callback_.call(this->state);
 }
+
+void Switch::force_save(bool state) {
+  this->state = state != this->inverted_;
+
+  if (restore_mode & RESTORE_MODE_PERSISTENT_MASK) {
+    this->rtc_.save(&this->state);
+    ESP_LOGD(TAG, "'%s': Force saving state %s", this->name_.c_str(), ONOFF(this->state));
+  } else {
+    ESP_LOGD(TAG, "'%s': NOT force saving state %s", this->name_.c_str(), ONOFF(this->state));
+  }
+}
+
 bool Switch::assumed_state() { return false; }
 
 void Switch::add_on_state_callback(std::function<void(bool)> &&callback) {
