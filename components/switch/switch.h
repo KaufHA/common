@@ -43,9 +43,7 @@ class Switch : public EntityBase {
    *
    * @param state The new state.
    */
-  void publish_state(bool state);
-
-  void force_save(bool state);
+  void publish_state(bool state, bool force_save = false);
 
   /// The current reported state of the binary sensor.
   bool state;

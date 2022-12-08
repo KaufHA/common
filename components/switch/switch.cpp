@@ -22,15 +22,17 @@ void Switch::toggle() {
   this->write_state(this->inverted_ == this->state);
 }
 optional<bool> Switch::get_initial_state() {
-  if (!(restore_mode & RESTORE_MODE_PERSISTENT_MASK))
-    return {};
-
+  // always set up rtc_ in case mode changes later to one that saves
   if ( this->has_global_forced_addr ) { id(global_forced_addr) = this->forced_addr; }
   if ( this->has_forced_hash ) {
     this->rtc_ = global_preferences->make_preference<bool>(this->forced_hash);
   } else {
     this->rtc_ = global_preferences->make_preference<bool>(this->get_object_id_hash());
   }
+
+  // don't actually try to load if not in a restoring mode
+  if (!(restore_mode & RESTORE_MODE_PERSISTENT_MASK))
+    return {};
 
   bool initial_state;
   if (!this->rtc_.load(&initial_state))
@@ -42,17 +44,20 @@ optional<bool> Switch::get_initial_state_with_restore_mode() {
     return {};
   }
   bool initial_state = restore_mode & RESTORE_MODE_ON_MASK;  // default value *_OFF or *_ON
-  if (restore_mode & RESTORE_MODE_PERSISTENT_MASK) {         // For RESTORE_*
-    optional<bool> restored_state = this->get_initial_state();
-    if (restored_state.has_value()) {
-      // Invert value if any of the *_INVERTED_* modes
-      initial_state = restore_mode & RESTORE_MODE_INVERTED_MASK ? !restored_state.value() : restored_state.value();
-    }
+
+  // always call get_initial_state so that rtc_ is set up.
+  optional<bool> restored_state = this->get_initial_state();
+
+  // don't use restored state unless in a persistent mode
+  if (restored_state.has_value() && (restore_mode & RESTORE_MODE_PERSISTENT_MASK)) {
+    // Invert value if any of the *_INVERTED_* modes
+    initial_state = restore_mode & RESTORE_MODE_INVERTED_MASK ? !restored_state.value() : restored_state.value();
   }
   return initial_state;
 }
-void Switch::publish_state(bool state) {
-  if (!this->publish_dedup_.next(state))
+
+void Switch::publish_state(bool state, bool force_save) {
+  if (!force_save && !this->publish_dedup_.next(state))
     return;
   this->state = state != this->inverted_;
 
@@ -61,17 +66,6 @@ void Switch::publish_state(bool state) {
 
   ESP_LOGD(TAG, "'%s': Sending state %s", this->name_.c_str(), ONOFF(this->state));
   this->state_callback_.call(this->state);
-}
-
-void Switch::force_save(bool state) {
-  this->state = state != this->inverted_;
-
-  if (restore_mode & RESTORE_MODE_PERSISTENT_MASK) {
-    this->rtc_.save(&this->state);
-    ESP_LOGD(TAG, "'%s': Force saving state %s", this->name_.c_str(), ONOFF(this->state));
-  } else {
-    ESP_LOGD(TAG, "'%s': NOT force saving state %s", this->name_.c_str(), ONOFF(this->state));
-  }
 }
 
 bool Switch::assumed_state() { return false; }
