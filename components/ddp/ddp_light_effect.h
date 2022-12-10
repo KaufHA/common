@@ -22,7 +22,7 @@ class DDPLightEffect : public DDPLightEffectBase, public light::LightEffect {
 
  protected:
   uint16_t process(const uint8_t *payload, uint16_t size, uint16_t used) override;
-
+  float gamma_backup_{0.0};
 };
 
 }  // namespace ddp

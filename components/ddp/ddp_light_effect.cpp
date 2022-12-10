@@ -14,11 +14,18 @@ DDPLightEffect::DDPLightEffect(const std::string &name) : LightEffect(name) {}
 const std::string &DDPLightEffect::get_name() { return LightEffect::get_name(); }
 
 void DDPLightEffect::start() {
+
+  gamma_backup_ = this->state_->get_gamma_correct();
+  this->state_->set_gamma_correct(0.0f);
+
   LightEffect::start();
   DDPLightEffectBase::start();
 }
 
 void DDPLightEffect::stop() {
+
+  this->state_->set_gamma_correct(gamma_backup_);
+
   DDPLightEffectBase::stop();
   LightEffect::stop();
 }
@@ -31,15 +38,15 @@ uint16_t DDPLightEffect::process(const uint8_t *payload, uint16_t size, uint16_t
   // If there aren't 3 unused bytes, return 0 to indicate error.
   if ( size < (used + 3) ) { return 0; }
 
-  ESP_LOGV(TAG, "Applying DDP data for '%s': (%02x,%02x,%02x)", get_name().c_str(), payload[used+1], payload[used+2], payload[used+3]);
+  ESP_LOGV(TAG, "Applying DDP data for '%s': (%02x,%02x,%02x) size = %d, used = %d", get_name().c_str(), payload[used], payload[used+1], payload[used+2], size, used);
 
-
-  float r = (float)payload[used+1]/255.0f;
-  float g = (float)payload[used+2]/255.0f;
-  float b = (float)payload[used+3]/255.0f;
+  float r = (float)payload[used]/255.0f;
+  float g = (float)payload[used+1]/255.0f;
+  float b = (float)payload[used+2]/255.0f;
 
   auto call = this->state_->turn_on();
 
+  call.set_color_mode_if_supported(light::ColorMode::RGB);
   call.set_red_if_supported(r);
   call.set_green_if_supported(g);
   call.set_blue_if_supported(b);
@@ -51,6 +58,11 @@ uint16_t DDPLightEffect::process(const uint8_t *payload, uint16_t size, uint16_t
   call.set_save(false);
 
   call.perform();
+
+  // manually calling loop otherwise we just go straight into the next DDP packet without
+  // executing loop and displaying the current one.  Not totally sure why or if there is
+  // a better way to fix this, but this works well.
+  this->state_->loop();
 
   return 3;
 }

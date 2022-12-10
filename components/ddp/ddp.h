@@ -4,12 +4,19 @@
 
 #include "esphome/core/component.h"
 
+#ifdef USE_ESP32
+#include <WiFi.h>
+#endif
+
+#ifdef USE_ESP8266
+#include <ESP8266WiFi.h>
+#include <WiFiUdp.h>
+#endif
+
 #include <map>
 #include <memory>
 #include <set>
 #include <vector>
-
-class UDP;
 
 namespace esphome {
 namespace ddp {
@@ -48,11 +55,10 @@ class DDPComponent : public esphome::Component {
   }
 
  protected:
-  std::unique_ptr<UDP> udp_;
+  std::unique_ptr<WiFiUDP> udp_;
   std::set<DDPLightEffectBase *> light_effects_;
 
   bool process_(const uint8_t *payload, uint16_t size);
-
 
   bool forward_tree_(const uint8_t *payload, uint16_t size, uint16_t used) { return true; }
   bool forward_chain_(const uint8_t *payload, uint16_t size, uint16_t used) { return true; }

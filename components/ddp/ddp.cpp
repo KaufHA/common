@@ -4,15 +4,6 @@
 #include "ddp_light_effect_base.h"
 #include "esphome/core/log.h"
 
-#ifdef USE_ESP32
-#include <WiFi.h>
-#endif
-
-#ifdef USE_ESP8266
-#include <ESP8266WiFi.h>
-#include <WiFiUdp.h>
-#endif
-
 namespace esphome {
 namespace ddp {
 
@@ -37,7 +28,7 @@ void DDPComponent::loop() {
     }
 
     if (!this->process_(&payload[0], payload.size())) {
-      return;
+      continue;
     }
 
   }
@@ -49,14 +40,13 @@ void DDPComponent::add_effect(DDPLightEffectBase *light_effect) {
     return;
   }
 
-  if (!udp_) {
-    ESP_LOGD(TAG, "Starting UDP listening for DDP.");
-    udp_ = make_unique<WiFiUDP>();
-    if (!udp_->begin(PORT)) {
-      ESP_LOGE(TAG, "Cannot bind DDP to port %d.", PORT);
-      mark_failed();
-      return;
-    }
+  if (!udp_) { udp_ = make_unique<WiFiUDP>(); }
+
+  ESP_LOGD(TAG, "Starting UDP listening for DDP.");
+  if (!udp_->begin(PORT)) {
+    ESP_LOGE(TAG, "Cannot bind DDP to port %d.", PORT);
+    mark_failed();
+    return;
   }
 
   light_effects_.insert(light_effect);
@@ -75,7 +65,6 @@ void DDPComponent::remove_effect(DDPLightEffectBase *light_effect) {
   if ( (light_effects_.size() == 0) && udp_) {
     ESP_LOGD(TAG, "Stopping UDP listening for DDP.");
     udp_->stop();
-   // udp_->reset();
   }
 
 }
@@ -84,8 +73,27 @@ bool DDPComponent::process_(const uint8_t *payload, uint16_t size) {
 
   // ignore packet if data offset != [00 00 00 00].  This likely means the device is receiving a DDP packet not meant for it.
   if ( (payload[4] != 0) || (payload[5] != 0) || (payload[6] != 0) || (payload[7] != 0) ) {
-    ESP_LOGV(TAG, "Ignoring DDP Packet with non-zero data offset.");
+    ESP_LOGD(TAG, "Ignoring DDP Packet with non-zero data offset.");
     return false;
+  }
+
+  if ( size < 10 ){
+    ESP_LOGV("KAUF DDP Debug", "Invalid DDP packet received, too short (size=%d)", size);
+  }
+  else if ( size == 10 ) {
+    ESP_LOGV("KAUF DDP Debug", "DDP packet received w/ no channel data, 3 channels required - %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x", payload[0], payload[1], payload[2], payload[3], payload[4], payload[5], payload[6], payload[7], payload[8], payload[9] );
+  }
+  else if ( size == 11 ) {
+    ESP_LOGV("KAUF DDP Debug", "DDP packet received w/ 1 channel data, 3 channels required - %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x", payload[0], payload[1], payload[2], payload[3], payload[4], payload[5], payload[6], payload[7], payload[8], payload[9], payload[10] );
+  }
+  else if ( size == 12 ) {
+    ESP_LOGV("KAUF DDP Debug", "DDP packet received w/ 2 channel data, 3 channels required - %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x", payload[0], payload[1], payload[2], payload[3], payload[4], payload[5], payload[6], payload[7], payload[8], payload[9], payload[10], payload[11] );
+  }
+  else if ( size == 13) {
+    ESP_LOGV("KAUF DDP Debug", "DDP packet received: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x [%02x %02x %02x]", payload[0], payload[1], payload[2], payload[3], payload[4], payload[5], payload[6], payload[7], payload[8], payload[9], payload[10], payload[11], payload[12] );
+  }
+  else if ( size > 13 ) {
+    ESP_LOGV("KAUF DDP Debug", "DDP packet received w/ >3 channel data, using first 3 channels (size=%d) - %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x [%02x %02x %02x] %02x", size, payload[0], payload[1], payload[2], payload[3], payload[4], payload[5], payload[6], payload[7], payload[8], payload[9], payload[10], payload[11], payload[12], payload[13] );
   }
 
   // first 10 bytes are the header, so consider them used from the get-go
