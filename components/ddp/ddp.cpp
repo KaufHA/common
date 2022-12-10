@@ -73,7 +73,7 @@ void DDPComponent::remove_effect(DDPLightEffectBase *light_effect) {
   if ( (light_effects_.size() == 0) && udp_) {
     ESP_LOGD(TAG, "Stopping UDP listening for DDP.");
     udp_->stop();
-    udp_->reset();
+   // udp_->reset();
   }
 
 }

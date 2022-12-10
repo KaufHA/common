@@ -5,7 +5,7 @@ from esphome.components.light.effects import (
     register_addressable_effect,
     register_rgb_effect,
 )
-from esphome.const import CONF_ID, CONF_NAME, # CONF_CHANNELS
+from esphome.const import CONF_ID, CONF_NAME #, CONF_CHANNELS
 
 DEPENDENCIES = ["network"]
 

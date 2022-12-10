@@ -26,21 +26,21 @@ void DDPAddressableLightEffect::stop() {
 
 void DDPAddressableLightEffect::apply(light::AddressableLight &it, const Color &current_color) { }
 
-bool DDPAddressableLightEffect::process(const uint8_t *payload, uint16_t size, uint16_t used) {
+uint16_t DDPAddressableLightEffect::process(const uint8_t *payload, uint16_t size, uint16_t used) {
   auto *it = get_addressable_();
 
   ESP_LOGV(TAG, "Applying DDP data for '%s' (size: %d - used: %d)", get_name().c_str(), size, used);
 
   int num_pixels = std::min(it->size(), ((size-used)/3));
 
-  for (i = used+1; i < used+1+(num_pixels*3); i+=3) {
+  for (uint16_t i = used+1; i < used+1+(num_pixels*3); i+=3) {
     auto output = (*it)[i];
     output.set(Color(payload[i], payload[i+1], payload[i+2], (payload[i] + payload[i+1] + payload[i+2]) / 3));
   }
 
   it->schedule_show();
 
-  return true;
+  return (num_pixels*3);
 }
 
 }  // namespace e131

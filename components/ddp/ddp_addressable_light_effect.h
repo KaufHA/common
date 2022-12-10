@@ -18,12 +18,10 @@ class DDPAddressableLightEffect : public DDPLightEffectBase, public light::Addre
   void start() override;
   void stop() override;
 
-  int get_universe_count() const override;
-
   void apply(light::AddressableLight &it, const Color &current_color) override;
 
  protected:
-  bool process(const uint8_t *payload, uint16_t size, uint16_t used) override;
+  uint16_t process(const uint8_t *payload, uint16_t size, uint16_t used) override;
 };
 
 }  // namespace ddp

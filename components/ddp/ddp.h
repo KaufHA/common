@@ -53,6 +53,10 @@ class DDPComponent : public esphome::Component {
 
   bool process_(const uint8_t *payload, uint16_t size);
 
+
+  bool forward_tree_(const uint8_t *payload, uint16_t size, uint16_t used) { return true; }
+  bool forward_chain_(const uint8_t *payload, uint16_t size, uint16_t used) { return true; }
+
   bool chain_{false};
   bool tree_{false};
 };
