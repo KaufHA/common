@@ -68,9 +68,8 @@ async def ddp_light_effect_to_code(config, effect_id):
     parent = await cg.get_variable(config[CONF_DDP_ID])
 
     effect = cg.new_Pvariable(effect_id, config[CONF_NAME])
-    cg.add(effect.set_first_universe(config[CONF_UNIVERSE]))
 #    cg.add(effect.set_channels(CHANNELS[config[CONF_CHANNELS]]))
-    cg.add(effect.set_forward_tree(config[CONF_DDP_TREE]))
-    cg.add(effect.set_forward_chain(config[CONF_DDP_CHAIN]))
+    # cg.add(effect.set_forward_tree(config[CONF_DDP_TREE]))
+    # cg.add(effect.set_forward_chain(config[CONF_DDP_CHAIN]))
     cg.add(effect.set_ddp(parent))
     return effect
