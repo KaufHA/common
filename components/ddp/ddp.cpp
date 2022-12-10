@@ -24,8 +24,10 @@ DDPComponent::~DDPComponent() {}
 void DDPComponent::setup() {}
 
 void DDPComponent::loop() {
+
+  if ( !udp_ ) { return; }
+
   std::vector<uint8_t> payload;
-  DDP_Packet packet;
 
   while (uint16_t packet_size = udp_->parsePacket()) {
     payload.resize(packet_size);
