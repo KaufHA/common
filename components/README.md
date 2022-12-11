@@ -8,6 +8,7 @@ external_components:
       type: git
       url: https://github.com/KaufHA/common
     components: [ ddp, kauf_hlw8012 ]
+    refresh: always
 ```
 
 `components:` is a comma-separated list of components that you actually want to add.  You can remove the `components:` line to import all components, but that is not recommended.
@@ -28,6 +29,7 @@ external_components:
       type: git
       url: https://github.com/KaufHA/common
     components: [ ddp ]
+    refresh: always
 ```
 
 DDP can be added to a single light using the ddp effect as follows.
@@ -95,6 +97,7 @@ external_components:
       type: git
       url: https://github.com/KaufHA/common
     components: [ kauf_hlw8012 ]
+    refresh: always
 ```
 
 The configuration for the kauf_hlw8012 component is the same as the stock hlw8012 component, except that the change_mode_every and initial_mode settings are invalid.  There is also no energy meter any more.  Please use the [total_daily_energy](https://esphome.io/components/sensor/total_daily_energy.html) component if you want to track energy usage with the kauf_hlw8012 component.
