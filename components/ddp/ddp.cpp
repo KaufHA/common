@@ -74,7 +74,7 @@ bool DDPComponent::process_(const uint8_t *payload, uint16_t size) {
   // There may be a better way to handle this header field.  One user was receiving packets with non-zero data offset that were
   // screwing up the light effect (flickering).
   if ( (payload[4] != 0) || (payload[5] != 0) || (payload[6] != 0) || (payload[7] != 0) ) {
-    ESP_LOGD(TAG, "Ignoring DDP Packet with non-zero data offset.");
+    ESP_LOGD(TAG, "Ignoring DDP Packet with non-zero data offset: (size=%d) - %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x [%02x %02x %02x] %02x", size, payload[0], payload[1], payload[2], payload[3], payload[4], payload[5], payload[6], payload[7], payload[8], payload[9], payload[10], payload[11], payload[12], payload[13] );
     return false;
   }
 
