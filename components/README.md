@@ -73,6 +73,14 @@ This component is a work in progress with only basic functionality completed so 
 - Option to scale brightness to the light entity's brightness in Home Assistant
 - Handle timecode field, which changes the offset where pixel data begins in the UDP packet.
 
+### DDP Troubleshooting
+
+For now, the DDP component requires a data offset of zero, since someone had issues with a bulb receiving packets not intended for the bulb.  The only convenient way to filter these out was to filter any packet with a non-zero data offset.  You can get xLights to always send out a zero offset by unchecking "Keep Channel Numbers" for each device.
+
+If anyone can explain the specific definition of the data offset field and how it should be used, that would be appreciated.  The spec only really explains its use either with loading data from local storage or with DMX legacy mode.  It makes no sense how xLights can send the same packet with different data offsets and have both be valid under the spec.
+
+[DDP Spec](http://www.3waylabs.com/ddp/)
+
 ## KAUF_HLW8012
 
 The kauf_hlw8012 component is a rewritten alternative to the stock ESPHome hlw8012 component.  The kauf_hlw8012 component constantly switches back-and-forth between reading current and voltage as quickly as possible, and then publishes the most recent reading of both every update interval.
