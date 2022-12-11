@@ -46,12 +46,20 @@ uint16_t DDPLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_
 
   auto call = this->state_->turn_on();
 
+  call.set_color_mode_if_supported(light::ColorMode::RGB_COLD_WARM_WHITE);
+  call.set_color_mode_if_supported(light::ColorMode::RGB_COLOR_TEMPERATURE);
+  call.set_color_mode_if_supported(light::ColorMode::RGB_WHITE);
   call.set_color_mode_if_supported(light::ColorMode::RGB);
   call.set_red_if_supported(r);
   call.set_green_if_supported(g);
   call.set_blue_if_supported(b);
-  call.set_white_if_supported((r+g+b)/3.0f);
   call.set_brightness_if_supported(std::max(r, std::max(g, b)) );
+  call.set_color_brightness_if_supported(1.0f);
+
+  // disable white channels
+  call.set_white_if_supported(0.0f);
+  call.set_cold_white_if_supported(0.0f);
+  call.set_warm_white_if_supported(0.0f);
 
   call.set_transition_length_if_supported(0);
   call.set_publish(false);
