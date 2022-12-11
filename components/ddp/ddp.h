@@ -23,16 +23,6 @@ namespace ddp {
 
 class DDPLightEffectBase;
 
-struct DDP_Packet {
-  uint8_t flags;
-  uint8_t sequence_no;
-  uint8_t data_type;
-  uint8_t source_id;
-  uint32_t data_offset;
-  uint16_t data_length;
-  uint8_t data_values[];
-};
-
 class DDPComponent : public esphome::Component {
  public:
   DDPComponent();
@@ -45,13 +35,13 @@ class DDPComponent : public esphome::Component {
   void add_effect(DDPLightEffectBase *light_effect);
   void remove_effect(DDPLightEffectBase *light_effect);
 
-  void set_chain(bool chain=false) {
-    this->chain_ = chain;
-    if ( chain ) { this->tree_ = false; }
+  void set_forward_chain(bool forward_chain) {
+    this->forward_chain_ = forward_chain;
+    if ( forward_chain ) { this->forward_tree_ = false; }
   }
-  void set_tree(bool tree=false) {
-    this->tree_ = tree;
-    if ( tree ) { this->chain_ = false; }
+  void set_forward_tree(bool forward_tree) {
+    this->forward_tree_ = forward_tree;
+    if ( forward_tree ) { this->forward_chain_ = false; }
   }
 
  protected:
@@ -60,11 +50,12 @@ class DDPComponent : public esphome::Component {
 
   bool process_(const uint8_t *payload, uint16_t size);
 
-  bool forward_tree_(const uint8_t *payload, uint16_t size, uint16_t used) { return true; }
-  bool forward_chain_(const uint8_t *payload, uint16_t size, uint16_t used) { return true; }
+  // to be implemented
+  bool do_forward_tree_(const uint8_t *payload, uint16_t size, uint16_t used) { return true; }
+  bool do_forward_chain_(const uint8_t *payload, uint16_t size, uint16_t used) { return true; }
 
-  bool chain_{false};
-  bool tree_{false};
+  bool forward_chain_{false};
+  bool forward_tree_{false};
 };
 
 }  // namespace ddp

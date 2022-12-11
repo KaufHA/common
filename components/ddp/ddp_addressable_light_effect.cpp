@@ -16,7 +16,7 @@ const std::string &DDPAddressableLightEffect::get_name() { return AddressableLig
 void DDPAddressableLightEffect::start() {
 
   // backup gamma for restoring when effect ends
-  gamma_backup_ = this->state_->get_gamma_correct();
+  this->gamma_backup_ = this->state_->get_gamma_correct();
 
   // set gamma to zero while effect is in ... effect
   this->state_->set_gamma_correct(0.0f);
@@ -31,7 +31,7 @@ void DDPAddressableLightEffect::start() {
 void DDPAddressableLightEffect::stop() {
 
   // restore backed up gamma value and recalculate gamma table.
-  this->state_->set_gamma_correct(gamma_backup_);
+  this->state_->set_gamma_correct(this->gamma_backup_);
   get_addressable_()->setup_state(this->state_);
 
   DDPLightEffectBase::stop();
@@ -41,7 +41,7 @@ void DDPAddressableLightEffect::stop() {
 
 void DDPAddressableLightEffect::apply(light::AddressableLight &it, const Color &current_color) { }
 
-uint16_t DDPAddressableLightEffect::process(const uint8_t *payload, uint16_t size, uint16_t used) {
+uint16_t DDPAddressableLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_t used) {
   auto *it = get_addressable_();
 
   int num_pixels = std::min(it->size(), ((size-used)/3));

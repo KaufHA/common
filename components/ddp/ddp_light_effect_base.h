@@ -25,7 +25,7 @@ class DDPLightEffectBase {
  protected:
   DDPComponent *ddp_{nullptr};
 
-  virtual uint16_t process(const uint8_t *payload, uint16_t size, uint16_t used) = 0;
+  virtual uint16_t process_(const uint8_t *payload, uint16_t size, uint16_t used) = 0;
 
   friend class DDPComponent;
 };

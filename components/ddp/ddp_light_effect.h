@@ -21,7 +21,7 @@ class DDPLightEffect : public DDPLightEffectBase, public light::LightEffect {
   void apply() override;
 
  protected:
-  uint16_t process(const uint8_t *payload, uint16_t size, uint16_t used) override;
+  uint16_t process_(const uint8_t *payload, uint16_t size, uint16_t used) override;
   float gamma_backup_{0.0};
 };
 
