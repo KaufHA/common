@@ -19,9 +19,9 @@ The components which might be particularly interesting to you are described belo
 
 The DDP component will allow your light to accept DDP packets from WLED, xLights, etc.  Currently, only RGB (3 channels per pixel) is supported.
 
-You need to add the ddp component into your project using `ddp:` at the top level of your yaml file.  This is shown in the below examples.  Then, the ddp and addressable_ddp effects will be available to add in lights.
+# Installation and Usage
 
-Import the DDP project into your project using the following yaml:
+(1) Import the DDP component into your project as an external component using the following yaml:
 
 ```
 external_components:
@@ -32,7 +32,11 @@ external_components:
     refresh: always
 ```
 
-DDP can be added to a single light using the ddp effect as follows.
+(2) Invoke the ddp component by adding `ddp:` at the top level of your yaml file.  Top level means that `ddp:` is at the beginning of its line and not tabbed over at all.  This can be seen in the below examples.
+
+(3) Add either ddp or addressable_ddp as an effect to any light entity.  The ddp effect is for single lights such as bulbs.  addressable_ddp is for addressable lights such as RGB strips.
+
+DDP example:
 
 ```
 ddp:
@@ -48,7 +52,7 @@ light:
       - ddp
 ```
 
-DDP can be added to an addressable light using the addressable_ddp effect as follows.
+Addressable DDP example:
 
 ```
 ddp:
@@ -64,7 +68,7 @@ light:
       - addressable_ddp
 ```
 
-In either case, the effect will need to be activated before the light responds to DDP packets.  The effects can be enabled by turning on the light in Home Assistant and then selecting the effect from the light entity's information popup as below:
+(4)  Activate the effect.  The effects can be enabled by turning on the light in Home Assistant and then selecting the effect from the light entity's information popup as below:
 
 ![image](https://user-images.githubusercontent.com/89616381/206888603-fbd7d5e8-6ccd-4c30-bac6-235cc163dc8c.png)
 
