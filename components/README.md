@@ -19,7 +19,7 @@ The components which might be particularly interesting to you are described belo
 
 The DDP component will allow your light to accept DDP packets from WLED, xLights, etc.  Currently, only RGB (3 channels per pixel) is supported.
 
-# Installation and Usage
+### Installation and Usage
 
 (1) Import the DDP component into your project as an external component using the following yaml:
 
