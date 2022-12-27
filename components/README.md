@@ -32,9 +32,9 @@ external_components:
     refresh: always
 ```
 
-(2) Invoke the ddp component by adding `ddp:` at the top level of your yaml file.  Top level means that `ddp:` is at the beginning of its line and not tabbed over at all.  This can be seen in the below examples.
+(2) Invoke the ddp component by adding `ddp:` at the top level of your yaml file.  Top level means that `ddp:` is at the beginning of its line and not tabbed over at all.  This can be seen in the first line of both examples below.
 
-(3) Add either ddp or addressable_ddp as an effect to any light entity.  The ddp effect is for single lights such as bulbs.  addressable_ddp is for addressable lights such as RGB strips.
+(3) Add either ddp or addressable_ddp as an effect to any light entity.  The ddp effect is for single lights such as bulbs.  The addressable_ddp effect is for addressable lights such as RGB strips.
 
 DDP example:
 
@@ -74,10 +74,8 @@ light:
 
 This component is a work in progress with only basic functionality completed so far.  Still to implement:
 - Customizable timeout after which the light will return to the value set in Home Assistant if no DDP packet is received.
-- Read DDP header to determine whether to use data as RGB, RGBW, or grayscale.
 - Chain or Tree excess DDP pixels, i.e., forward unused pixel data to subsequent IP addresses.
 - Option to scale brightness to the light entity's brightness in Home Assistant
-- Handle timecode field, which changes the offset where pixel data begins in the UDP packet.
 
 ### DDP Troubleshooting
 
@@ -86,6 +84,13 @@ For now, the DDP component requires a data offset of zero, since someone had iss
 If anyone can explain the specific definition of the data offset field and how it should be used, that would be appreciated.  The spec only really explains its use either with loading data from local storage or with DMX legacy mode.  It makes no sense how xLights can send the same packet with different data offsets and have both be valid under the spec.
 
 [DDP Spec](http://www.3waylabs.com/ddp/)
+
+### Additional Notes on Header Fields
+
+Currently, neither xLights nor WLED appear to follow the DDP header specification.  In particular, when sending RGB data, the data type field is not set properly.  Therefore, this component does not look at the data type field to determine number of channels and instead always just presumes RGB data.  There is no plan to modify this behavior until someone lets us know that it is needed.
+
+The timecode field is not handled, and all received packets are presumed to not have a timecode field without checking.  Neither WLED nor xLights utilize the timecode field and since they don't follow the header spec in other ways we don't want to depend on the timecode flag being accurate.  Therefore, if data packets are sent with timecodes, the RGB data will be misinterpreted.  If this behavior becomes a problem for someone, let us know.
+
 
 ## KAUF_HLW8012
 
@@ -110,7 +115,7 @@ For example, the following would be a valid configuration to update the power, c
 
 ```
 sensor:
-  - platform: hlw8012
+  - platform: kauf_hlw8012
     sel_pin: 5
     cf_pin: 14
     cf1_pin: 13
