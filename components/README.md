@@ -81,7 +81,6 @@ light:
 ![image](https://user-images.githubusercontent.com/89616381/206888603-fbd7d5e8-6ccd-4c30-bac6-235cc163dc8c.png)
 
 This component is a work in progress with only basic functionality completed so far.  Still to implement:
-- Customizable timeout after which the light will return to the value set in Home Assistant if no DDP packet is received.
 - Chain or Tree excess DDP pixels, i.e., forward unused pixel data to subsequent IP addresses.
 - Option to scale brightness to the light entity's brightness in Home Assistant
 
