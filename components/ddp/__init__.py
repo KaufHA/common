@@ -5,7 +5,7 @@ from esphome.components.light.effects import (
     register_addressable_effect,
     register_rgb_effect,
 )
-from esphome.const import CONF_ID, CONF_NAME #, CONF_CHANNELS
+from esphome.const import CONF_ID, CONF_NAME
 
 DEPENDENCIES = ["network"]
 
@@ -17,15 +17,13 @@ DDPAddressableLightEffect = ddp_ns.class_(
 DDPComponent = ddp_ns.class_("DDPComponent", cg.Component)
 
 CONF_DDP_ID = "ddp_id"
-CONF_DDP_CHAIN = "forward_chain"
-CONF_DDP_TREE = "forward_tree"
+CONF_DDP_TIMEOUT = "timeout"
+CONF_DDP_DIS_GAMMA = "disable_gamma"
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(DDPComponent),
-            cv.Optional(CONF_DDP_CHAIN, default=False): cv.boolean,
-            cv.Optional(CONF_DDP_TREE, default=False): cv.boolean,
         }
     ),
     cv.only_with_arduino,
@@ -43,6 +41,8 @@ async def to_code(config):
     "DDP",
     {
         cv.GenerateID(CONF_DDP_ID): cv.use_id(DDPComponent),
+        cv.Optional(CONF_DDP_TIMEOUT): cv.positive_time_period_milliseconds,
+        cv.Optional(CONF_DDP_DIS_GAMMA): cv.boolean,
     },
 )
 @register_addressable_effect(
@@ -51,6 +51,8 @@ async def to_code(config):
     "Addressable DDP",
     {
         cv.GenerateID(CONF_DDP_ID): cv.use_id(DDPComponent),
+        cv.Optional(CONF_DDP_TIMEOUT): cv.positive_time_period_milliseconds,
+        cv.Optional(CONF_DDP_DIS_GAMMA): cv.boolean,
     },
 )
 async def ddp_light_effect_to_code(config, effect_id):
@@ -58,9 +60,12 @@ async def ddp_light_effect_to_code(config, effect_id):
 
     effect = cg.new_Pvariable(effect_id, config[CONF_NAME])
 
-    # to be implemented
-    # cg.add(effect.set_forward_tree(config[CONF_DDP_TREE]))
-    # cg.add(effect.set_forward_chain(config[CONF_DDP_CHAIN]))
-
     cg.add(effect.set_ddp(parent))
+
+    if CONF_DDP_TIMEOUT in config:
+        cg.add(effect.set_timeout(config[CONF_DDP_TIMEOUT]))
+
+    if CONF_DDP_DIS_GAMMA in config:
+        cg.add(effect.set_disable_gamma(config[CONF_DDP_DIS_GAMMA]))
+
     return effect

@@ -21,9 +21,19 @@ class DDPLightEffectBase {
   virtual void stop();
 
   void set_ddp(DDPComponent *ddp) { this->ddp_ = ddp; }
+  void set_timeout(uint32_t timeout) {this->timeout_ = timeout;}
+  void set_disable_gamma(bool disable_gamma) { this->disable_gamma_ = disable_gamma;}
+  bool timeout_check();
 
  protected:
   DDPComponent *ddp_{nullptr};
+
+  uint32_t timeout_{10000};
+  uint32_t last_ddp_time_ms_{0};
+
+  bool disable_gamma_{true};
+  float gamma_backup_{0.0};
+  bool next_packet_will_be_first_{true};
 
   virtual uint16_t process_(const uint8_t *payload, uint16_t size, uint16_t used) = 0;
 

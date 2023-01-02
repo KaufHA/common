@@ -15,8 +15,9 @@ const std::string &DDPLightEffect::get_name() { return LightEffect::get_name(); 
 
 void DDPLightEffect::start() {
 
+  // backup gamma for restoring when effect ends
   this->gamma_backup_ = this->state_->get_gamma_correct();
-  this->state_->set_gamma_correct(0.0f);
+  this->next_packet_will_be_first_ = true;
 
   LightEffect::start();
   DDPLightEffectBase::start();
@@ -24,21 +25,64 @@ void DDPLightEffect::start() {
 
 void DDPLightEffect::stop() {
 
+  // restore gamma.
   this->state_->set_gamma_correct(this->gamma_backup_);
+  this->next_packet_will_be_first_ = true;
 
   DDPLightEffectBase::stop();
   LightEffect::stop();
 }
 
-void DDPLightEffect::apply() {}
+void DDPLightEffect::apply() {
+
+  // if receiving DDP packets times out, reset to home assistant color.
+  // apply function is not needed normally to display changes to the light
+  // from Home Assistant, but it is needed to restore value on timeout.
+  if ( this->timeout_check() ) {
+    ESP_LOGD(TAG,"DDP stream for '%s->%s' timed out.", this->state_->get_name().c_str(), this->get_name().c_str());
+    this->next_packet_will_be_first_ = true;
+
+    auto call = this->state_->turn_on();
+
+    call.set_color_mode_if_supported(this->state_->remote_values.get_color_mode());
+    call.set_red_if_supported(this->state_->remote_values.get_red());
+    call.set_green_if_supported(this->state_->remote_values.get_green());
+    call.set_blue_if_supported(this->state_->remote_values.get_blue());
+    call.set_brightness_if_supported(this->state_->remote_values.get_brightness());
+    call.set_color_brightness_if_supported(this->state_->remote_values.get_color_brightness());
+
+    call.set_white_if_supported(this->state_->remote_values.get_white());
+    call.set_cold_white_if_supported(this->state_->remote_values.get_cold_white());
+    call.set_warm_white_if_supported(this->state_->remote_values.get_warm_white());
+
+    call.set_publish(false);
+    call.set_save(false);
+
+    // restore backed up gamma value
+    this->state_->set_gamma_correct(this->gamma_backup_);
+    call.perform();
+   }
+
+}
 
 uint16_t DDPLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_t used) {
 
-  // for now, we require 3 bytes of data (r, g, b).
+  // at least for now, we require 3 bytes of data (r, g, b).
   // If there aren't 3 unused bytes, return 0 to indicate error.
   if ( size < (used + 3) ) { return 0; }
 
-  ESP_LOGV(TAG, "Applying DDP data for '%s': (%02x,%02x,%02x) size = %d, used = %d", get_name().c_str(), payload[used], payload[used+1], payload[used+2], size, used);
+  // disable gamma on first received packet, not just based on effect being enabled.
+  // that way home assistant light can still be used as normal when DDP packets are not
+  // being received but effect is still enabled.
+  // gamma will be enabled again when effect disabled or on timeout.
+  if ( this->next_packet_will_be_first_ && this->disable_gamma_ ) {
+    this->state_->set_gamma_correct(0.0f);
+  }
+
+  this->next_packet_will_be_first_ = false;
+  this->last_ddp_time_ms_ = millis();
+
+  ESP_LOGV(TAG, "Applying DDP data for '%s->%s': (%02x,%02x,%02x) size = %d, used = %d", this->state_->get_name().c_str(), this->get_name().c_str(), payload[used], payload[used+1], payload[used+2], size, used);
 
   float r = (float)payload[used]/255.0f;
   float g = (float)payload[used+1]/255.0f;
