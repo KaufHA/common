@@ -36,6 +36,10 @@ external_components:
 
 (3) Add either ddp or addressable_ddp as an effect to any light entity.  The ddp effect is for single lights such as bulbs.  The addressable_ddp effect is for addressable lights such as RGB strips.
 
+Either effect can optionally utilize the following options:
+- **timeout** (defaults to 10 seconds) - if a DDP packet is not received for the timeout period, the light will automatically return to the color set via home assistant.  Set to 0s to disable timeout.
+- **disable_gamma** (defaults to true) - if true, gamma will be disabled for color values received via ddp.  If set to false, gamma will not be disabled.  
+
 DDP example:
 
 ```
@@ -50,6 +54,8 @@ light:
     blue: pwm_blue
     effects:
       - ddp
+          timeout: 10s
+          disable_gamma: true
 ```
 
 Addressable DDP example:
@@ -66,6 +72,8 @@ light:
     name: "Test DDP Strip"
     effects:
       - addressable_ddp
+          timeout: 10s
+          disable_gamma: true
 ```
 
 (4)  Activate the effect.  The effects can be enabled by turning on the light in Home Assistant and then selecting the effect from the light entity's information popup as below:
