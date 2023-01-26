@@ -11,6 +11,12 @@ namespace ddp {
 
 class DDPComponent;
 
+enum DDPScalingMode { DDP_NO_SCALING     = 0,
+                      DDP_SCALE_PIXEL    = 1,
+                      DDP_SCALE_STRIP    = 2,
+                      DDP_SCALE_PACKET   = 3,
+                      DDP_SCALE_MULTIPLY = 4 };
+
 class DDPLightEffectBase {
  public:
   DDPLightEffectBase();
@@ -19,11 +25,12 @@ class DDPLightEffectBase {
 
   virtual void start();
   virtual void stop();
+  bool timeout_check();
 
   void set_ddp(DDPComponent *ddp) { this->ddp_ = ddp; }
   void set_timeout(uint32_t timeout) {this->timeout_ = timeout;}
   void set_disable_gamma(bool disable_gamma) { this->disable_gamma_ = disable_gamma;}
-  bool timeout_check();
+  void set_scaling_mode(DDPScalingMode scaling_mode) { this->scaling_mode_ = scaling_mode;}
 
  protected:
   DDPComponent *ddp_{nullptr};
@@ -34,6 +41,8 @@ class DDPLightEffectBase {
   bool disable_gamma_{true};
   float gamma_backup_{0.0};
   bool next_packet_will_be_first_{true};
+
+  DDPScalingMode scaling_mode_{DDP_NO_SCALING};
 
   virtual uint16_t process_(const uint8_t *payload, uint16_t size, uint16_t used) = 0;
 

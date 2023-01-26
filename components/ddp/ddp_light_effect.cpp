@@ -84,9 +84,39 @@ uint16_t DDPLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_
 
   ESP_LOGV(TAG, "Applying DDP data for '%s->%s': (%02x,%02x,%02x) size = %d, used = %d", this->state_->get_name().c_str(), this->get_name().c_str(), payload[used], payload[used+1], payload[used+2], size, used);
 
-  float r = (float)payload[used]/255.0f;
-  float g = (float)payload[used+1]/255.0f;
-  float b = (float)payload[used+2]/255.0f;
+  float red   = (float)payload[used]/255.0f;
+  float green = (float)payload[used+1]/255.0f;
+  float blue  = (float)payload[used+2]/255.0f;
+
+  float multiplier = this->state_->remote_values.get_brightness();
+  float max_val = 0;
+
+  // for DDP_PACKET mode, find largest r,g, or b value in packet and scale that value to brightness
+  if ( this->scaling_mode_ == DDP_SCALE_PACKET ) {
+    // find largest rgb value in packet
+    uint8_t packet_max = 0;
+    for ( int i = 10; i < size; i++ ) {
+      if ( payload[i] > packet_max ) { packet_max = payload[i]; }
+    }
+    max_val = (float)packet_max / 255.0f;
+  }
+
+  // DDP_PIXEL and DDP_STRIP are the same with bulbs since a "strip" is one pixel.
+  if ( (this->scaling_mode_ == DDP_SCALE_STRIP) || (this->scaling_mode_ == DDP_SCALE_PIXEL)) {
+    if ( (red >= green) && (red >= blue ) ) { max_val = red;   }
+    else if             ( green >= blue )   { max_val = green; }
+    else                                    { max_val = blue;  }
+  }
+
+  // if we got a max_val, update multiplier
+  if ( max_val != 0 ) { multiplier /= max_val; }
+
+  // if we are in any scaling mode, multiply the pixel rgb values by the multiplier.
+  if ( this->scaling_mode_ != DDP_NO_SCALING) {
+    red   *= multiplier;
+    green *= multiplier;
+    blue  *= multiplier;
+  }
 
   auto call = this->state_->turn_on();
 
@@ -94,10 +124,10 @@ uint16_t DDPLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_
   call.set_color_mode_if_supported(light::ColorMode::RGB_COLOR_TEMPERATURE);
   call.set_color_mode_if_supported(light::ColorMode::RGB_WHITE);
   call.set_color_mode_if_supported(light::ColorMode::RGB);
-  call.set_red_if_supported(r);
-  call.set_green_if_supported(g);
-  call.set_blue_if_supported(b);
-  call.set_brightness_if_supported(std::max(r, std::max(g, b)) );
+  call.set_red_if_supported(red);
+  call.set_green_if_supported(green);
+  call.set_blue_if_supported(blue);
+  call.set_brightness_if_supported(std::max(red, std::max(green, blue)) );
   call.set_color_brightness_if_supported(1.0f);
 
   // disable white channels
