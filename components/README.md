@@ -39,6 +39,12 @@ external_components:
 Either effect can optionally utilize the following options:
 - **timeout** (defaults to 10 seconds) - if a DDP packet is not received for the timeout period, the light will automatically return to the color set via home assistant.  Set to 0s to disable timeout.
 - **disable_gamma** (defaults to true) - if true, gamma will be disabled for color values received via ddp.  If set to false, gamma will not be disabled.  
+- **brightness_scaling** (defaults to None) - determines whether and how DDP values will be scaled by the Home Assistant light entity brightness.  The following options are available:
+  - ***None***:  DDP values will be displayed as received without being scaled based on the Home Assistant entity brightness.
+  - ***Multiply***: All received DDP values will be multiplied by the Home Assistant entity brightness before being displayed, where the entity brightness is considered a float value between 0.0 and 1.0.
+  - ***Pixel***: Each pixel will individually be scaled up or down to the brightness of the Home Assistant light entity.
+  - ***Strip***: Each strip will be scaled up or down so that the brightest pixel of the strip is at the brightness of the Home Assistant light entity.  Pixel and Strip are the same for bulbs.
+  - ***Packet***: Entire packets will be scaled so that the brightest pixel of the packet is at the brightness of the Home Assistant light entity.  Packet and Strip are the same for devices with one LED strip.  
 
 DDP example:
 
@@ -56,6 +62,7 @@ light:
       - ddp
           timeout: 10s
           disable_gamma: true
+          brightness_scaling: none
 ```
 
 Addressable DDP example:
@@ -74,6 +81,7 @@ light:
       - addressable_ddp
           timeout: 10s
           disable_gamma: true
+          brightness_scaling: none
 ```
 
 (4)  Activate the effect.  The effects can be enabled by turning on the light in Home Assistant and then selecting the effect from the light entity's information popup as below:
