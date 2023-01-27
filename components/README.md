@@ -93,7 +93,6 @@ light:
 
 This component is a work in progress with only basic functionality completed so far.  Still to implement:
 - Chain or Tree excess DDP pixels, i.e., forward unused pixel data to subsequent IP addresses.
-- Option to scale brightness to the light entity's brightness in Home Assistant
 
 ### DDP Troubleshooting
 
