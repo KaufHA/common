@@ -44,8 +44,8 @@ Either effect can optionally utilize the following configuration variables:
   - `NONE` (default) - DDP values will be displayed as received without being scaled based on the Home Assistant entity brightness.
   - `MULTIPLY` - All received DDP values will be multiplied by the Home Assistant entity brightness before being displayed, where the entity brightness is considered a float value between 0.0 and 1.0.
   - `PIXEL` - Each pixel will individually be scaled up or down to the brightness of the Home Assistant light entity.
-  - `STRIP` - Each strip will be scaled up or down so that the brightest pixel of the strip is at the brightness of the Home Assistant light entity.  Pixel and Strip are the same for bulbs.
-  - `PACKET` - Each entire packet will be scaled so that the brightest pixel of the packet is at the brightness of the Home Assistant light entity.  Packet and Strip are the same for devices with one LED strip.  
+  - `STRIP` - Each strip will be scaled up or down so that the brightest pixel of the strip is at the brightness of the Home Assistant light entity.  `PIXEL` and `STRIP` are the same for bulbs.
+  - `PACKET` - Each entire packet will be scaled so that the brightest pixel of the packet is at the brightness of the Home Assistant light entity.  `PACKET` and `STRIP` are the same for devices with one LED strip.  
 
 DDP example:
 
