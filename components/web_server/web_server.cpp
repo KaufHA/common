@@ -1240,6 +1240,7 @@ void WebServer::schedule_(std::function<void()> &&f) {
 #else
   this->defer(std::move(f));
 #endif
+}
 
 void WebServer::reset_flash(AsyncWebServerRequest *request) {
 
