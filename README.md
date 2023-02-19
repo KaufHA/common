@@ -8,7 +8,19 @@ This repo contains common files generally usable by any KAUF product.
 
 ## Troubleshooting
 
-### Issues Building Firmware in ESPHome Dashboard
+### Binary Size Error
+
+ESPHome began adding API encryption by default, which makes most of our binary files too big to OTA update our devices.  If you are getting the message `ERROR Error binary size: Error: ESP does not have enough space to store OTA file. Please try flashing a minimal firmware (remove everything except ota)`, then you need to remove API encryption by commenting it out or deleting the following lines:
+
+```
+# api:
+#   encryption:
+#     key: ...
+```
+
+If you want to keep API encryption, you might try flashing first with the *-minimal.yaml, and then reverting back to the main yaml with API encryption.
+
+### Other Issues Building Firmware in ESPHome Dashboard
 
 Any build errors can usually be resolved by upgrading the ESPHome dashboard to the latest version.  On the days when ESPHome updates are released, it may take us up to 24 hours to make necessary changes to our custom components during which time you may see build errors with the new version.  Please be patient.  
   
