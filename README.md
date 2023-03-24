@@ -5,6 +5,27 @@ This repo contains common files generally usable by any KAUF product.
 
 ***esphome-webserver* directory** - "fork" of the [esphome/esphome-webserver](https://github.com/esphome/esphome-webserver) repo used to generate custom web_server and captive_portal pages.
 
+## HTTP API
+
+Our products use ESPHome's HTTP API, documented here: https://esphome.io/web-api/index.html
+
+Some example curl commands to utilize the HTTP API are shown below.  You'll need to change the IP address to that of the device you are trying to control.  If you flash your own custom firmware and change the name, then the name will need to be changed accordingly as well.
+- Turn on plug:
+  - `curl -X POST "http://192.168.1.16/switch/kauf_plug/turn_on"`
+- Turn off plug:
+  - `curl -X POST "http://192.168.1.16/switch/kauf_plug/turn_off"`
+- Turn on light to RGB mode and set color:
+  - `curl -X POST "http://192.168.1.16/light/kauf_bulb/turn_on?color_mode=rgb&r=255&g=255&b=0"`
+- Turn on light to color temp mode and set temp in mired (integer from 150-350):
+  - `curl -X POST "http://192.168.1.16/light/kauf_bulb/turn_on?color_mode=color_temp&color_temp=250"`
+- Turn on light and set brightness (integer from 1-255):
+  - `curl -X POST "http://192.168.1.16/light/kauf_bulb/turn_on?brightness=150"`
+- Turn off light:
+  - `curl -X POST "http://192.168.1.16/light/kauf_bulb/turn_off"`
+ 
+In addition you can flash a firmware with the following curl command.  Sometimes this works better than going through a web browser.
+
+`curl -v -X POST -H "Content-Type: multipart/form-data" -F update=@firmware_filename.bin.gz  "http://192.168.1.16/update"`
 
 ## Troubleshooting
 
