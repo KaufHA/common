@@ -51,9 +51,9 @@ def validate(config):
 
 
 CONFIG_SCHEMA = cv.All(
-    select.SELECT_SCHEMA.extend(
+    select.select_schema(TemplateSelect)
+    .extend(
         {
-            cv.GenerateID(): cv.declare_id(TemplateSelect),
             cv.Required(CONF_OPTIONS): cv.All(
                 cv.ensure_list(cv.string_strict), cv.Length(min=1)
             ),
@@ -66,7 +66,8 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional("forced_addr"): cv.int_,
             cv.Optional("global_addr"): cv.use_id(globals),
         }
-    ).extend(cv.polling_component_schema("60s")),
+    )
+    .extend(cv.polling_component_schema("60s")),
     validate,
 )
 
