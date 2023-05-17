@@ -66,7 +66,6 @@ void Switch::publish_state(bool state, bool force_save) {
   ESP_LOGD(TAG, "'%s': Sending state %s", this->name_.c_str(), ONOFF(this->state));
   this->state_callback_.call(this->state);
 }
-
 bool Switch::assumed_state() { return false; }
 
 void Switch::add_on_state_callback(std::function<void(bool)> &&callback) {
@@ -74,13 +73,6 @@ void Switch::add_on_state_callback(std::function<void(bool)> &&callback) {
 }
 void Switch::set_inverted(bool inverted) { this->inverted_ = inverted; }
 bool Switch::is_inverted() const { return this->inverted_; }
-
-std::string Switch::get_device_class() {
-  if (this->device_class_.has_value())
-    return *this->device_class_;
-  return "";
-}
-void Switch::set_device_class(const std::string &device_class) { this->device_class_ = device_class; }
 
 void log_switch(const char *tag, const char *prefix, const char *type, Switch *obj) {
   if (obj != nullptr) {
