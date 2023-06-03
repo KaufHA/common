@@ -62,6 +62,9 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_VOLTAGE_DIVIDER, default=2351): cv.positive_float,
         cv.Optional(CONF_MODEL, default="HLW8012"): cv.enum(MODELS, upper=True),
         cv.Optional("timeout", default="9s"): cv.positive_time_period_milliseconds,
+        cv.Optional("early_publish_percent"): cv.positive_float,
+        cv.Optional("early_publish_percent_min_power"): cv.positive_float,
+        cv.Optional("early_publish_absolute"): cv.positive_float,
     }
 ).extend(cv.polling_component_schema("60s"))
 
@@ -86,6 +89,14 @@ async def to_code(config):
     if CONF_POWER in config:
         sens = await sensor.new_sensor(config[CONF_POWER])
         cg.add(var.set_power_sensor(sens))
+
+    if "early_publish_percent" in config:
+        cg.add(var.set_early_publish_percent(config["early_publish_percent"]))
+    if "early_publish_percent_min_power" in config:
+        cg.add(var.set_early_publish_percent_min_power(config["early_publish_percent_min_power"]))
+    if "early_publish_absolute" in config:
+        cg.add(var.set_early_publish_absolute(config["early_publish_absolute"]))
+
     cg.add(var.set_current_resistor(config[CONF_CURRENT_RESISTOR]))
     cg.add(var.set_voltage_divider(config[CONF_VOLTAGE_DIVIDER]))
     cg.add(var.set_sensor_model(config[CONF_MODEL]))

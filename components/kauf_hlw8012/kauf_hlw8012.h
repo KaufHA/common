@@ -58,10 +58,11 @@ class Kauf_HLW8012Component : public PollingComponent {
   void set_voltage_sensor(sensor::Sensor *voltage_sensor) { voltage_sensor_ = voltage_sensor; }
   void set_current_sensor(sensor::Sensor *current_sensor) { current_sensor_ = current_sensor; }
   void set_power_sensor(sensor::Sensor *power_sensor) { power_sensor_ = power_sensor; }
-  void set_timeout(uint32_t timeout) {
-    timeout_us_ = timeout * 1000;
-    ESP_LOGD("timoeut test","timeout is %d", timeout);
-  }
+  void set_timeout(uint32_t timeout) { timeout_us_ = timeout * 1000; }
+
+  void set_early_publish_percent(float percent_in);
+  void set_early_publish_percent_min_power(float min_power_in);
+  void set_early_publish_absolute(float absolute_in);
 
  protected:
   void loop() override;
@@ -91,8 +92,16 @@ class Kauf_HLW8012Component : public PollingComponent {
   float current_multiplier_{0.0f};
   float power_multiplier_{0.0f};
 
-  float last_current_{0.0f};
-  float last_voltage_{0.0f};
+  float last_published_power_{0.0f};
+  float last_sensed_power_{0.0f};
+  float last_sensed_current_{0.0f};
+  float last_sensed_voltage_{0.0f};
+
+  bool do_early_publish_percent_{false};
+  float early_publish_percent_{0};
+  float early_publish_percent_min_power_{0.5};
+  bool do_early_publish_absolute_{false};
+  float early_publish_absolute_{0};
 
   uint32_t timeout_us_{9000000};
 };
