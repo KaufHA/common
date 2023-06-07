@@ -218,7 +218,7 @@ def _validate(config):
     if CONF_PASSWORD in config and CONF_SSID not in config:
         raise cv.Invalid("Cannot have WiFi password without SSID!")
 
-    if CONF_SSID in config:
+    if (CONF_SSID in config) and (CONF_NETWORKS not in config):
         # Automatically move single network to 'networks' section
         config = config.copy()
         network = {CONF_SSID: config.pop(CONF_SSID)}
@@ -226,11 +226,6 @@ def _validate(config):
             network[CONF_PASSWORD] = config.pop(CONF_PASSWORD)
         if CONF_EAP in config:
             network[CONF_EAP] = config.pop(CONF_EAP)
-        if CONF_NETWORKS in config:
-            raise cv.Invalid(
-                "You cannot use the 'ssid:' option together with 'networks:'. Please "
-                "copy your network into the 'networks:' key"
-            )
         config[CONF_NETWORKS] = cv.ensure_list(WIFI_NETWORK_STA)(network)
 
     if (CONF_NETWORKS not in config) and (CONF_AP not in config):
