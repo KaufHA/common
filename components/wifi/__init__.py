@@ -230,13 +230,13 @@ def _validate(config):
         if CONF_EAP in config:
             network[CONF_EAP] = config.pop(CONF_EAP)
 
-        # if there are not "networks" configured, make the networks structure just the ssid/password
+        # if there are not "networks" configured, make the networks structure just the ssid/password config
         if (CONF_NETWORKS not in config):
           config[CONF_NETWORKS] = cv.ensure_list(WIFI_NETWORK_STA)(network)
         # if there are "networks" configured and only_networks is not true (false is default), cat both together
         elif not config["only_networks"]:
           config[CONF_NETWORKS] = config[CONF_NETWORKS] + cv.ensure_list(WIFI_NETWORK_STA)(network)
-        # else just keep networks as-is, ssid/password configuration is discarded
+        # else if only_networks is true, just keep networks as-is, ssid/password configuration is discarded
 
     if (CONF_NETWORKS not in config) and (CONF_AP not in config):
         config = config.copy()

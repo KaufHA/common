@@ -65,17 +65,10 @@ void WiFiComponent::start() {
 
   if ( this->sta_.size() == 2 ) {
     this->hard_ssid = this->hard_ssid + " , " + this->sta_[1].get_ssid();
-
-    // strcat(this->hard_ssid, "<br >");
-    // strcat(this->hard_ssid, this->sta_[1].get_ssid());
   }
 
   if ( this->sta_.size() > 2 ) {
     this->hard_ssid = this->hard_ssid + " (+" + to_string(this->sta_.size()-1) + " more)";
-
-    // strcat(this->hard_ssid, " (+");
-    // strcat(this->hard_ssid, to_string(this->sta_.size()-1));
-    // strcat(this->hard_ssid, " more)");
   }
 
   SavedWifiSettings save{};
