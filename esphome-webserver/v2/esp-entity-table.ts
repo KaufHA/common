@@ -14,6 +14,7 @@ interface entityConfig {
   when: string;
   icon?: string;
   option?: string[];
+  assumed_state?: boolean;
   brightness?: Number;
   target_temperature?: Number;
   target_temperature_low?: Number;
@@ -35,6 +36,7 @@ let basePath = getBasePath();
 @customElement("esp-entity-table")
 export class EntityTable extends LitElement {
   @state({ type: Array, reflect: true }) entities: entityConfig[] = [];
+  @state({ type: Boolean, reflect: true }) has_controls: boolean = false;
 
   constructor() {
     super();
@@ -57,6 +59,7 @@ export class EntityTable extends LitElement {
         } as entityConfig;
         this.entities.push(entity);
         this.entities.sort((a, b) => (a.name < b.name ? -1 : 1));
+        this.has_controls ||= this.control(entity).length||0>0
         this.requestUpdate();
       } else {
         delete data.id;
@@ -136,7 +139,12 @@ export class EntityTable extends LitElement {
   }
 
   control(entity: entityConfig) {
-    if (entity.domain === "switch") return [this.switch(entity)];
+    if (entity.domain === "switch") {
+      if (entity.assumed_state)
+        return html`${this.actionButton(entity, "❌", "turn_off")}
+        ${this.actionButton(entity, "✔️", "turn_on")}`;
+      else return [this.switch(entity)];
+    }
 
     if (entity.domain === "fan") {
       return [
@@ -280,7 +288,7 @@ export class EntityTable extends LitElement {
           <tr>
             <th>Name</th>
             <th>State</th>
-            <th>Actions</th>
+            ${this.has_controls ? html`<th>Actions</th>` : html``}
           </tr>
         </thead>
         <tbody>
@@ -289,7 +297,7 @@ export class EntityTable extends LitElement {
               <tr>
                 <td>${component.name}</td>
                 <td>${component.state}</td>
-                <td>${this.control(component)}</td>
+                ${this.has_controls ? html`<td>${this.control(component)}</td>` : html``}
               </tr>
             `
           )}
@@ -344,7 +352,6 @@ export class EntityTable extends LitElement {
         .range {
           text-align: center;
         }
-
       `,
     ];
   }

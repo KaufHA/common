@@ -1,4 +1,4 @@
-import { LitElement, html, css, PropertyValues } from "lit";
+import { LitElement, html, css, PropertyValues, nothing } from "lit";
 import { customElement, state, query } from "lit/decorators.js";
 import { getBasePath } from "./esp-entity-table";
 
@@ -12,7 +12,9 @@ window.source = new EventSource(getBasePath() + "/events");
 
 interface Config {
   ota: boolean;
+  log: boolean;
   title: string;
+  comment: string;
 }
 
 @customElement("esp-app")
@@ -23,14 +25,27 @@ export default class EspApp extends LitElement {
   beat!: HTMLSpanElement;
 
   version: String = import.meta.env.PACKAGE_VERSION;
-  config: Config = { ota: false, title: "" };
+  config: Config = { ota: false, log: true, title: "", comment: "" };
 
   darkQuery: MediaQueryList = window.matchMedia("(prefers-color-scheme: dark)");
 
-  frames = [{ color: "inherit" }, { color: "red", transform: "scale(1.25) translateY(-30%)" }, { color: "inherit" }];
+  frames = [
+    { color: "inherit" },
+    { color: "red", transform: "scale(1.25) translateY(-30%)" },
+    { color: "inherit" },
+  ];
 
   constructor() {
     super();
+    const conf = document.querySelector('script#config');
+    if ( conf ) this.setConfig(JSON.parse(conf.innerText));
+  }
+
+  setConfig(config: any) {
+    this.config = config;
+
+    document.title = config.title;
+    document.documentElement.lang = config.lang;
   }
 
   firstUpdated(changedProperties: PropertyValues) {
@@ -48,11 +63,7 @@ export default class EspApp extends LitElement {
       const messageEvent = e as MessageEvent;
       const d: String = messageEvent.data;
       if (d.length) {
-        const config = JSON.parse(messageEvent.data);
-        this.config = config;
-
-        document.title = config.title;
-        document.documentElement.lang = config.lang;
+        this.setConfig(JSON.parse(messageEvent.data));
       }
       this.ping = messageEvent.lastEventId;
     });
@@ -142,6 +153,18 @@ export default class EspApp extends LitElement {
     }
   }
 
+  renderComment() {
+    return this.config.comment
+      ? html`<h3>${this.config.comment}</h3>`
+      : nothing;
+  }
+
+  renderLog() {
+    return this.config.log
+      ? html`<section class="col"><esp-log rows="50"></esp-log></section>`
+      : nothing;
+  }
+
   factory_reset() {
     if ( this.config.proj_l == "f" )
       return html `<p><b> For factory images, with version suffix (f)</b>, /reset will place the firmware into factory test mode.  Factory test mode can typically be cleared easily by pressing a button on the device after a few seconds.  For bulbs, factory test mode will automatically stop after 10 minutes or can be cleared through the web interface by pressing the "Stop Factory Routine" button once you get the bulb connected back to Wi-Fi.  You may need to refresh the page to see this button.</p>`
@@ -164,6 +187,7 @@ export default class EspApp extends LitElement {
           <p><b>KAUF ${this.kauf_p_name()}</b> by <a href="https://kaufha.com/${this.kauf_p_url()}" target="_blank" rel="noopener noreferrer">Kaufman Home Automation</a>
           <br>Firmware version ${this.config.proj_v} made using <a href="https://esphome.io" target="_blank" rel="noopener noreferrer">ESPHome</a> version ${this.config.esph_v}. ${this.kauf_p_up()}</p>
           <p>See <a href="https://esphome.io/web-api/" target="_blank" rel="noopener noreferrer">ESPHome Web Server API</a> for REST API documentation.</p>
+          ${this.renderComment()}
           <h2>Entity Table</h2>
           <esp-entity-table></esp-entity-table>
           <h2>
@@ -214,9 +238,7 @@ export default class EspApp extends LitElement {
             </tr>
           </tbody></table>
         </section>
-        <section class="col">
-          <esp-log rows="50"></esp-log>
-        </section>
+        ${this.renderLog()}
       </main>
     `;
   }
@@ -266,6 +288,10 @@ export default class EspApp extends LitElement {
         h2 {
           border-bottom: 1px solid #eaecef;
           margin-bottom: 0.25rem;
+        }
+        h3 {
+          text-align: center;
+          margin: 0.5rem 0;
         }
         #beat {
           float: right;
