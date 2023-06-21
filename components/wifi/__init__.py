@@ -53,6 +53,9 @@ WIFI_POWER_SAVE_MODES = {
     "HIGH": WiFiPowerSaveMode.WIFI_POWER_SAVE_HIGH,
 }
 WiFiConnectedCondition = wifi_ns.class_("WiFiConnectedCondition", Condition)
+WiFiEnabledCondition = wifi_ns.class_("WiFiEnabledCondition", Condition)
+WiFiEnableAction = wifi_ns.class_("WiFiEnableAction", automation.Action)
+WiFiDisableAction = wifi_ns.class_("WiFiDisableAction", automation.Action)
 
 
 def validate_password(value):
@@ -227,10 +230,13 @@ def _validate(config):
         if CONF_EAP in config:
             network[CONF_EAP] = config.pop(CONF_EAP)
 
-        if CONF_NETWORKS not in config:
+        # if there are not "networks" configured, make the networks structure just the ssid/password
+        if (CONF_NETWORKS not in config):
           config[CONF_NETWORKS] = cv.ensure_list(WIFI_NETWORK_STA)(network)
-        else:
+        # if there are "networks" configured and only_networks is not true (false is default), cat both together
+        elif not config["only_networks"]:
           config[CONF_NETWORKS] = config[CONF_NETWORKS] + cv.ensure_list(WIFI_NETWORK_STA)(network)
+        # else just keep networks as-is, ssid/password configuration is discarded
 
     if (CONF_NETWORKS not in config) and (CONF_AP not in config):
         config = config.copy()
@@ -272,6 +278,7 @@ def _validate(config):
 
 CONF_OUTPUT_POWER = "output_power"
 CONF_PASSIVE_SCAN = "passive_scan"
+CONF_ENABLE_ON_BOOT = "enable_on_boot"
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
@@ -305,10 +312,12 @@ CONFIG_SCHEMA = cv.All(
                 "This option has been removed. Please use the [disabled] option under the "
                 "new mdns component instead."
             ),
+            cv.Optional(CONF_ENABLE_ON_BOOT, default=True): cv.boolean,
             cv.Optional("forced_hash"): cv.int_,
             cv.Optional("forced_addr"): cv.int_,
             cv.Optional("global_addr"): cv.use_id(globals),
             cv.Optional("disable_scanning", default=False): cv.boolean,
+            cv.Optional("only_networks", default=False): cv.boolean,
         }
     ),
     _validate,
@@ -408,6 +417,8 @@ async def to_code(config):
     if CONF_OUTPUT_POWER in config:
         cg.add(var.set_output_power(config[CONF_OUTPUT_POWER]))
 
+    cg.add(var.set_enable_on_boot(config[CONF_ENABLE_ON_BOOT]))
+
     if CORE.is_esp8266:
         cg.add_library("ESP8266WiFi", None)
     elif CORE.is_esp32 and CORE.using_arduino:
@@ -445,3 +456,18 @@ async def to_code(config):
 @automation.register_condition("wifi.connected", WiFiConnectedCondition, cv.Schema({}))
 async def wifi_connected_to_code(config, condition_id, template_arg, args):
     return cg.new_Pvariable(condition_id, template_arg)
+
+
+@automation.register_condition("wifi.enabled", WiFiEnabledCondition, cv.Schema({}))
+async def wifi_enabled_to_code(config, condition_id, template_arg, args):
+    return cg.new_Pvariable(condition_id, template_arg)
+
+
+@automation.register_action("wifi.enable", WiFiEnableAction, cv.Schema({}))
+async def wifi_enable_to_code(config, action_id, template_arg, args):
+    return cg.new_Pvariable(action_id, template_arg)
+
+
+@automation.register_action("wifi.disable", WiFiDisableAction, cv.Schema({}))
+async def wifi_disable_to_code(config, action_id, template_arg, args):
+    return cg.new_Pvariable(action_id, template_arg)

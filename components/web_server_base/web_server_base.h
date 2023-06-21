@@ -84,6 +84,7 @@ class WebServerBase : public Component {
     }
     this->server_ = std::make_shared<AsyncWebServer>(this->port_);
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
+    // All content is controlled and created by user - so allowing all origins is fine here.
     this->server_->begin();
 
     for (auto *handler : this->handlers_)

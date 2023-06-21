@@ -95,10 +95,17 @@ WebServer::WebServer(web_server_base::WebServerBase *base)
 #endif
 }
 
+#if USE_WEBSERVER_VERSION == 1
 void WebServer::set_css_url(const char *css_url) { this->css_url_ = css_url; }
-void WebServer::set_css_include(const char *css_include) { this->css_include_ = css_include; }
 void WebServer::set_js_url(const char *js_url) { this->js_url_ = js_url; }
+#endif
+
+#ifdef USE_WEBSERVER_CSS_INCLUDE
+void WebServer::set_css_include(const char *css_include) { this->css_include_ = css_include; }
+#endif
+#ifdef USE_WEBSERVER_JS_INCLUDE
 void WebServer::set_js_include(const char *js_include) { this->js_include_ = js_include; }
+#endif
 
 void WebServer::setup() {
   ESP_LOGCONFIG(TAG, "Setting up web server...");
@@ -196,20 +203,14 @@ void WebServer::handle_index_request(AsyncWebServerRequest *request) {
   response->addHeader("Content-Encoding", "gzip");
   request->send(response);
 }
-#else
+#elif USE_WEBSERVER_VERSION == 1
 void WebServer::handle_index_request(AsyncWebServerRequest *request) {
   AsyncResponseStream *stream = request->beginResponseStream("text/html");
-  // All content is controlled and created by user - so allowing all origins is fine here.
-  stream->addHeader("Access-Control-Allow-Origin", "*");
-#if USE_WEBSERVER_VERSION == 1
   const std::string &title = App.get_name();
   stream->print(F("<!DOCTYPE html><html lang=\"en\"><head><meta charset=UTF-8><meta "
                   "name=viewport content=\"width=device-width, initial-scale=1,user-scalable=no\"><title>"));
   stream->print(title.c_str());
   stream->print(F("</title>"));
-#else
-  stream->print(F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:>"));
-#endif
 #ifdef USE_WEBSERVER_CSS_INCLUDE
   stream->print(F("<link rel=\"stylesheet\" href=\"/0.css\">"));
 #endif
@@ -219,7 +220,6 @@ void WebServer::handle_index_request(AsyncWebServerRequest *request) {
     stream->print(F("\">"));
   }
   stream->print(F("</head><body>"));
-#if USE_WEBSERVER_VERSION == 1
   stream->print(F("<article class=\"markdown-body\"><h1>"));
   stream->print(title.c_str());
   stream->print(F("</h1>"));
@@ -345,49 +345,40 @@ void WebServer::handle_index_request(AsyncWebServerRequest *request) {
           "type=\"file\" name=\"update\"><input type=\"submit\" value=\"Update\"></form>"));
   }
   stream->print(F("<h2>Debug Log</h2><pre id=\"log\"></pre>"));
-#endif
 #ifdef USE_WEBSERVER_JS_INCLUDE
   if (this->js_include_ != nullptr) {
     stream->print(F("<script type=\"module\" src=\"/0.js\"></script>"));
   }
-#endif
-#if USE_WEBSERVER_VERSION == 2
-  stream->print(F("<esp-app></esp-app>"));
 #endif
   if (strlen(this->js_url_) > 0) {
     stream->print(F("<script src=\""));
     stream->print(this->js_url_);
     stream->print(F("\"></script>"));
   }
-#if USE_WEBSERVER_VERSION == 1
   stream->print(F("</article></body></html>"));
-#else
-  stream->print(F("</body></html>"));
-#endif
-
   request->send(stream);
 }
+#elif USE_WEBSERVER_VERSION == 2
+void WebServer::handle_index_request(AsyncWebServerRequest *request) {
+  AsyncWebServerResponse *response =
+      request->beginResponse_P(200, "text/html", ESPHOME_WEBSERVER_INDEX_HTML, ESPHOME_WEBSERVER_INDEX_HTML_SIZE);
+  request->send(response);
+}
 #endif
+
 #ifdef USE_WEBSERVER_CSS_INCLUDE
 void WebServer::handle_css_request(AsyncWebServerRequest *request) {
-  AsyncResponseStream *stream = request->beginResponseStream("text/css");
-  if (this->css_include_ != nullptr) {
-    stream->print(this->css_include_);
-  }
-
-  request->send(stream);
+  AsyncWebServerResponse *response =
+      request->beginResponse_P(200, "text/css", ESPHOME_WEBSERVER_CSS_INCLUDE, ESPHOME_WEBSERVER_CSS_INCLUDE_SIZE);
+  request->send(response);
 }
 #endif
 
 #ifdef USE_WEBSERVER_JS_INCLUDE
 void WebServer::handle_js_request(AsyncWebServerRequest *request) {
-  AsyncResponseStream *stream = request->beginResponseStream("text/javascript");
-  if (this->js_include_ != nullptr) {
-    stream->addHeader("Access-Control-Allow-Origin", "*");
-    stream->print(this->js_include_);
-  }
-
-  request->send(stream);
+  AsyncWebServerResponse *response =
+      request->beginResponse_P(200, "text/javascript", ESPHOME_WEBSERVER_JS_INCLUDE, ESPHOME_WEBSERVER_JS_INCLUDE_SIZE);
+  request->send(response);
 }
 #endif
 
@@ -850,6 +841,9 @@ std::string WebServer::select_json(select::Select *obj, const std::string &value
 }
 #endif
 
+// Longest: HORIZONTAL
+#define PSTR_LOCAL(mode_s) strncpy_P(buf, (PGM_P) ((mode_s)), 15)
+
 #ifdef USE_CLIMATE
 void WebServer::on_climate_update(climate::Climate *obj) {
   this->events_.send(this->climate_json(obj, DETAIL_STATE).c_str(), "state");
@@ -906,16 +900,13 @@ void WebServer::handle_climate_request(AsyncWebServerRequest *request, const Url
   request->send(404);
 }
 
-// Longest: HORIZONTAL
-#define PSTR_LOCAL(mode_s) strncpy_P(__buf, (PGM_P) ((mode_s)), 15)
-
 std::string WebServer::climate_json(climate::Climate *obj, JsonDetail start_config) {
   return json::build_json([obj, start_config](JsonObject root) {
     set_json_id(root, obj, "climate-" + obj->get_object_id(), start_config);
     const auto traits = obj->get_traits();
     int8_t target_accuracy = traits.get_target_temperature_accuracy_decimals();
     int8_t current_accuracy = traits.get_current_temperature_accuracy_decimals();
-    char __buf[16];
+    char buf[16];
 
     if (start_config == DETAIL_ALL) {
       JsonArray opt = root.createNestedArray("modes");
@@ -1033,6 +1024,34 @@ void WebServer::handle_lock_request(AsyncWebServerRequest *request, const UrlMat
 }
 #endif
 
+#ifdef USE_ALARM_CONTROL_PANEL
+void WebServer::on_alarm_control_panel_update(alarm_control_panel::AlarmControlPanel *obj) {
+  this->events_.send(this->alarm_control_panel_json(obj, obj->get_state(), DETAIL_STATE).c_str(), "state");
+}
+std::string WebServer::alarm_control_panel_json(alarm_control_panel::AlarmControlPanel *obj,
+                                                alarm_control_panel::AlarmControlPanelState value,
+                                                JsonDetail start_config) {
+  return json::build_json([obj, value, start_config](JsonObject root) {
+    char buf[16];
+    set_json_icon_state_value(root, obj, "alarm-control-panel-" + obj->get_object_id(),
+                              PSTR_LOCAL(alarm_control_panel_state_to_string(value)), value, start_config);
+  });
+}
+void WebServer::handle_alarm_control_panel_request(AsyncWebServerRequest *request, const UrlMatch &match) {
+  for (alarm_control_panel::AlarmControlPanel *obj : App.get_alarm_control_panels()) {
+    if (obj->get_object_id() != match.id)
+      continue;
+
+    if (request->method() == HTTP_GET) {
+      std::string data = this->alarm_control_panel_json(obj, obj->get_state(), DETAIL_STATE);
+      request->send(200, "application/json", data.c_str());
+      return;
+    }
+  }
+  request->send(404);
+}
+#endif
+
 bool WebServer::canHandle(AsyncWebServerRequest *request) {
   if (request->url() == "/")
     return true;
@@ -1112,6 +1131,11 @@ bool WebServer::canHandle(AsyncWebServerRequest *request) {
 
 #ifdef USE_LOCK
   if ((request->method() == HTTP_POST || request->method() == HTTP_GET) && match.domain == "lock")
+    return true;
+#endif
+
+#ifdef USE_ALARM_CONTROL_PANEL
+  if (request->method() == HTTP_GET && match.domain == "alarm_control_panel")
     return true;
 #endif
 
@@ -1228,6 +1252,14 @@ void WebServer::handleRequest(AsyncWebServerRequest *request) {
 #ifdef USE_LOCK
   if (match.domain == "lock") {
     this->handle_lock_request(request, match);
+
+    return;
+  }
+#endif
+
+#ifdef USE_ALARM_CONTROL_PANEL
+  if (match.domain == "alarm_control_panel") {
+    this->handle_alarm_control_panel_request(request, match);
 
     return;
   }

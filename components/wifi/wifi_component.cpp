@@ -36,9 +36,18 @@ float WiFiComponent::get_setup_priority() const { return setup_priority::WIFI; }
 
 void WiFiComponent::setup() {
   ESP_LOGCONFIG(TAG, "Setting up WiFi...");
+  this->wifi_pre_setup_();
+  if (this->enable_on_boot_) {
+    this->start();
+  } else {
+    this->state_ = WIFI_COMPONENT_STATE_DISABLED;
+  }
+}
+
+void WiFiComponent::start() {
+  ESP_LOGCONFIG(TAG, "Starting WiFi...");
   ESP_LOGCONFIG(TAG, "  Local MAC: %s", get_mac_address_pretty().c_str());
   this->last_connected_ = millis();
-  this->wifi_pre_setup_();
 
   if ( this->has_global_forced_addr ) { id(global_forced_addr) = this->forced_addr; }
 
@@ -54,6 +63,21 @@ void WiFiComponent::setup() {
   if (this->has_sta())
     this->hard_ssid = this->sta_[0].get_ssid();
 
+  if ( this->sta_.size() == 2 ) {
+    this->hard_ssid = this->hard_ssid + " , " + this->sta_[1].get_ssid();
+
+    // strcat(this->hard_ssid, "<br >");
+    // strcat(this->hard_ssid, this->sta_[1].get_ssid());
+  }
+
+  if ( this->sta_.size() > 2 ) {
+    this->hard_ssid = this->hard_ssid + " (+" + to_string(this->sta_.size()-1) + " more)";
+
+    // strcat(this->hard_ssid, " (+");
+    // strcat(this->hard_ssid, to_string(this->sta_.size()-1));
+    // strcat(this->hard_ssid, " more)");
+  }
+
   SavedWifiSettings save{};
   if (this->pref_.load(&save)) {
     ESP_LOGD(TAG, "Loaded saved wifi settings: %s", save.ssid);
@@ -68,7 +92,7 @@ void WiFiComponent::setup() {
     // tells ESPHome yaml file boot routine that WiFi credentials were successfully loaded
     loaded_creds = true;
 
-    // always use fast connect for saved credentials
+    // always use fast connect for saved (not hard coded in yaml) credentials
     this->set_fast_connect(true);
   }
 
@@ -166,6 +190,8 @@ void WiFiComponent::loop() {
       case WIFI_COMPONENT_STATE_OFF:
       case WIFI_COMPONENT_STATE_AP:
         break;
+      case WIFI_COMPONENT_STATE_DISABLED:
+        return;
     }
 
     if (this->has_ap() && !this->ap_setup_) {
@@ -212,6 +238,11 @@ network::IPAddress WiFiComponent::get_ip_address() {
     return this->wifi_sta_ip();
   if (this->has_ap())
     return this->wifi_soft_ap_ip();
+  return {};
+}
+network::IPAddress WiFiComponent::get_dns_address(int num) {
+  if (this->has_sta())
+    return this->wifi_dns_ip_(num);
   return {};
 }
 std::string WiFiComponent::get_use_address() const {
@@ -304,16 +335,8 @@ void WiFiComponent::save_wifi_sta(const std::string &ssid, const std::string &pa
   // ensure it's written immediately
   global_preferences->sync();
 
-  // always use fast connect for saved credentials
-  this->set_fast_connect(true);
-
-  // save as soft_ssid for display in web interface
-  this->soft_ssid = save.ssid;
-
-  WiFiAP sta{};
-  sta.set_ssid(ssid);
-  sta.set_password(password);
-  this->set_sta(sta);
+  // reboot to ensure web_server goes live on configured network.
+  this->set_timeout(100, []() { App.safe_reboot(); });
 }
 
 void WiFiComponent::start_connecting(const WiFiAP &ap, bool two) {
@@ -443,6 +466,28 @@ void WiFiComponent::print_connect_params_() {
   ESP_LOGCONFIG(TAG, "  RRM: %s", this->rrm_ ? "enabled" : "disabled");
 #endif
 }
+
+void WiFiComponent::enable() {
+  if (this->state_ != WIFI_COMPONENT_STATE_DISABLED)
+    return;
+
+  ESP_LOGD(TAG, "Enabling WIFI...");
+  this->error_from_callback_ = false;
+  this->state_ = WIFI_COMPONENT_STATE_OFF;
+  this->start();
+}
+
+void WiFiComponent::disable() {
+  if (this->state_ == WIFI_COMPONENT_STATE_DISABLED)
+    return;
+
+  ESP_LOGD(TAG, "Disabling WIFI...");
+  this->state_ = WIFI_COMPONENT_STATE_DISABLED;
+  this->wifi_disconnect_();
+  this->wifi_mode_(false, false);
+}
+
+bool WiFiComponent::is_disabled() { return this->state_ == WIFI_COMPONENT_STATE_DISABLED; }
 
 void WiFiComponent::start_scanning() {
   this->action_started_ = millis();
@@ -665,7 +710,7 @@ void WiFiComponent::retry_connect() {
 }
 
 bool WiFiComponent::can_proceed() {
-  if (!this->has_sta()) {
+  if (!this->has_sta() || this->state_ == WIFI_COMPONENT_STATE_DISABLED) {
     return true;
   }
   return this->is_connected();
