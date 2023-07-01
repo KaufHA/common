@@ -100,3 +100,5 @@ async def to_code(config):
     cg.add(var.set_current_resistor(config[CONF_CURRENT_RESISTOR]))
     cg.add(var.set_voltage_divider(config[CONF_VOLTAGE_DIVIDER]))
     cg.add(var.set_sensor_model(config[CONF_MODEL]))
+
+    cg.add(var.set_timeout(config["timeout"]))
