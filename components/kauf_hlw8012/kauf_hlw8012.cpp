@@ -142,7 +142,7 @@ void Kauf_HLW8012Component::loop() {
   }
 
   // check for early publish percent
-  if ( this->do_early_publish_percent_ && (this->power_sensor_->state >= this->early_publish_percent_min_power_)) {
+  if ( this->do_early_publish_percent_ && this->enable_early_publish_ && (this->power_sensor_->state >= this->early_publish_percent_min_power_)) {
 
     // if increased or decreased by configured percentage since last published
     if ( ( this->last_sensed_power_ > (this->last_published_power_ * (1.0f+this->early_publish_percent_)) ) ||
@@ -152,7 +152,7 @@ void Kauf_HLW8012Component::loop() {
   }
 
   // check for early publish absolute
-  if ( this->do_early_publish_absolute_ ) {
+  if ( this->do_early_publish_absolute_ && this->enable_early_publish_ ) {
 
     // if increased or decreased by configured absolute value since last published
     if ( ( this->last_sensed_power_ > (this->last_published_power_ + this->early_publish_absolute_) ) ||
@@ -200,6 +200,7 @@ void Kauf_HLW8012Component::change_mode() {
 
 void Kauf_HLW8012Component::set_early_publish_percent(float percent_in){
   this->do_early_publish_percent_ = true;
+  this->enable_early_publish_ = true;
   this->early_publish_percent_ = percent_in/100.0f;
 }
 
@@ -209,6 +210,7 @@ void Kauf_HLW8012Component::set_early_publish_percent_min_power(float min_power_
 
 void Kauf_HLW8012Component::set_early_publish_absolute(float absolute_in) {
   this->do_early_publish_absolute_ = true;
+  this->enable_early_publish_ = true;
   this->early_publish_absolute_ = absolute_in;
 }
 

@@ -42,6 +42,9 @@ export default class EspApp extends LitElement {
   }
 
   setConfig(config: any) {
+    if (!("log" in config)) {
+      config.log = this.config.log;
+    }
     this.config = config;
 
     document.title = config.title;
@@ -132,7 +135,6 @@ export default class EspApp extends LitElement {
       return html`<p>**** DO NOT USE ANY <b>WLED</b> BIN file.<br>**** WLED is not going to work properly on this bulb.<br>**** Use the included DDP functionality to control this bulb from another WLED instance or xLights.</p>`;
     else
       return "";
-
   }
 
   ota() {

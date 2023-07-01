@@ -64,6 +64,9 @@ class Kauf_HLW8012Component : public PollingComponent {
   void set_early_publish_percent_min_power(float min_power_in);
   void set_early_publish_absolute(float absolute_in);
 
+  void enable_early_publish()  { this->enable_early_publish_ = true; }
+  void disable_early_publish() { this->enable_early_publish_ = false; }
+
  protected:
   void loop() override;
 
@@ -102,6 +105,7 @@ class Kauf_HLW8012Component : public PollingComponent {
   float early_publish_percent_min_power_{0.5};
   bool do_early_publish_absolute_{false};
   float early_publish_absolute_{0};
+  bool enable_early_publish_{false};
 
   uint32_t timeout_us_{9000000};
 };
