@@ -46,6 +46,7 @@ class Kauf_HLWSensorStore {
 
 class Kauf_HLW8012Component : public PollingComponent {
  public:
+  Kauf_HLW8012Component();
   void setup() override;
   void dump_config() override;
   float get_setup_priority() const override;
@@ -68,6 +69,9 @@ class Kauf_HLW8012Component : public PollingComponent {
 
   void enable_early_publish()  { this->enable_early_publish_ = true; }
   void disable_early_publish() { this->enable_early_publish_ = false; }
+
+  void interrupt_pause();
+  void interrupt_unpause();
 
  protected:
   void loop() override;
@@ -112,6 +116,8 @@ class Kauf_HLW8012Component : public PollingComponent {
   uint32_t timeout_us_{9000000};
   bool new_timeout_{true};
 };
+
+extern Kauf_HLW8012Component *global_hlw8012;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 }  // namespace kauf_hlw8012
 }  // namespace esphome

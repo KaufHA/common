@@ -11,6 +11,8 @@ extern "C" {
 #include "esphome/core/preferences.h"
 #include "preferences.h"
 
+#include "esphome/components/kauf_hlw8012/kauf_hlw8012.h"
+
 #include <cstring>
 #include <vector>
 
@@ -271,9 +273,13 @@ class ESP8266Preferences : public ESPPreferences {
     if (s_prevent_write)
       return false;
 
+
     ESP_LOGD(TAG, "Saving preferences to flash...");
     SpiFlashOpResult erase_res, write_res = SPI_FLASH_RESULT_OK;
     {
+      // disable HLW interrupts
+      kauf_hlw8012::global_hlw8012->interrupt_pause();
+
       InterruptLock lock;
       erase_res = spi_flash_erase_sector(get_esp8266_flash_sector());
       if (erase_res == SPI_FLASH_RESULT_OK) {
@@ -288,6 +294,9 @@ class ESP8266Preferences : public ESPPreferences {
       ESP_LOGE(TAG, "Write ESP8266 flash failed!");
       return false;
     }
+
+    // re-enable HLW interrupts
+    kauf_hlw8012::global_hlw8012->interrupt_unpause();
 
     s_flash_dirty = false;
     return true;

@@ -29,9 +29,12 @@ void Kauf_HLWSensorStore::reset() {
   this->last_period_ = 0;
 }
 
+Kauf_HLW8012Component *global_hlw8012 = nullptr;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 // valid for HLW8012 and CSE7759
 static const uint32_t HLW8012_CLOCK_FREQUENCY = 3579000;
+
+Kauf_HLW8012Component::Kauf_HLW8012Component() { global_hlw8012 = this; }
 
 void Kauf_HLW8012Component::setup() {
   float reference_voltage = 0;
@@ -116,6 +119,8 @@ void Kauf_HLW8012Component::loop() {
   /////////////////////
   // calculate power //
   /////////////////////
+
+  if ( !this->cf_store_.get_valid() ) return;
 
   // if timeout has passed, consider power to be zero.
   if ((micros()-cf_store_.get_last_rise()) > this->timeout_us_) {
@@ -222,6 +227,25 @@ void Kauf_HLW8012Component::set_early_publish_absolute(float absolute_in) {
   this->do_early_publish_absolute_ = true;
   this->enable_early_publish_ = true;
   this->early_publish_absolute_ = absolute_in;
+}
+
+void Kauf_HLW8012Component::interrupt_pause() {
+  // pause both sensor inputs so interrupts don't do anything for the time being.
+  this->cf_store_.set_paused(true);
+  this->cf1_store_.set_paused(true);
+
+  // reset so we know that readings are invalid.
+  this->cf_store_.reset();
+  this->cf1_store_.reset();
+
+  ESP_LOGD(TAG,"HLW8012 Paused");
+}
+
+void Kauf_HLW8012Component::interrupt_unpause() {
+  // unpause both sensor inputs
+  this->cf_store_.set_paused(false);
+  this->cf1_store_.set_paused(false);
+  ESP_LOGD(TAG,"HLW8012 Unpaused");
 }
 
 
