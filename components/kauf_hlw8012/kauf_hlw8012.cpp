@@ -116,7 +116,7 @@ void Kauf_HLW8012Component::loop() {
     }
     else {
       if ( this->new_voltage_timeout_ ) {
-        ESP_LOGD(TAG, "Current sensor timed out.");
+        ESP_LOGD(TAG, "Voltage sensor timed out.");
         this->new_voltage_timeout_ = false;
       }
       this->last_sensed_voltage_ = 0.0f;
