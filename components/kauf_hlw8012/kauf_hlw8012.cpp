@@ -8,6 +8,9 @@ static const char *const TAG = "kauf_hlw8012";
 
 
 void IRAM_ATTR Kauf_HLWSensorStore::gpio_intr(Kauf_HLWSensorStore *arg) {
+
+  if ( arg->paused_ ) return;
+
   const bool new_level = arg->pin_.digital_read();
   const uint32_t now = micros();
   if (new_level) {
@@ -101,14 +104,14 @@ void Kauf_HLW8012Component::loop() {
   }
 
   // fade down toward timeout
-  else if ( this->current_mode_ ) {
-    float new_current = this->period_to_current(micros()-cf1_store_.get_last_rise());
-    if ( new_current < this->last_sensed_current_ ) { this->last_sensed_current_ = new_current; }
-  }
-  else {
-    float new_voltage = this->period_to_voltage(micros()-cf1_store_.get_last_rise());
-    if ( new_voltage < this->last_sensed_voltage_ ) { this->last_sensed_voltage_ = new_voltage; }
-  }
+  // else if ( this->current_mode_ ) {
+  //   float new_current = this->period_to_current(micros()-cf1_store_.get_last_rise());
+  //   if ( new_current < this->last_sensed_current_ ) { this->last_sensed_current_ = new_current; }
+  // }
+  // else {
+  //   float new_voltage = this->period_to_voltage(micros()-cf1_store_.get_last_rise());
+  //   if ( new_voltage < this->last_sensed_voltage_ ) { this->last_sensed_voltage_ = new_voltage; }
+  // }
 
   /////////////////////
   // calculate power //
@@ -116,29 +119,34 @@ void Kauf_HLW8012Component::loop() {
 
   // if timeout has passed, consider power to be zero.
   if ((micros()-cf_store_.get_last_rise()) > this->timeout_us_) {
+    if ( this->new_timeout_ ) {
+      ESP_LOGD(TAG, "Power sensor timed out.");
+      this->new_timeout_ = false;
+    }
     this->last_sensed_power_ = 0.0f;
   }
 
-  // fade down power reading before timeout occurs
-  else if (
-            // update interval must have passed already
-            ((micros()-cf_store_.get_last_rise()) > (this->get_update_interval()*1000)) &&
+  // // fade down power reading before timeout occurs
+  // else if (
+  //           // update interval must have passed already
+  //           ((micros()-cf_store_.get_last_rise()) > (this->get_update_interval()*1000)) &&
 
-            // time since last edge also has to be greater than last period.
-            // If pulse was already taking greater than update interval, need
-            // to at least wait that long again before trying to fade down.
-            ((micros()-cf_store_.get_last_rise()) > cf_store_.get_last_period()) &&
+  //           // time since last edge also has to be greater than last period.
+  //           // If pulse was already taking greater than update interval, need
+  //           // to at least wait that long again before trying to fade down.
+  //           ((micros()-cf_store_.get_last_rise()) > cf_store_.get_last_period()) &&
 
-            // if already zero, stay there don't fade up
-            (this->last_sensed_power_ != 0.0f)) {
+  //           // if already zero, stay there don't fade up
+  //           (this->last_sensed_power_ != 0.0f)) {
 
-    // calculate power as if edge occured right now
-    this->last_sensed_power_ = this->period_to_power(micros()-cf_store_.get_last_rise());
-  }
+  //   // calculate power as if edge occured right now
+  //   this->last_sensed_power_ = this->period_to_power(micros()-cf_store_.get_last_rise());
+  // }
 
   // otherwise, use actual value based on last period
   else {
     this->last_sensed_power_ = this->period_to_power(cf_store_.get_last_period());
+    this->new_timeout_ = true;
   }
 
   // check for early publish percent
@@ -192,10 +200,12 @@ void Kauf_HLW8012Component::update() {
 }
 
 void Kauf_HLW8012Component::change_mode() {
+    this->cf1_store_.set_paused(true);
     this->current_mode_ = !this->current_mode_;
     ESP_LOGVV(TAG, "Changing mode to %s mode", this->current_mode_ ? "CURRENT" : "VOLTAGE");
     this->sel_pin_->digital_write(this->current_mode_);
     this->cf1_store_.reset();
+    this->cf1_store_.set_paused(false);
 }
 
 void Kauf_HLW8012Component::set_early_publish_percent(float percent_in){

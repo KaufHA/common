@@ -30,6 +30,7 @@ class Kauf_HLWSensorStore {
   uint32_t get_last_period() const { return this->last_period_; }
   bool get_valid() const { return this->valid_; }
   void reset();
+  void set_paused(bool paused_in) { this->paused_ = paused_in; }
 
  protected:
   ISRInternalGPIOPin pin_;
@@ -38,6 +39,7 @@ class Kauf_HLWSensorStore {
 
   volatile bool skip_{true};
   volatile bool valid_{false};
+  volatile bool paused_{false};
 };
 
 
@@ -108,6 +110,7 @@ class Kauf_HLW8012Component : public PollingComponent {
   bool enable_early_publish_{false};
 
   uint32_t timeout_us_{9000000};
+  bool new_timeout_{true};
 };
 
 }  // namespace kauf_hlw8012
