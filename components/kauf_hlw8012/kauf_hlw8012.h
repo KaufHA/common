@@ -114,7 +114,9 @@ class Kauf_HLW8012Component : public PollingComponent {
   bool enable_early_publish_{false};
 
   uint32_t timeout_us_{9000000};
-  bool new_timeout_{true};
+  bool new_power_timeout_{true};
+  bool new_current_timeout_{true};
+  bool new_voltage_timeout_{true};
 };
 
 extern Kauf_HLW8012Component *global_hlw8012;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)

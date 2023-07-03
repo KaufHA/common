@@ -95,26 +95,35 @@ void Kauf_HLW8012Component::loop() {
 
   // store valid reading in appropriate variable
   if ( this->cf1_store_.get_valid() ) {
-    if ( this->current_mode_ ) { this->last_sensed_current_ = this->period_to_current(cf1_store_.get_last_period()); }
-    else                       { this->last_sensed_voltage_ = this->period_to_voltage(cf1_store_.get_last_period()); }
+    if ( this->current_mode_ ) {
+      this->last_sensed_current_ = this->period_to_current(cf1_store_.get_last_period());
+      this->new_current_timeout_ = true;
+    }
+    else {
+      this->last_sensed_voltage_ = this->period_to_voltage(cf1_store_.get_last_period());
+      this->new_voltage_timeout_ = true;
+    }
     this->change_mode();
 
   // check for timeout
   } else if ( (micros()-cf1_store_.get_last_rise()) > this->timeout_us_ ) {
-    if ( this->current_mode_ ) { this->last_sensed_current_ = 0.0f; }
-    else                       { this->last_sensed_voltage_ = 0.0f; }
+    if ( this->current_mode_ ) {
+      if ( this->new_current_timeout_ ) {
+        ESP_LOGD(TAG, "Current sensor timed out.");
+        this->new_current_timeout_ = false;
+      }
+      this->last_sensed_current_ = 0.0f;
+    }
+    else {
+      if ( this->new_voltage_timeout_ ) {
+        ESP_LOGD(TAG, "Current sensor timed out.");
+        this->new_voltage_timeout_ = false;
+      }
+      this->last_sensed_voltage_ = 0.0f;
+    }
     this->change_mode();
   }
 
-  // fade down toward timeout
-  // else if ( this->current_mode_ ) {
-  //   float new_current = this->period_to_current(micros()-cf1_store_.get_last_rise());
-  //   if ( new_current < this->last_sensed_current_ ) { this->last_sensed_current_ = new_current; }
-  // }
-  // else {
-  //   float new_voltage = this->period_to_voltage(micros()-cf1_store_.get_last_rise());
-  //   if ( new_voltage < this->last_sensed_voltage_ ) { this->last_sensed_voltage_ = new_voltage; }
-  // }
 
   /////////////////////
   // calculate power //
@@ -124,34 +133,17 @@ void Kauf_HLW8012Component::loop() {
 
   // if timeout has passed, consider power to be zero.
   if ((micros()-cf_store_.get_last_rise()) > this->timeout_us_) {
-    if ( this->new_timeout_ ) {
+    if ( this->new_power_timeout_ ) {
       ESP_LOGD(TAG, "Power sensor timed out.");
-      this->new_timeout_ = false;
+      this->new_power_timeout_ = false;
     }
     this->last_sensed_power_ = 0.0f;
   }
 
-  // // fade down power reading before timeout occurs
-  // else if (
-  //           // update interval must have passed already
-  //           ((micros()-cf_store_.get_last_rise()) > (this->get_update_interval()*1000)) &&
-
-  //           // time since last edge also has to be greater than last period.
-  //           // If pulse was already taking greater than update interval, need
-  //           // to at least wait that long again before trying to fade down.
-  //           ((micros()-cf_store_.get_last_rise()) > cf_store_.get_last_period()) &&
-
-  //           // if already zero, stay there don't fade up
-  //           (this->last_sensed_power_ != 0.0f)) {
-
-  //   // calculate power as if edge occured right now
-  //   this->last_sensed_power_ = this->period_to_power(micros()-cf_store_.get_last_rise());
-  // }
-
   // otherwise, use actual value based on last period
   else {
     this->last_sensed_power_ = this->period_to_power(cf_store_.get_last_period());
-    this->new_timeout_ = true;
+    this->new_power_timeout_ = true;
   }
 
   // check for early publish percent
