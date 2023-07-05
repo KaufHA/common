@@ -8,9 +8,6 @@ static const char *const TAG = "kauf_hlw8012";
 
 
 void IRAM_ATTR Kauf_HLWSensorStore::gpio_intr(Kauf_HLWSensorStore *arg) {
-
-  if ( arg->paused_ ) return;
-
   const bool new_level = arg->pin_.digital_read();
   const uint32_t now = micros();
   if (new_level) {
@@ -29,12 +26,9 @@ void Kauf_HLWSensorStore::reset() {
   this->last_period_ = 0;
 }
 
-Kauf_HLW8012Component *global_hlw8012 = nullptr;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 // valid for HLW8012 and CSE7759
 static const uint32_t HLW8012_CLOCK_FREQUENCY = 3579000;
-
-Kauf_HLW8012Component::Kauf_HLW8012Component() { global_hlw8012 = this; }
 
 void Kauf_HLW8012Component::setup() {
   float reference_voltage = 0;
@@ -93,33 +87,35 @@ float Kauf_HLW8012Component::period_to_hz(float period_in) {
 
 void Kauf_HLW8012Component::loop() {
 
-  // store valid reading in appropriate variable
+  //////////////////////////////////
+  // calculate current or voltage //
+  //////////////////////////////////
+
+  // store reading in appropriate variable if valid
   if ( this->cf1_store_.get_valid() ) {
     if ( this->current_mode_ ) {
-      this->last_sensed_current_ = this->period_to_current(cf1_store_.get_last_period());
-      this->new_current_timeout_ = true;
+      this->last_period_current_1_ = this->last_period_current_;
+      this->last_period_current_ = cf1_store_.get_last_period();
+      this->last_sensed_current_ = this->period_to_current(this->last_period_current_);
+      this->current_time_out_ = false;
     }
     else {
-      this->last_sensed_voltage_ = this->period_to_voltage(cf1_store_.get_last_period());
-      this->new_voltage_timeout_ = true;
+      this->last_period_voltage_1_ = this->last_period_voltage_;
+      this->last_period_voltage_ = cf1_store_.get_last_period();
+      this->last_sensed_voltage_ = this->period_to_voltage(this->last_period_voltage_);
     }
     this->change_mode();
 
   // check for timeout
   } else if ( (micros()-cf1_store_.get_last_rise()) > this->timeout_us_ ) {
     if ( this->current_mode_ ) {
-      if ( this->new_current_timeout_ ) {
-        ESP_LOGD(TAG, "Current sensor timed out.");
-        this->new_current_timeout_ = false;
-      }
       this->last_sensed_current_ = 0.0f;
+      this->current_time_out_ = true;
+  //    ESP_LOGD(TAG,"Current Timed Out");
     }
     else {
-      if ( this->new_voltage_timeout_ ) {
-        ESP_LOGD(TAG, "Voltage sensor timed out.");
-        this->new_voltage_timeout_ = false;
-      }
       this->last_sensed_voltage_ = 0.0f;
+ //     ESP_LOGD(TAG,"Voltage Timed Out");
     }
     this->change_mode();
   }
@@ -129,24 +125,25 @@ void Kauf_HLW8012Component::loop() {
   // calculate power //
   /////////////////////
 
-  if ( !this->cf_store_.get_valid() ) return;
-
+  if ( cf_store_.get_valid() ) {
+    this->last_period_power_1_ = this->last_period_power_;
+    this->last_period_power_ = cf_store_.get_last_period();
+    this->last_sensed_power_ = this->period_to_power(this->last_period_power_);
+    this->cf_store_.clr_valid();
+    this->power_time_out_ = false;
+  }
   // if timeout has passed, consider power to be zero.
-  if ((micros()-cf_store_.get_last_rise()) > this->timeout_us_) {
-    if ( this->new_power_timeout_ ) {
-      ESP_LOGD(TAG, "Power sensor timed out.");
-      this->new_power_timeout_ = false;
-    }
+  else if ((micros()-cf_store_.get_last_rise()) > this->timeout_us_) {
     this->last_sensed_power_ = 0.0f;
+    this->power_time_out_ = true;
+//    ESP_LOGD(TAG,"Power Timed Out");
   }
 
-  // otherwise, use actual value based on last period
-  else {
-    this->last_sensed_power_ = this->period_to_power(cf_store_.get_last_period());
-    this->new_power_timeout_ = true;
-  }
+  /////////////////////////////
+  // check for early publish //
+  /////////////////////////////
 
-  // check for early publish percent
+  // percent
   if ( this->do_early_publish_percent_ && this->enable_early_publish_ && (this->power_sensor_->state >= this->early_publish_percent_min_power_)) {
 
     // if increased or decreased by configured percentage since last published
@@ -156,7 +153,7 @@ void Kauf_HLW8012Component::loop() {
       this->update(); }
   }
 
-  // check for early publish absolute
+  // absolute value
   if ( this->do_early_publish_absolute_ && this->enable_early_publish_ ) {
 
     // if increased or decreased by configured absolute value since last published
@@ -171,11 +168,55 @@ void Kauf_HLW8012Component::loop() {
 
 void Kauf_HLW8012Component::update() {
 
+  // don't update on first run through, for whatever reason ESPHome does this.
   if (this->nth_value_ == 0) {
     this->nth_value_++;
     return;
   }
 
+  // if only one of power or current timed out, suspect error and don't publish anything.
+  if ( this->power_time_out_ != this->current_time_out_ ) { return; }
+
+  // if both power and current are timed out, publish all three no matter what.
+  if ( this->power_time_out_ && this->current_time_out_ ) {
+    this->actually_publish();
+    return;
+  }
+
+  // if no timeout, then check last 2 samples against each other to figure out whether to publish.
+  ESP_LOGD(TAG,"");
+  ESP_LOGD(TAG," ---------------------    POWER Period -1: %d", this->last_period_power_1_);
+  ESP_LOGD(TAG," ---------------------    POWER Period  0: %d", this->last_period_power_);
+  // ESP_LOGD(TAG," ---------------------    POWER      Diff: %d", this->last_period_power_ - this->last_period_power_1_);
+  ESP_LOGD(TAG,"");
+  ESP_LOGD(TAG," ---------------------  CURRENT Period -1: %d", this->last_period_current_1_);
+  ESP_LOGD(TAG," ---------------------  CURRENT Period  0: %d", this->last_period_current_);
+  // ESP_LOGD(TAG," ---------------------  CURRENT      Diff: %d", this->last_period_current_ - this->last_period_current_1_);
+  ESP_LOGD(TAG,"");
+  ESP_LOGD(TAG," ---------------------  VOLTAGE Period -1: %d", this->last_period_voltage_1_);
+  ESP_LOGD(TAG," ---------------------  VOLTAGE Period  0: %d", this->last_period_voltage_);
+  // ESP_LOGD(TAG," ---------------------  VOLTAGE      Diff: %d", this->last_period_voltage_ - this->last_period_voltage_1_);
+  ESP_LOGD(TAG,"");
+
+  // only publish value if last 2 samples of all three sensors were within 33% of each other
+  // issue we are trying to avoid is missing an edge results in a 200% period change then a 50% period change.
+  uint32_t last_period_plus_33 = this->last_period_power_ + (this->last_period_power_ / 3);
+  uint32_t last_period_less_33 = this->last_period_power_ - (this->last_period_power_ / 3);
+  if ( (this->last_period_power_1_ < last_period_less_33) || (this->last_period_power_1_ > last_period_plus_33) ) { return; }
+
+  last_period_plus_33 = this->last_period_current_ + (this->last_period_current_ / 3);
+  last_period_less_33 = this->last_period_current_ - (this->last_period_current_ / 3);
+  if ( (this->last_period_current_1_ < last_period_less_33) || (this->last_period_current_1_ > last_period_plus_33) ) { return; }
+
+  last_period_plus_33 = this->last_period_voltage_ + (this->last_period_voltage_ / 3);
+  last_period_less_33 = this->last_period_voltage_ - (this->last_period_voltage_ / 3);
+  if ( (this->last_period_voltage_1_ < last_period_less_33) || (this->last_period_voltage_1_ > last_period_plus_33) ) { return; }
+
+  this->actually_publish();
+
+}
+
+void Kauf_HLW8012Component::actually_publish() {
   // publish power if power sensor exists
   if ( this->power_sensor_ != nullptr ) {
     this->power_sensor_->publish_state(this->last_sensed_power_);
@@ -192,17 +233,13 @@ void Kauf_HLW8012Component::update() {
   if ( this->voltage_sensor_ != nullptr ) {
     this->voltage_sensor_->publish_state(this->last_sensed_voltage_);
   }
-
-
 }
 
 void Kauf_HLW8012Component::change_mode() {
-    this->cf1_store_.set_paused(true);
     this->current_mode_ = !this->current_mode_;
     ESP_LOGVV(TAG, "Changing mode to %s mode", this->current_mode_ ? "CURRENT" : "VOLTAGE");
     this->sel_pin_->digital_write(this->current_mode_);
     this->cf1_store_.reset();
-    this->cf1_store_.set_paused(false);
 }
 
 void Kauf_HLW8012Component::set_early_publish_percent(float percent_in){
@@ -219,25 +256,6 @@ void Kauf_HLW8012Component::set_early_publish_absolute(float absolute_in) {
   this->do_early_publish_absolute_ = true;
   this->enable_early_publish_ = true;
   this->early_publish_absolute_ = absolute_in;
-}
-
-void Kauf_HLW8012Component::interrupt_pause() {
-  // pause both sensor inputs so interrupts don't do anything for the time being.
-  this->cf_store_.set_paused(true);
-  this->cf1_store_.set_paused(true);
-
-  // reset so we know that readings are invalid.
-  this->cf_store_.reset();
-  this->cf1_store_.reset();
-
-  ESP_LOGD(TAG,"HLW8012 Paused");
-}
-
-void Kauf_HLW8012Component::interrupt_unpause() {
-  // unpause both sensor inputs
-  this->cf_store_.set_paused(false);
-  this->cf1_store_.set_paused(false);
-  ESP_LOGD(TAG,"HLW8012 Unpaused");
 }
 
 

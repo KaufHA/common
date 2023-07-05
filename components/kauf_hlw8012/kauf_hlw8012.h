@@ -29,8 +29,8 @@ class Kauf_HLWSensorStore {
 
   uint32_t get_last_period() const { return this->last_period_; }
   bool get_valid() const { return this->valid_; }
+  void clr_valid() { this->valid_ = false; }
   void reset();
-  void set_paused(bool paused_in) { this->paused_ = paused_in; }
 
  protected:
   ISRInternalGPIOPin pin_;
@@ -39,14 +39,12 @@ class Kauf_HLWSensorStore {
 
   volatile bool skip_{true};
   volatile bool valid_{false};
-  volatile bool paused_{false};
 };
 
 
 
 class Kauf_HLW8012Component : public PollingComponent {
  public:
-  Kauf_HLW8012Component();
   void setup() override;
   void dump_config() override;
   float get_setup_priority() const override;
@@ -70,9 +68,6 @@ class Kauf_HLW8012Component : public PollingComponent {
   void enable_early_publish()  { this->enable_early_publish_ = true; }
   void disable_early_publish() { this->enable_early_publish_ = false; }
 
-  void interrupt_pause();
-  void interrupt_unpause();
-
  protected:
   void loop() override;
 
@@ -81,6 +76,8 @@ class Kauf_HLW8012Component : public PollingComponent {
   float period_to_voltage(float period_in);
   float period_to_hz(float period_in);
   void change_mode();
+
+  void actually_publish();
 
   uint32_t nth_value_{0};
   bool current_mode_{false};
@@ -106,6 +103,13 @@ class Kauf_HLW8012Component : public PollingComponent {
   float last_sensed_current_{0.0f};
   float last_sensed_voltage_{0.0f};
 
+  uint32_t last_period_power_{0};
+  uint32_t last_period_power_1_{0};
+  uint32_t last_period_current_{0};
+  uint32_t last_period_current_1_{0};
+  uint32_t last_period_voltage_{0};
+  uint32_t last_period_voltage_1_{0};
+
   bool do_early_publish_percent_{false};
   float early_publish_percent_{0};
   float early_publish_percent_min_power_{0.5};
@@ -114,12 +118,9 @@ class Kauf_HLW8012Component : public PollingComponent {
   bool enable_early_publish_{false};
 
   uint32_t timeout_us_{9000000};
-  bool new_power_timeout_{true};
-  bool new_current_timeout_{true};
-  bool new_voltage_timeout_{true};
+  bool power_time_out_{false};
+  bool current_time_out_{false};
 };
-
-extern Kauf_HLW8012Component *global_hlw8012;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 }  // namespace kauf_hlw8012
 }  // namespace esphome

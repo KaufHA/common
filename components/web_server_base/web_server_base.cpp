@@ -135,7 +135,7 @@ void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
 
   if (!Update.hasError()) {
     AsyncWebServerResponse *response;
-    response = request->beginResponse(200, "text/plain", "Firmware file uploaded successfully.  Please allow at least 1-2 minutes for the device to process the firmware file and reboot itself.  There should be no need to power cycle the device.  Wait at least 10 minutes before power cycling.");
+    response = request->beginResponse(200, "text/plain", "Firmware file uploaded successfully.  The device will now process the firmware file and reboot itself.  You can try to connect to the device over Wi-Fi immediately, but don't power cycle for at least five minutes if the device is not reachable.");
     response->addHeader("Connection", "close");
     request->send(response);
   } else {
