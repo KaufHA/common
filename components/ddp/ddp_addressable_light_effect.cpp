@@ -95,7 +95,7 @@ uint16_t DDPAddressableLightEffect::process_(const uint8_t *payload, uint16_t si
   it->set_effect_active(true);
 
 
-  uint16_t num_pixels = std::min(it->size(), ((size-used)/3));
+  uint16_t num_pixels = min(it->size(), ((size-used)/3));
   if ( num_pixels < 1 ) { return 0; }
 
   ESP_LOGV(TAG, "Applying DDP data for '%s' (size: %d - used: %d - num_pixels: %d)", get_name().c_str(), size, used, num_pixels);
