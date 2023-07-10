@@ -13,6 +13,11 @@
 #include <WiFiUdp.h>
 #endif
 
+#ifdef USE_LIBRETINY
+#include <WiFi.h>
+#include <WiFiUdp.h>
+#endif
+
 #include <map>
 #include <memory>
 #include <set>
