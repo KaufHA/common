@@ -1,8 +1,9 @@
-#ifdef USE_ARDUINO
-
 #include "web_server_base.h"
 #include "esphome/core/log.h"
 #include "esphome/core/application.h"
+#include "esphome/core/helpers.h"
+
+#ifdef USE_ARDUINO
 #include <StreamString.h>
 
 #include <string>
@@ -12,6 +13,7 @@
 #endif
 #ifdef USE_ESP8266
 #include <Updater.h>
+#endif
 #endif
 
 namespace esphome {
@@ -26,21 +28,24 @@ void WebServerBase::add_handler(AsyncWebHandler *handler) {
     handler = new internal::AuthMiddlewareHandler(handler, &credentials_);
   }
   this->handlers_.push_back(handler);
-  if (this->server_ != nullptr)
+  if (this->server_ != nullptr) {
     this->server_->addHandler(handler);
+  }
 }
 
 void OTARequestHandler::report_ota_error() {
+#ifdef USE_ARDUINO
   StreamString ss;
   Update.printError(ss);
   ESP_LOGW(TAG, "OTA Update failed! Error: %s", ss.c_str());
 
   this->last_ota_error = true;
-
+#endif
 }
 
 void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const String &filename, size_t index,
                                      uint8_t *data, size_t len, bool final) {
+#ifdef USE_ARDUINO
   bool success;
 
   std::string str = filename.c_str();
@@ -90,9 +95,10 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Strin
     // NOLINTNEXTLINE(readability-static-accessed-through-instance)
     success = Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000);
 #endif
-#ifdef USE_ESP32
-    if (Update.isRunning())
+#ifdef USE_ESP32_FRAMEWORK_ARDUINO
+    if (Update.isRunning()) {
       Update.abort();
+  }
     success = Update.begin(UPDATE_SIZE_UNKNOWN, U_FLASH);
 #endif
     if (!success) {
@@ -130,9 +136,10 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Strin
       report_ota_error();
     }
   }
+#endif
 }
 void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
-
+#ifdef USE_ARDUINO
   if (!Update.hasError()) {
     AsyncWebServerResponse *response;
     response = request->beginResponse(200, "text/plain", "Firmware file uploaded successfully.  The device will now process the firmware file and reboot itself.  You can try to connect to the device over Wi-Fi immediately, but don't power cycle for at least five minutes if the device is not reachable.");
@@ -161,10 +168,13 @@ void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
     // reboot
     this->parent_->set_timeout(100, []() { App.safe_reboot(); });
   }
+#endif
 }
 
 void WebServerBase::add_ota_handler() {
+#ifdef USE_ARDUINO
   this->add_handler(new OTARequestHandler(this));  // NOLINT
+#endif
 }
 float WebServerBase::get_setup_priority() const {
   // Before WiFi (captive portal)
@@ -173,5 +183,3 @@ float WebServerBase::get_setup_priority() const {
 
 }  // namespace web_server_base
 }  // namespace esphome
-
-#endif  // USE_ARDUINO
