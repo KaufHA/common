@@ -29,6 +29,7 @@ class Kauf_HLWSensorStore {
 
   uint32_t get_last_period() const { return this->last_period_; }
   bool get_valid() const { return this->valid_; }
+  void clr_valid() { this->valid_ = false; }
   void reset();
 
  protected:
@@ -76,6 +77,8 @@ class Kauf_HLW8012Component : public PollingComponent {
   float period_to_hz(float period_in);
   void change_mode();
 
+  void actually_publish();
+
   uint32_t nth_value_{0};
   bool current_mode_{false};
   float current_resistor_{0.001};
@@ -100,6 +103,13 @@ class Kauf_HLW8012Component : public PollingComponent {
   float last_sensed_current_{0.0f};
   float last_sensed_voltage_{0.0f};
 
+  uint32_t last_period_power_{0};
+  uint32_t last_period_power_1_{0};
+  uint32_t last_period_current_{0};
+  uint32_t last_period_current_1_{0};
+  uint32_t last_period_voltage_{0};
+  uint32_t last_period_voltage_1_{0};
+
   bool do_early_publish_percent_{false};
   float early_publish_percent_{0};
   float early_publish_percent_min_power_{0.5};
@@ -108,6 +118,8 @@ class Kauf_HLW8012Component : public PollingComponent {
   bool enable_early_publish_{false};
 
   uint32_t timeout_us_{9000000};
+  bool power_time_out_{false};
+  bool current_time_out_{false};
 };
 
 }  // namespace kauf_hlw8012
