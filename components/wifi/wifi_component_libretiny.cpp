@@ -1,33 +1,28 @@
 #include "wifi_component.h"
 
-#ifdef USE_ESP32_FRAMEWORK_ARDUINO
+#ifdef USE_LIBRETINY
 
-#include <esp_wifi.h>
-
-#include <algorithm>
 #include <utility>
-#ifdef USE_WIFI_WPA2_EAP
-#include <esp_wpa2.h>
-#endif
-#include "lwip/apps/sntp.h"
-#include "lwip/dns.h"
+#include <algorithm>
+#include "lwip/ip_addr.h"
 #include "lwip/err.h"
+#include "lwip/dns.h"
 
-#include "esphome/core/application.h"
-#include "esphome/core/hal.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
+#include "esphome/core/hal.h"
+#include "esphome/core/application.h"
 #include "esphome/core/util.h"
 
 namespace esphome {
 namespace wifi {
 
-static const char *const TAG = "wifi_esp32";
+static const char *const TAG = "wifi_lt";
 
 static bool s_sta_connecting = false;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 bool WiFiComponent::wifi_mode_(optional<bool> sta, optional<bool> ap) {
-  uint8_t current_mode = WiFiClass::getMode();
+  uint8_t current_mode = WiFi.getMode();
   bool current_sta = current_mode & 0b01;
   bool current_ap = current_mode & 0b10;
   bool enable_sta = sta.value_or(current_sta);
@@ -51,7 +46,7 @@ bool WiFiComponent::wifi_mode_(optional<bool> sta, optional<bool> ap) {
     mode |= 0b01;
   if (enable_ap)
     mode |= 0b10;
-  bool ret = WiFiClass::mode(static_cast<wifi_mode_t>(mode));
+  bool ret = WiFi.mode(static_cast<wifi_mode_t>(mode));
 
   if (!ret) {
     ESP_LOGW(TAG, "Setting WiFi mode failed!");
@@ -61,7 +56,7 @@ bool WiFiComponent::wifi_mode_(optional<bool> sta, optional<bool> ap) {
 }
 bool WiFiComponent::wifi_apply_output_power_(float output_power) {
   int8_t val = static_cast<int8_t>(output_power * 4);
-  return esp_wifi_set_max_tx_power(val) == ESP_OK;
+  return WiFi.setTxPower(val);
 }
 bool WiFiComponent::wifi_sta_pre_setup_() {
   if (!this->wifi_mode_(true, {}))
@@ -71,82 +66,19 @@ bool WiFiComponent::wifi_sta_pre_setup_() {
   delay(10);
   return true;
 }
-bool WiFiComponent::wifi_apply_power_save_() {
-  wifi_ps_type_t power_save;
-  switch (this->power_save_) {
-    case WIFI_POWER_SAVE_LIGHT:
-      power_save = WIFI_PS_MIN_MODEM;
-      break;
-    case WIFI_POWER_SAVE_HIGH:
-      power_save = WIFI_PS_MAX_MODEM;
-      break;
-    case WIFI_POWER_SAVE_NONE:
-    default:
-      power_save = WIFI_PS_NONE;
-      break;
-  }
-  return esp_wifi_set_ps(power_save) == ESP_OK;
-}
+bool WiFiComponent::wifi_apply_power_save_() { return WiFi.setSleep(this->power_save_ != WIFI_POWER_SAVE_NONE); }
 bool WiFiComponent::wifi_sta_ip_config_(optional<ManualIP> manual_ip) {
   // enable STA
   if (!this->wifi_mode_(true, {}))
     return false;
 
-  tcpip_adapter_dhcp_status_t dhcp_status;
-  tcpip_adapter_dhcpc_get_status(TCPIP_ADAPTER_IF_STA, &dhcp_status);
   if (!manual_ip.has_value()) {
-    // lwIP starts the SNTP client if it gets an SNTP server from DHCP. We don't need the time, and more importantly,
-    // the built-in SNTP client has a memory leak in certain situations. Disable this feature.
-    // https://github.com/esphome/issues/issues/2299
-    sntp_servermode_dhcp(false);
-
-    // Use DHCP client
-    if (dhcp_status != TCPIP_ADAPTER_DHCP_STARTED) {
-      esp_err_t err = tcpip_adapter_dhcpc_start(TCPIP_ADAPTER_IF_STA);
-      if (err != ESP_OK) {
-        ESP_LOGV(TAG, "Starting DHCP client failed! %d", err);
-      }
-      return err == ESP_OK;
-    }
     return true;
   }
 
-  tcpip_adapter_ip_info_t info;
-  memset(&info, 0, sizeof(info));
-  info.ip.addr = static_cast<uint32_t>(manual_ip->static_ip);
-  info.gw.addr = static_cast<uint32_t>(manual_ip->gateway);
-  info.netmask.addr = static_cast<uint32_t>(manual_ip->subnet);
-
-  esp_err_t dhcp_stop_ret = tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_STA);
-  if (dhcp_stop_ret != ESP_OK && dhcp_stop_ret != ESP_ERR_TCPIP_ADAPTER_DHCP_ALREADY_STOPPED) {
-    ESP_LOGV(TAG, "Stopping DHCP client failed! %s", esp_err_to_name(dhcp_stop_ret));
-  }
-
-  esp_err_t wifi_set_info_ret = tcpip_adapter_set_ip_info(TCPIP_ADAPTER_IF_STA, &info);
-  if (wifi_set_info_ret != ESP_OK) {
-    ESP_LOGV(TAG, "Setting manual IP info failed! %s", esp_err_to_name(wifi_set_info_ret));
-  }
-
-  ip_addr_t dns;
-#if LWIP_IPV6
-  dns.type = IPADDR_TYPE_V4;
-#endif
-  if (uint32_t(manual_ip->dns1) != 0) {
-#if LWIP_IPV6
-    dns.u_addr.ip4.addr = static_cast<uint32_t>(manual_ip->dns1);
-#else
-    dns.addr = static_cast<uint32_t>(manual_ip->dns1);
-#endif
-    dns_setserver(0, &dns);
-  }
-  if (uint32_t(manual_ip->dns2) != 0) {
-#if LWIP_IPV6
-    dns.u_addr.ip4.addr = static_cast<uint32_t>(manual_ip->dns2);
-#else
-    dns.addr = static_cast<uint32_t>(manual_ip->dns2);
-#endif
-    dns_setserver(1, &dns);
-  }
+  WiFi.config(static_cast<uint32_t>(manual_ip->static_ip), static_cast<uint32_t>(manual_ip->gateway),
+              static_cast<uint32_t>(manual_ip->subnet), static_cast<uint32_t>(manual_ip->dns1),
+              static_cast<uint32_t>(manual_ip->dns2));
 
   return true;
 }
@@ -154,13 +86,12 @@ bool WiFiComponent::wifi_sta_ip_config_(optional<ManualIP> manual_ip) {
 network::IPAddress WiFiComponent::wifi_sta_ip() {
   if (!this->has_sta())
     return {};
-  tcpip_adapter_ip_info_t ip;
-  tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip);
-  return {ip.ip.addr};
+  return {WiFi.localIP()};
 }
 
 bool WiFiComponent::wifi_apply_hostname_() {
-  // setting is done in SYSTEM_EVENT_STA_START callback
+  // setting is done in SYSTEM_EVENT_STA_START callback too
+  WiFi.setHostname(App.get_name().c_str());
   return true;
 }
 bool WiFiComponent::wifi_sta_connect_(const WiFiAP &ap) {
@@ -168,126 +99,24 @@ bool WiFiComponent::wifi_sta_connect_(const WiFiAP &ap) {
   if (!this->wifi_mode_(true, {}))
     return false;
 
-  // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/network/esp_wifi.html#_CPPv417wifi_sta_config_t
-  wifi_config_t conf;
-  memset(&conf, 0, sizeof(conf));
-  strncpy(reinterpret_cast<char *>(conf.sta.ssid), ap.get_ssid().c_str(), sizeof(conf.sta.ssid));
-  strncpy(reinterpret_cast<char *>(conf.sta.password), ap.get_password().c_str(), sizeof(conf.sta.password));
-
-  // The weakest authmode to accept in the fast scan mode
-  if (ap.get_password().empty()) {
-    conf.sta.threshold.authmode = WIFI_AUTH_OPEN;
-  } else {
-    conf.sta.threshold.authmode = WIFI_AUTH_WPA_WPA2_PSK;
-  }
-
-#ifdef USE_WIFI_WPA2_EAP
-  if (ap.get_eap().has_value()) {
-    conf.sta.threshold.authmode = WIFI_AUTH_WPA2_ENTERPRISE;
-  }
-#endif
-
-  if (ap.get_bssid().has_value()) {
-    conf.sta.bssid_set = true;
-    memcpy(conf.sta.bssid, ap.get_bssid()->data(), 6);
-  } else {
-    conf.sta.bssid_set = false;
-  }
-  if (ap.get_channel().has_value()) {
-    conf.sta.channel = *ap.get_channel();
-    conf.sta.scan_method = WIFI_FAST_SCAN;
-  } else {
-    conf.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
-  }
-  // Listen interval for ESP32 station to receive beacon when WIFI_PS_MAX_MODEM is set.
-  // Units: AP beacon intervals. Defaults to 3 if set to 0.
-  conf.sta.listen_interval = 0;
-
-  // Protected Management Frame
-  // Device will prefer to connect in PMF mode if other device also advertises PMF capability.
-  conf.sta.pmf_cfg.capable = true;
-  conf.sta.pmf_cfg.required = false;
-
-  // note, we do our own filtering
-  // The minimum rssi to accept in the fast scan mode
-  conf.sta.threshold.rssi = -127;
-
-  conf.sta.threshold.authmode = WIFI_AUTH_OPEN;
-
-  wifi_config_t current_conf;
-  esp_err_t err;
-  esp_wifi_get_config(WIFI_IF_STA, &current_conf);
-
-  if (memcmp(&current_conf, &conf, sizeof(wifi_config_t)) != 0) {  // NOLINT
-    err = esp_wifi_disconnect();
-    if (err != ESP_OK) {
-      ESP_LOGV(TAG, "esp_wifi_disconnect failed! %d", err);
-      return false;
-    }
-  }
-
-  err = esp_wifi_set_config(WIFI_IF_STA, &conf);
-  if (err != ESP_OK) {
-    ESP_LOGV(TAG, "esp_wifi_set_config failed! %d", err);
+  String ssid = WiFi.SSID();
+  if (ssid && strcmp(ssid.c_str(), ap.get_ssid().c_str()) != 0) {
+    WiFi.disconnect();
   }
 
   if (!this->wifi_sta_ip_config_(ap.get_manual_ip())) {
     return false;
   }
 
-  // setup enterprise authentication if required
-#ifdef USE_WIFI_WPA2_EAP
-  if (ap.get_eap().has_value()) {
-    // note: all certificates and keys have to be null terminated. Lengths are appended by +1 to include \0.
-    EAPAuth eap = ap.get_eap().value();
-    err = esp_wifi_sta_wpa2_ent_set_identity((uint8_t *) eap.identity.c_str(), eap.identity.length());
-    if (err != ESP_OK) {
-      ESP_LOGV(TAG, "esp_wifi_sta_wpa2_ent_set_identity failed! %d", err);
-    }
-    int ca_cert_len = strlen(eap.ca_cert);
-    int client_cert_len = strlen(eap.client_cert);
-    int client_key_len = strlen(eap.client_key);
-    if (ca_cert_len) {
-      err = esp_wifi_sta_wpa2_ent_set_ca_cert((uint8_t *) eap.ca_cert, ca_cert_len + 1);
-      if (err != ESP_OK) {
-        ESP_LOGV(TAG, "esp_wifi_sta_wpa2_ent_set_ca_cert failed! %d", err);
-      }
-    }
-    // workout what type of EAP this is
-    // validation is not required as the config tool has already validated it
-    if (client_cert_len && client_key_len) {
-      // if we have certs, this must be EAP-TLS
-      err = esp_wifi_sta_wpa2_ent_set_cert_key((uint8_t *) eap.client_cert, client_cert_len + 1,
-                                               (uint8_t *) eap.client_key, client_key_len + 1,
-                                               (uint8_t *) eap.password.c_str(), strlen(eap.password.c_str()));
-      if (err != ESP_OK) {
-        ESP_LOGV(TAG, "esp_wifi_sta_wpa2_ent_set_cert_key failed! %d", err);
-      }
-    } else {
-      // in the absence of certs, assume this is username/password based
-      err = esp_wifi_sta_wpa2_ent_set_username((uint8_t *) eap.username.c_str(), eap.username.length());
-      if (err != ESP_OK) {
-        ESP_LOGV(TAG, "esp_wifi_sta_wpa2_ent_set_username failed! %d", err);
-      }
-      err = esp_wifi_sta_wpa2_ent_set_password((uint8_t *) eap.password.c_str(), eap.password.length());
-      if (err != ESP_OK) {
-        ESP_LOGV(TAG, "esp_wifi_sta_wpa2_ent_set_password failed! %d", err);
-      }
-    }
-    err = esp_wifi_sta_wpa2_ent_enable();
-    if (err != ESP_OK) {
-      ESP_LOGV(TAG, "esp_wifi_sta_wpa2_ent_enable failed! %d", err);
-    }
-  }
-#endif  // USE_WIFI_WPA2_EAP
-
   this->wifi_apply_hostname_();
 
   s_sta_connecting = true;
 
-  err = esp_wifi_connect();
-  if (err != ESP_OK) {
-    ESP_LOGW(TAG, "esp_wifi_connect failed! %d", err);
+  WiFiStatus status = WiFi.begin(ap.get_ssid().c_str(), ap.get_password().empty() ? NULL : ap.get_password().c_str(),
+                                 ap.get_channel().has_value() ? *ap.get_channel() : 0,
+                                 ap.get_bssid().has_value() ? ap.get_bssid()->data() : NULL);
+  if (status != WL_CONNECTED) {
+    ESP_LOGW(TAG, "esp_wifi_connect failed! %d", status);
     return false;
   }
 
@@ -305,19 +134,17 @@ const char *get_auth_mode_str(uint8_t mode) {
       return "WPA2 PSK";
     case WIFI_AUTH_WPA_WPA2_PSK:
       return "WPA/WPA2 PSK";
-    case WIFI_AUTH_WPA2_ENTERPRISE:
-      return "WPA2 Enterprise";
     default:
       return "UNKNOWN";
   }
 }
 
-using esphome_ip4_addr_t = esp_ip4_addr_t;
+using esphome_ip4_addr_t = IPAddress;
 
 std::string format_ip4_addr(const esphome_ip4_addr_t &ip) {
   char buf[20];
-  sprintf(buf, "%u.%u.%u.%u", uint8_t(ip.addr >> 0), uint8_t(ip.addr >> 8), uint8_t(ip.addr >> 16),
-          uint8_t(ip.addr >> 24));
+  uint32_t addr = ip;
+  sprintf(buf, "%u.%u.%u.%u", uint8_t(addr >> 0), uint8_t(addr >> 8), uint8_t(addr >> 16), uint8_t(addr >> 24));
   return buf;
 }
 const char *get_op_mode_str(uint8_t mode) {
@@ -433,7 +260,7 @@ void WiFiComponent::wifi_event_callback_(esphome_wifi_event_id_t event, esphome_
     }
     case ESPHOME_EVENT_ID_WIFI_STA_START: {
       ESP_LOGV(TAG, "Event: WiFi STA start");
-      tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, App.get_name().c_str());
+      WiFi.setHostname(App.get_name().c_str());
       break;
     }
     case ESPHOME_EVENT_ID_WIFI_STA_STOP: {
@@ -447,9 +274,6 @@ void WiFiComponent::wifi_event_callback_(esphome_wifi_event_id_t event, esphome_
       buf[it.ssid_len] = '\0';
       ESP_LOGV(TAG, "Event: Connected ssid='%s' bssid=" LOG_SECRET("%s") " channel=%u, authmode=%s", buf,
                format_mac_addr(it.bssid).c_str(), it.channel, get_auth_mode_str(it.authmode));
-#if ENABLE_IPV6
-      this->set_timeout(100, [] { WiFi.enableIpV6(); });
-#endif /* ENABLE_IPV6 */
 
       break;
     }
@@ -469,10 +293,7 @@ void WiFiComponent::wifi_event_callback_(esphome_wifi_event_id_t event, esphome_
       if (reason == WIFI_REASON_AUTH_EXPIRE || reason == WIFI_REASON_BEACON_TIMEOUT ||
           reason == WIFI_REASON_NO_AP_FOUND || reason == WIFI_REASON_ASSOC_FAIL ||
           reason == WIFI_REASON_HANDSHAKE_TIMEOUT) {
-        err_t err = esp_wifi_disconnect();
-        if (err != ESP_OK) {
-          ESP_LOGV(TAG, "Disconnect failed: %s", esp_err_to_name(err));
-        }
+        WiFi.disconnect();
         this->error_from_callback_ = true;
       }
 
@@ -489,28 +310,18 @@ void WiFiComponent::wifi_event_callback_(esphome_wifi_event_id_t event, esphome_
         ESP_LOGW(TAG, "Potential Authmode downgrade detected, disconnecting...");
         // we can't call retry_connect() from this context, so disconnect immediately
         // and notify main thread with error_from_callback_
-        err_t err = esp_wifi_disconnect();
-        if (err != ESP_OK) {
-          ESP_LOGW(TAG, "Disconnect failed: %s", esp_err_to_name(err));
-        }
+        WiFi.disconnect();
         this->error_from_callback_ = true;
       }
       break;
     }
     case ESPHOME_EVENT_ID_WIFI_STA_GOT_IP: {
-      auto it = info.got_ip.ip_info;
-      ESP_LOGV(TAG, "Event: Got IP static_ip=%s gateway=%s", format_ip4_addr(it.ip).c_str(),
-               format_ip4_addr(it.gw).c_str());
+      // auto it = info.got_ip.ip_info;
+      ESP_LOGV(TAG, "Event: Got IP static_ip=%s gateway=%s", format_ip4_addr(WiFi.localIP()).c_str(),
+               format_ip4_addr(WiFi.gatewayIP()).c_str());
       s_sta_connecting = false;
       break;
     }
-#if ENABLE_IPV6
-    case ESPHOME_EVENT_ID_WIFI_STA_GOT_IP6: {
-      auto it = info.got_ip6.ip6_info;
-      ESP_LOGV(TAG, "Got IPv6 address=" IPV6STR, IPV62STR(it.ip));
-      break;
-    }
-#endif /* ENABLE_IPV6 */
     case ESPHOME_EVENT_ID_WIFI_STA_LOST_IP: {
       ESP_LOGV(TAG, "Event: Lost IP");
       break;
@@ -551,12 +362,11 @@ void WiFiComponent::wifi_event_callback_(esphome_wifi_event_id_t event, esphome_
 void WiFiComponent::wifi_pre_setup_() {
   auto f = std::bind(&WiFiComponent::wifi_event_callback_, this, std::placeholders::_1, std::placeholders::_2);
   WiFi.onEvent(f);
-  WiFi.persistent(false);
   // Make sure WiFi is in clean state before anything starts
   this->wifi_mode_(false, false);
 }
 WiFiSTAConnectStatus WiFiComponent::wifi_sta_connect_status_() {
-  auto status = WiFiClass::status();
+  auto status = WiFi.status();
   if (status == WL_CONNECTED) {
     return WiFiSTAConnectStatus::CONNECTED;
   } else if (status == WL_CONNECT_FAILED || status == WL_CONNECTION_LOST) {
@@ -605,106 +415,34 @@ void WiFiComponent::wifi_scan_done_callback_() {
   this->scan_done_ = true;
 }
 bool WiFiComponent::wifi_ap_ip_config_(optional<ManualIP> manual_ip) {
-  esp_err_t err;
-
   // enable AP
   if (!this->wifi_mode_({}, true))
     return false;
 
-  tcpip_adapter_ip_info_t info;
-  memset(&info, 0, sizeof(info));
   if (manual_ip.has_value()) {
-    info.ip.addr = static_cast<uint32_t>(manual_ip->static_ip);
-    info.gw.addr = static_cast<uint32_t>(manual_ip->gateway);
-    info.netmask.addr = static_cast<uint32_t>(manual_ip->subnet);
+    return WiFi.softAPConfig(static_cast<uint32_t>(manual_ip->static_ip), static_cast<uint32_t>(manual_ip->gateway),
+                             static_cast<uint32_t>(manual_ip->subnet));
   } else {
-    info.ip.addr = static_cast<uint32_t>(network::IPAddress(192, 168, 4, 1));
-    info.gw.addr = static_cast<uint32_t>(network::IPAddress(192, 168, 4, 1));
-    info.netmask.addr = static_cast<uint32_t>(network::IPAddress(255, 255, 255, 0));
+    return WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
   }
-  tcpip_adapter_dhcp_status_t dhcp_status;
-  tcpip_adapter_dhcps_get_status(TCPIP_ADAPTER_IF_AP, &dhcp_status);
-  err = tcpip_adapter_dhcps_stop(TCPIP_ADAPTER_IF_AP);
-  if (err != ESP_OK) {
-    ESP_LOGV(TAG, "tcpip_adapter_dhcps_stop failed! %d", err);
-    return false;
-  }
-
-  err = tcpip_adapter_set_ip_info(TCPIP_ADAPTER_IF_AP, &info);
-  if (err != ESP_OK) {
-    ESP_LOGV(TAG, "tcpip_adapter_set_ip_info failed! %d", err);
-    return false;
-  }
-
-  dhcps_lease_t lease;
-  lease.enable = true;
-  network::IPAddress start_address = info.ip.addr;
-  start_address[3] += 99;
-  lease.start_ip.addr = static_cast<uint32_t>(start_address);
-  ESP_LOGV(TAG, "DHCP server IP lease start: %s", start_address.str().c_str());
-  start_address[3] += 100;
-  lease.end_ip.addr = static_cast<uint32_t>(start_address);
-  ESP_LOGV(TAG, "DHCP server IP lease end: %s", start_address.str().c_str());
-  err = tcpip_adapter_dhcps_option(TCPIP_ADAPTER_OP_SET, TCPIP_ADAPTER_REQUESTED_IP_ADDRESS, &lease, sizeof(lease));
-
-  if (err != ESP_OK) {
-    ESP_LOGV(TAG, "tcpip_adapter_dhcps_option failed! %d", err);
-    return false;
-  }
-
-  err = tcpip_adapter_dhcps_start(TCPIP_ADAPTER_IF_AP);
-
-  if (err != ESP_OK) {
-    ESP_LOGV(TAG, "tcpip_adapter_dhcps_start failed! %d", err);
-    return false;
-  }
-
-  return true;
 }
 bool WiFiComponent::wifi_start_ap_(const WiFiAP &ap) {
   // enable AP
   if (!this->wifi_mode_({}, true))
     return false;
 
-  wifi_config_t conf;
-  memset(&conf, 0, sizeof(conf));
-  strncpy(reinterpret_cast<char *>(conf.ap.ssid), ap.get_ssid().c_str(), sizeof(conf.ap.ssid));
-  conf.ap.channel = ap.get_channel().value_or(1);
-  conf.ap.ssid_hidden = ap.get_ssid().size();
-  conf.ap.max_connection = 5;
-  conf.ap.beacon_interval = 100;
-
-  if (ap.get_password().empty()) {
-    conf.ap.authmode = WIFI_AUTH_OPEN;
-    *conf.ap.password = 0;
-  } else {
-    conf.ap.authmode = WIFI_AUTH_WPA2_PSK;
-    strncpy(reinterpret_cast<char *>(conf.ap.password), ap.get_password().c_str(), sizeof(conf.ap.ssid));
-  }
-
-  conf.ap.pairwise_cipher = WIFI_CIPHER_TYPE_CCMP;
-
-  esp_err_t err = esp_wifi_set_config(WIFI_IF_AP, &conf);
-  if (err != ESP_OK) {
-    ESP_LOGV(TAG, "esp_wifi_set_config failed! %d", err);
-    return false;
-  }
-
-  yield();
-
   if (!this->wifi_ap_ip_config_(ap.get_manual_ip())) {
     ESP_LOGV(TAG, "wifi_ap_ip_config_ failed!");
     return false;
   }
 
-  return true;
+  yield();
+
+  return WiFi.softAP(ap.get_ssid().c_str(), ap.get_password().empty() ? NULL : ap.get_password().c_str(),
+                     ap.get_channel().value_or(1), ap.get_hidden());
 }
-network::IPAddress WiFiComponent::wifi_soft_ap_ip() {
-  tcpip_adapter_ip_info_t ip;
-  tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip);
-  return {ip.ip.addr};
-}
-bool WiFiComponent::wifi_disconnect_() { return esp_wifi_disconnect(); }
+network::IPAddress WiFiComponent::wifi_soft_ap_ip() { return {WiFi.softAPIP()}; }
+bool WiFiComponent::wifi_disconnect_() { return WiFi.disconnect(); }
 
 bssid_t WiFiComponent::wifi_bssid() {
   bssid_t bssid{};
@@ -726,4 +464,4 @@ void WiFiComponent::wifi_loop_() {}
 }  // namespace wifi
 }  // namespace esphome
 
-#endif  // USE_ESP32_FRAMEWORK_ARDUINO
+#endif  // USE_LIBRETINY
