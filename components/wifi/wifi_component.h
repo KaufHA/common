@@ -330,6 +330,8 @@ class WiFiComponent : public Component {
 
   void set_enable_on_boot(bool enable_on_boot) { this->enable_on_boot_ = enable_on_boot; }
 
+  bool get_initial_ap();
+
  protected:
   static std::string format_mac_addr(const uint8_t mac[6]);
   void setup_ap_config_();

@@ -139,8 +139,7 @@ void WiFiComponent::loop() {
   const uint32_t now = millis();
 
   // hard code an AP timeout of 15 seconds for all devices if Wi-Fi credentials are not configured.
-  if ( str_startswith(this->soft_ssid,"initial_ap") ||
-      (str_startswith(this->hard_ssid,"initial_ap") && this->tried_loading_creds && !this->loaded_creds ) ) {
+  if ( this->get_initial_ap() ) {
     this->set_ap_timeout(15000);
   }
 
@@ -738,6 +737,11 @@ bool WiFiComponent::is_esp32_improv_active_() {
 #else
   return false;
 #endif
+}
+
+bool WiFiComponent::get_initial_ap() {
+  return (str_startswith(this->soft_ssid,"initial_ap") ||
+         (str_startswith(this->hard_ssid,"initial_ap") && this->tried_loading_creds && !this->loaded_creds ) );
 }
 
 void WiFiAP::set_ssid(const std::string &ssid) { this->ssid_ = ssid; }

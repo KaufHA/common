@@ -264,6 +264,7 @@ class WebServer : public Controller, public Component, public AsyncWebHandler {
 
   void reset_flash(AsyncWebServerRequest *request);
   void clear_wifi(AsyncWebServerRequest *request);
+  void save_wifi(AsyncWebServerRequest *request);
 
  protected:
   void schedule_(std::function<void()> &&f);

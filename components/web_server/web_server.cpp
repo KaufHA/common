@@ -1091,6 +1091,8 @@ bool WebServer::canHandle(AsyncWebServerRequest *request) {
     return true;
   if (request->url() == "/clear")
     return true;
+  if ( (request->url() == "/wifisave") && wifi::global_wifi_component->get_initial_ap() )
+    return true;
 
 #ifdef USE_WEBSERVER_CSS_INCLUDE
   if (request->url() == "/0.css")
@@ -1185,6 +1187,11 @@ void WebServer::handleRequest(AsyncWebServerRequest *request) {
 
   if (request->url() == "/clear") {
     this->clear_wifi(request);
+    return;
+  }
+
+  if (request->url() == "/wifisave") {
+    this->save_wifi(request);
     return;
   }
 
@@ -1361,6 +1368,24 @@ void WebServer::clear_wifi(AsyncWebServerRequest *request) {
   }
 
   return;
+}
+
+void WebServer::save_wifi(AsyncWebServerRequest *request){
+  std::string ssid = request->arg("ssid").c_str();
+  std::string psk = request->arg("psk").c_str();
+  ESP_LOGI(TAG, "Captive Portal Requested WiFi Settings Change:");
+  ESP_LOGI(TAG, "  SSID='%s'", ssid.c_str());
+  ESP_LOGI(TAG, "  Password=" LOG_SECRET("'%s'"), psk.c_str());
+  wifi::global_wifi_component->save_wifi_sta(ssid, psk);
+
+  AsyncResponseStream *stream = request->beginResponseStream("text/html");
+  stream->addHeader("Access-Control-Allow-Origin", "*");
+  stream->print(F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
+  stream->print(F("Saving new wifi credentials.<br><br>"));
+  stream->print(F("</body></html>"));
+  request->send(stream);
+
+
 }
 
 }  // namespace web_server
