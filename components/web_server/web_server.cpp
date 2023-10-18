@@ -107,6 +107,42 @@ void WebServer::set_css_include(const char *css_include) { this->css_include_ = 
 void WebServer::set_js_include(const char *js_include) { this->js_include_ = js_include; }
 #endif
 
+std::string WebServer::get_config_json() {
+  return json::build_json([this](JsonObject root) {
+    root["title"] = App.get_friendly_name().empty() ? App.get_name() : App.get_friendly_name();
+    root["comment"] = App.get_comment();
+    root["ota"] = this->allow_ota_;
+    root["log"] = this->expose_log_;
+    root["lang"] = "en";
+    root["esph_v"] = ESPHOME_VERSION;
+
+#ifdef ESPHOME_PROJECT_NAME
+    root["proj_n"] = ESPHOME_PROJECT_NAME;
+#else
+    root["proj_n"] = "Kauf.unknown";
+#endif
+
+#ifdef ESPHOME_PROJECT_VERSION
+    root["proj_v"] = ESPHOME_PROJECT_VERSION;
+    std::string project_version = ESPHOME_PROJECT_VERSION;
+    if ( project_version.find("(f)") != std::string::npos ) {
+           root["proj_l"] = "f"; }
+    else { root["proj_l"] = ""; }
+
+#else
+    root["proj_v"] = "unknown";
+    root["proj_l"] = "";
+#endif
+
+    root["soft_ssid"] = wifi::global_wifi_component->soft_ssid;
+    root["hard_ssid"] = wifi::global_wifi_component->hard_ssid;
+    root["has_ap"]    = wifi::global_wifi_component->has_ap();
+    root["free_sp"]   = ESP.getFreeSketchSpace();
+    root["mac_addr"]  = get_mac_address_pretty();
+
+  });
+}
+
 void WebServer::setup() {
   ESP_LOGCONFIG(TAG, "Setting up web server...");
 
@@ -120,40 +156,7 @@ void WebServer::setup() {
 
   this->events_.onConnect([this](AsyncEventSourceClient *client) {
     // Configure reconnect timeout and send config
-
-    client->send(json::build_json([this](JsonObject root) {
-                   root["title"] = App.get_friendly_name().empty() ? App.get_name() : App.get_friendly_name();
-                   root["comment"] = App.get_comment();
-                   root["ota"] = this->allow_ota_;
-                   root["lang"] = "en";
-                   root["esph_v"] = ESPHOME_VERSION;
-
-#ifdef ESPHOME_PROJECT_NAME
-                   root["proj_n"] = ESPHOME_PROJECT_NAME;
-#else
-                   root["proj_n"] = "Kauf.unknown";
-#endif
-
-#ifdef ESPHOME_PROJECT_VERSION
-                   root["proj_v"] = ESPHOME_PROJECT_VERSION;
-                   std::string project_version = ESPHOME_PROJECT_VERSION;
-                   if ( project_version.find("(f)") != std::string::npos ) {
-                     root["proj_l"] = "f"; }
-                   else { root["proj_l"] = ""; }
-
-#else
-                   root["proj_v"] = "unknown";
-                   root["proj_l"] = "";
-#endif
-
-                   root["soft_ssid"] = wifi::global_wifi_component->soft_ssid;
-                   root["hard_ssid"] = wifi::global_wifi_component->hard_ssid;
-                   root["has_ap"]    = wifi::global_wifi_component->has_ap();
-                   root["free_sp"]   = ESP.getFreeSketchSpace();
-                   root["mac_addr"]  = get_mac_address_pretty();
-
-                 }).c_str(),
-                 "ping", millis(), 30000);
+    client->send(this->get_config_json().c_str(), "ping", millis(), 30000);
 
     this->entities_iterator_.begin(this->include_internal_);
   });
@@ -839,7 +842,12 @@ void WebServer::handle_select_request(AsyncWebServerRequest *request, const UrlM
       continue;
 
     if (request->method() == HTTP_GET) {
-      std::string data = this->select_json(obj, obj->state, DETAIL_STATE);
+      auto detail = DETAIL_STATE;
+      auto *param = request->getParam("detail");
+      if (param && param->value() == "all") {
+        detail = DETAIL_ALL;
+      }
+      std::string data = this->select_json(obj, obj->state, detail);
       request->send(200, "application/json", data.c_str());
       return;
     }
