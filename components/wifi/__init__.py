@@ -32,6 +32,8 @@ from esphome.const import (
     CONF_KEY,
     CONF_USERNAME,
     CONF_EAP,
+    CONF_ON_CONNECT,
+    CONF_ON_DISCONNECT,
 )
 from esphome.core import CORE, HexInt, coroutine_with_priority
 from esphome.components.esp32 import add_idf_sdkconfig_option, get_esp32_variant, const
@@ -328,6 +330,10 @@ CONFIG_SCHEMA = cv.All(
                 "new mdns component instead."
             ),
             cv.Optional(CONF_ENABLE_ON_BOOT, default=True): cv.boolean,
+            cv.Optional(CONF_ON_CONNECT): automation.validate_automation(single=True),
+            cv.Optional(CONF_ON_DISCONNECT): automation.validate_automation(
+                single=True
+            ),
             cv.Optional("forced_hash"): cv.int_,
             cv.Optional("forced_addr"): cv.int_,
             cv.Optional("global_addr"): cv.use_id(globals),
@@ -452,8 +458,20 @@ async def to_code(config):
 
     cg.add_define("USE_WIFI")
 
-    # Register at end for OTA safe mode
+    # must register before OTA safe mode check
     await cg.register_component(var, config)
+
+    await cg.past_safe_mode()
+
+    if on_connect_config := config.get(CONF_ON_CONNECT):
+        await automation.build_automation(
+            var.get_connect_trigger(), [], on_connect_config
+        )
+
+    if on_disconnect_config := config.get(CONF_ON_DISCONNECT):
+        await automation.build_automation(
+            var.get_disconnect_trigger(), [], on_disconnect_config
+        )
 
     if "forced_hash" in config:
         cg.add(var.set_forced_hash(config["forced_hash"]))

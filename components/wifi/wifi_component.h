@@ -1,10 +1,10 @@
 #pragma once
 
+#include "esphome/components/network/ip_address.h"
+#include "esphome/core/automation.h"
 #include "esphome/core/component.h"
 #include "esphome/core/defines.h"
-#include "esphome/core/automation.h"
 #include "esphome/core/helpers.h"
-#include "esphome/components/network/ip_address.h"
 
 #include <string>
 #include <vector>
@@ -12,9 +12,9 @@
 #include "esphome/components/globals/globals_component.h"
 
 #ifdef USE_ESP32_FRAMEWORK_ARDUINO
-#include <esp_wifi.h>
-#include <WiFiType.h>
 #include <WiFi.h>
+#include <WiFiType.h>
+#include <esp_wifi.h>
 #endif
 
 #ifdef USE_LIBRETINY
@@ -330,6 +330,9 @@ class WiFiComponent : public Component {
 
   void set_enable_on_boot(bool enable_on_boot) { this->enable_on_boot_ = enable_on_boot; }
 
+  Trigger<> *get_connect_trigger() const { return this->connect_trigger_; };
+  Trigger<> *get_disconnect_trigger() const { return this->disconnect_trigger_; };
+
   bool get_initial_ap();
 
  protected:
@@ -392,6 +395,7 @@ class WiFiComponent : public Component {
   bool has_ap_{false};
   WiFiAP ap_;
   WiFiComponentState state_{WIFI_COMPONENT_STATE_OFF};
+  bool handled_connected_state_{false};
   uint32_t action_started_;
   uint8_t num_retried_{0};
   uint32_t last_connected_{0};
@@ -411,6 +415,9 @@ class WiFiComponent : public Component {
   bool rrm_{false};
 #endif
   bool enable_on_boot_;
+
+  Trigger<> *connect_trigger_{new Trigger<>()};
+  Trigger<> *disconnect_trigger_{new Trigger<>()};
 };
 
 extern WiFiComponent *global_wifi_component;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
