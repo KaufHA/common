@@ -41,15 +41,16 @@ void DDPComponent::add_effect(DDPLightEffectBase *light_effect) {
   }
 
   // only the first effect added needs to start udp listening
-  if (this->light_effects_.size() != 0) { return; }
+  // but we still need to add the effect to the set so it can be applied.
+  if (this->light_effects_.size() == 0) {
+    if (!this->udp_) { this->udp_ = make_unique<WiFiUDP>(); }
 
-  if (!this->udp_) { this->udp_ = make_unique<WiFiUDP>(); }
-
-  ESP_LOGD(TAG, "Starting UDP listening for DDP.");
-  if (!this->udp_->begin(PORT)) {
-    ESP_LOGE(TAG, "Cannot bind DDP to port %d.", PORT);
-    mark_failed();
-    return;
+    ESP_LOGD(TAG, "Starting UDP listening for DDP.");
+    if (!this->udp_->begin(PORT)) {
+      ESP_LOGE(TAG, "Cannot bind DDP to port %d.", PORT);
+      mark_failed();
+      return;
+    }
   }
 
   this->light_effects_.insert(light_effect);
