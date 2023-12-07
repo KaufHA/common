@@ -90,7 +90,7 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Strin
 #ifdef SENSOR_4M
   found = str.find("-1m");
   if ( SENSOR_4M && (found!=std::string::npos) ) {
-     ESP_LOGD(TAG, "*****  Apparently trying to flash 1M firmware over 4M version *****")
+     ESP_LOGD(TAG, "*****  Apparently trying to flash 1M firmware over 4M version *****");
      report_ota_error();
      return;
   }
