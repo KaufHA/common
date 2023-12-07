@@ -86,6 +86,23 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Strin
     last_gzip = true;
   }
 
+  // if used, confirm filename does not conflict with sensor value
+#ifdef SENSOR_4M
+  found = str.find("-1m");
+  if ( SENSOR_4M && (found!=std::string::npos) ) {
+     ESP_LOGD(TAG, "*****  Apparently trying to flash 1M firmware over 4M version *****")
+     report_ota_error();
+     return;
+  }
+
+  found = str.find("-4m");
+  if ( !SENSOR_4M && (found!=std::string::npos) ) {
+     ESP_LOGD(TAG, "*****  Apparently trying to flash 4M firmware over 1M version *****");
+     report_ota_error();
+     return;
+  }
+#endif
+
 
   if (index == 0) {
     ESP_LOGI(TAG, "OTA Update Start: %s", filename.c_str());

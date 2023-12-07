@@ -94,6 +94,7 @@ CONFIG_SCHEMA = cv.All(
             ): cv.boolean,
             cv.Optional(CONF_LOG, default=True): cv.boolean,
             cv.Optional("disable", default=False): cv.boolean,
+            cv.Optional("sensor_4m"): cv.boolean,
             cv.Optional(CONF_LOCAL): cv.boolean,
         }
     ).extend(cv.COMPONENT_SCHEMA),
@@ -182,3 +183,5 @@ async def to_code(config):
 
     if config["disable"]:
         cg.add_define("DISABLE_WEBSERVER")
+    if "sensor_4m" in config:
+        cg.add_define("SENSOR_4M", config["sensor_4m"])
