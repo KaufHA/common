@@ -134,6 +134,7 @@ void LightState::loop() {
   // Apply transformer (if any)
   if (this->transformer_ != nullptr) {
     auto values = this->transformer_->apply();
+    this->is_transformer_active_ = true;
     if (values.has_value()) {
       this->current_values = *values;
       this->output_->update_state(this);
@@ -145,6 +146,7 @@ void LightState::loop() {
       this->current_values = this->transformer_->get_target_values();
 
       this->transformer_->stop();
+      this->is_transformer_active_ = false;
       this->transformer_ = nullptr;
       this->target_state_reached_callback_.call();
     }
@@ -228,6 +230,8 @@ void LightState::current_values_as_ct(float *color_temperature, float *white_bri
                              this->gamma_correct_);
 }
 
+bool LightState::is_transformer_active() { return this->is_transformer_active_; }
+
 void LightState::start_effect_(uint32_t effect_index) {
   this->stop_effect_();
   if (effect_index == 0)
@@ -277,6 +281,7 @@ void LightState::start_flash_(const LightColorValues &target, uint32_t length, b
 }
 
 void LightState::set_immediately_(const LightColorValues &target, bool set_remote_values) {
+  this->is_transformer_active_ = false;
   this->transformer_ = nullptr;
   this->current_values = target;
   if (set_remote_values) {
