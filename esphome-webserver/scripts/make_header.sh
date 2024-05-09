@@ -25,8 +25,18 @@ cat <<EOT >>./$1/$2
 }  // namespace $3
 }  // namespace esphome
 EOT
+
 if [ -n "$4" ]; then
   echo "" >>./$1/$2
   echo "#endif" >>./$1/$2
   echo "#endif" >>./$1/$2
+
+  if [ "$4" = "3" ]; then
+    cp ../../_static/v2/server_index_v2.h ../../../components/web_server/
+  fi
+fi
+
+
+if [ "$3" = "captive_portal" ]; then
+    cp ../../_static/captive_portal/captive_index.h ../../../components/captive_portal/
 fi
