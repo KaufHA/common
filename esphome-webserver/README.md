@@ -5,7 +5,7 @@ A Lit Element web component htm webserver for esphome devices.  This is a fork o
 
 - 30 sec heartbeat showing node connection is active
 - Built with Lit Element web components
-- completely standalone - no other external dependancies  9K compressed
+- Completely standalone - no other external dependencies  9K compressed
 - Light and Dark themes
 - Primary theme - currently light blue - can be overridden
 - Embedded ESP home logo svg
@@ -31,8 +31,6 @@ Light scheme on mobile:
 ## Example entry for `config.yaml`:
 
 ```yaml
-# Example config.yaml
-
 web_server:
   port: 80
   css_url: ""
@@ -45,37 +43,69 @@ development
 
 ```
 git clone https://github.com/esphome/esphome-webserver.git
-pnpm install
+cd esphome-webserver
+npm install
 ```
 
-`npm run start`
+Build and deploy all packages from the root directory:
+````
+npm run build
+````
+
+### Work with specific packages
 Starts a dev server on http://localhost:3000
+```
+cd packages/v2
+npm run start
+```
 
 proxy
 ======
-Events from a real device can be proxied for developement. Update this line in `vite.config.ts` to point to your real device
+Events from a real device can be proxied for development by using the `PROXY_TARGET` environment variable.
 
-const proxy_target = "http://nodemcu.local";
+```
+PROXY_TARGET=http://nodemcu.local npm run build
+# and/or
+PROXY_TARGET=http://nodemcu.local npm run serve
+```
+
+Alternatively, update this line in `packages/[version]/vite.config.ts` to point to your real device.
+```js
+const proxy_target = process.env.PROXY_TARGET || "http://nodemcu.local";
+```
 
 The json api will POST to the real device and the events are proxied
 
 build
 =====
-`npm run build`
-The build files are copied to static/v2 usually for deployment to https://esphome.io/static/v2 or your /local/www homeassistant folder
+```js
+cd packages/v2
+npm run build
+```
+The build files are copied to _static/v2 usually for deployment to https://oi.esphome.io/v2 or your /local/www Home Assistant folder
 
-If you customise, you can deploy to your local homeassistant /local/www/_static/v2 and use:
+If you customise, you can deploy to your local Home Assistant /local/www/_static/v2 and use:
 
 ```yaml
 web_server:
   port: 80
   version: 2
   js_url: http://homeassistant.local:8123/local/_static/v2/www.js
+```
 
+To use a specific version of a CDN hosted device dashboard, you can use the following override as an example:
+```yaml
+web_server:
+  port: 80
+  version: 3
+  js_url: https://oi.esphome.io/v3/www.js
 ```
 
 serve
 =====
-`npm run server`
+```js
+cd packages/v2
+npm run serve
+```
 Starts a production test server on http://localhost:5001
 Events and the json api are proxied.

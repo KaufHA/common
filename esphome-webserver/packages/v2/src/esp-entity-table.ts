@@ -293,8 +293,8 @@ class ActionRenderer {
     value: string,
   ) {
     return html`
-      <input
-        type="${type}"
+      <input 
+        type="${type}" 
         name="${entity.unique_id}"
         id="${entity.unique_id}"
         .value="${value}"
