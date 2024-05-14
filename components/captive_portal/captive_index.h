@@ -1,9 +1,8 @@
 #pragma once
-// Generated from https://github.com/esphome/esphome-webserver
-
+// Generated from https://github.com/KaufHA/common/tree/main/esphome-webserver
 #include "esphome/core/hal.h"
-
 namespace esphome {
+
 namespace captive_portal {
 
 const uint8_t INDEX_GZ[] PROGMEM = {
