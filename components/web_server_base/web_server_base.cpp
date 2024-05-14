@@ -113,7 +113,7 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Strin
 #if defined(USE_ESP32_FRAMEWORK_ARDUINO) || defined(USE_LIBRETINY)
     if (Update.isRunning()) {
       Update.abort();
-  }
+    }
     success = Update.begin(UPDATE_SIZE_UNKNOWN, U_FLASH);
 #endif
     if (!success) {

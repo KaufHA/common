@@ -159,7 +159,7 @@ void WebServer::setup() {
   ESP_LOGCONFIG(TAG, "Setting up web server...");
 
 #ifdef DISABLE_WEBSERVER
-  ESP_LOGCONFIG(TAG,"Web server disabled.");
+  ESP_LOGCONFIG(TAG,"Sike! Web server disabled.");
   return;
 #endif
 

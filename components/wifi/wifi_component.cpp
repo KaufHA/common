@@ -91,9 +91,6 @@ void WiFiComponent::start() {
 
     // tells ESPHome yaml file boot routine that WiFi credentials were successfully loaded
     loaded_creds = true;
-
-    // always use fast connect for saved (not hard coded in yaml) credentials
-    this->set_fast_connect(true);
   }
 
   // tells ESPHome yaml file boot routine that an attempt was made to load credentials
@@ -164,13 +161,10 @@ void WiFiComponent::loop() {
       case WIFI_COMPONENT_STATE_COOLDOWN: {
         this->status_set_warning();
         if (millis() - this->action_started_ > 5000) {
-          if (this->fast_connect_ && this->even_number) {
-            this->even_number = false;
+          if (this->fast_connect_ || this->retry_hidden_) {
             this->start_connecting(this->sta_[0], false);
-          }
-          else {
-            this->even_number = true;
-            if (!this->disable_scanning) this->start_scanning();
+          } else {
+            this->start_scanning();
           }
         }
         break;
@@ -653,6 +647,9 @@ void WiFiComponent::check_connecting_finished() {
       return;
     }
 
+    // We won't retry hidden networks unless a reconnect fails more than three times again
+    this->retry_hidden_ = false;
+
     ESP_LOGI(TAG, "WiFi Connected!");
     this->print_connect_params_();
 
@@ -730,10 +727,11 @@ void WiFiComponent::retry_connect() {
       this->wifi_mode_(false, {});
       delay(100);  // NOLINT
       this->num_retried_ = 0;
+      this->retry_hidden_ = false;
     } else {
       // Try hidden networks after 3 failed retries
       ESP_LOGD(TAG, "Retrying with hidden networks...");
-      this->fast_connect_ = true;
+      this->retry_hidden_ = true;
       this->num_retried_++;
     }
   } else {

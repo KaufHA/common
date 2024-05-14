@@ -50,7 +50,8 @@ CONFIG_SCHEMA = cv.All(
             ),
             cv.Optional(CONF_RESTORE_STATE): cv.invalid(
                 "The restore_state option has been removed in 2023.7.0. Use the restore_mode option instead"
-            ),        }
+            ),
+        }
     )
     .extend(cv.COMPONENT_SCHEMA),
     validate,

@@ -199,7 +199,6 @@ class WiFiComponent : public Component {
   // and whether it was successful.
   bool tried_loading_creds = false;
   bool loaded_creds = false;
-  bool even_number = false;
 
   bool disable_scanning = false;
   void set_disable_scanning(bool disable_arg) {
@@ -409,6 +408,7 @@ class WiFiComponent : public Component {
   std::vector<WiFiSTAPriority> sta_priorities_;
   WiFiAP selected_ap_;
   bool fast_connect_{false};
+  bool retry_hidden_{false};
 
   bool has_ap_{false};
   WiFiAP ap_;
