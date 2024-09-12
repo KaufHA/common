@@ -1,5 +1,5 @@
 #include "web_server.h"
-
+#ifdef USE_WEBSERVER
 #include "esphome/components/json/json_util.h"
 #include "esphome/components/network/util.h"
 #include "esphome/core/application.h"
@@ -1790,3 +1790,4 @@ void WebServer::save_wifi(AsyncWebServerRequest *request){
 
 }  // namespace web_server
 }  // namespace esphome
+#endif
