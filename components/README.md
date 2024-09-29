@@ -60,7 +60,7 @@ light:
     green: pwm_green
     blue: pwm_blue
     effects:
-      - ddp
+      - ddp:
           name: DDP
           timeout: 10s
           disable_gamma: true
@@ -80,7 +80,7 @@ light:
     num_leds: 10
     name: "Test DDP Strip"
     effects:
-      - addressable_ddp
+      - addressable_ddp:
           name: Addressable DDP
           timeout: 10s
           disable_gamma: true
