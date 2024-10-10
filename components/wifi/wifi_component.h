@@ -208,6 +208,12 @@ struct IDFWiFiEvent;
 class WiFiComponent : public Component {
  public:
 
+  // function to change/set wifi phy mode
+  void set_phy_mode(const char* new_phy_mode) {
+    if ( *new_phy_mode == 'g' )  WiFi.setPhyMode(WIFI_PHY_MODE_11G);
+    if ( *new_phy_mode == 'b' )  WiFi.setPhyMode(WIFI_PHY_MODE_11B);
+  }
+
   // add two booleans so we can know when an attempt to load credentials was made
   // and whether it was successful.
   bool tried_loading_creds = false;

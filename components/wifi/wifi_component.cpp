@@ -501,6 +501,9 @@ void WiFiComponent::print_connect_params_() {
     ESP_LOGV(TAG, "  Priority: %.1f", this->get_sta_priority(*this->selected_ap_.get_bssid()));
   }
   ESP_LOGCONFIG(TAG, "  Channel: %" PRId32, wifi_channel_());
+
+  ESP_LOGCONFIG(TAG, "  Phy Mode: %" PRId32, WiFi.getPhyMode());
+
   ESP_LOGCONFIG(TAG, "  Subnet: %s", wifi_subnet_mask_().str().c_str());
   ESP_LOGCONFIG(TAG, "  Gateway: %s", wifi_gateway_ip_().str().c_str());
   ESP_LOGCONFIG(TAG, "  DNS1: %s", wifi_dns_ip_(0).str().c_str());

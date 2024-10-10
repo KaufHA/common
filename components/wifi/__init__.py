@@ -84,6 +84,16 @@ def validate_channel(value):
         raise cv.Invalid("Maximum WiFi channel is 14")
     return value
 
+def validate_phy(value):
+    value = cv.string_strict(value)
+    if not value:
+        return value
+    if len(value) > 1:
+        raise cv.Invalid("Phy mode must be either 'n', 'g', or 'b'")
+    if (value != 'n') and (value != 'g') and (value != 'b'):
+        raise cv.Invalid("Phy mode must be either 'n', 'g', or 'b'")
+    return value
+
 
 AP_MANUAL_IP_SCHEMA = cv.Schema(
     {
@@ -352,6 +362,8 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional("global_addr"): cv.use_id(globals),
             cv.Optional("disable_scanning", default=False): cv.boolean,
             cv.Optional("only_networks", default=False): cv.boolean,
+            cv.Optional("phy_mode", default='n'): validate_phy,
+
         }
     ),
     _validate,
@@ -502,6 +514,7 @@ async def to_code(config):
         cg.add(var.set_global_addr(ga))
 
     cg.add(var.set_disable_scanning(config["disable_scanning"]))
+    cg.add(var.set_phy_mode(config["phy_mode"]))
 
 
 @automation.register_condition("wifi.connected", WiFiConnectedCondition, cv.Schema({}))
