@@ -500,7 +500,7 @@ void WiFiComponent::print_connect_params_() {
   if (this->selected_ap_.get_bssid().has_value()) {
     ESP_LOGV(TAG, "  Priority: %.1f", this->get_sta_priority(*this->selected_ap_.get_bssid()));
   }
-  ESP_LOGCONFIG(TAG, "  Channel: %" PRId32, wifi_channel_());
+  ESP_LOGCONFIG(TAG, "  Channel: %" PRId32, get_wifi_channel());
 
   ESP_LOGCONFIG(TAG, "  Phy Mode: %" PRId32, WiFi.getPhyMode());
 
@@ -822,7 +822,7 @@ void WiFiComponent::load_fast_connect_settings_() {
 
 void WiFiComponent::save_fast_connect_settings_() {
   bssid_t bssid = wifi_bssid();
-  uint8_t channel = wifi_channel_();
+  uint8_t channel = get_wifi_channel();
 
   if (bssid != this->selected_ap_.get_bssid() || channel != this->selected_ap_.get_channel()) {
     SavedWifiFastConnectSettings fast_connect_save{};

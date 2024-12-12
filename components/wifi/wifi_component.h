@@ -250,6 +250,7 @@ class WiFiComponent : public Component {
   WiFiComponent();
 
   void set_sta(const WiFiAP &ap);
+  WiFiAP get_sta() { return this->selected_ap_; }
   void add_sta(const WiFiAP &ap);
   void clear_sta();
 
@@ -360,6 +361,8 @@ class WiFiComponent : public Component {
 
   bool get_initial_ap();
 
+  int32_t get_wifi_channel();
+
  protected:
   static std::string format_mac_addr(const uint8_t mac[6]);
 
@@ -387,7 +390,7 @@ class WiFiComponent : public Component {
 #endif  // USE_WIFI_AP
 
   bool wifi_disconnect_();
-  int32_t wifi_channel_();
+
   network::IPAddress wifi_subnet_mask_();
   network::IPAddress wifi_gateway_ip_();
   network::IPAddress wifi_dns_ip_(int num);
