@@ -85,7 +85,7 @@ void WiFiComponent::start() {
   }
 
   if (this->fast_connect_) {
-    this->fast_connect_pref_ = global_preferences->make_preference<wifi::SavedWifiFastConnectSettings>(hash, false);
+    this->fast_connect_pref_ = global_preferences->make_preference<wifi::SavedWifiFastConnectSettings>(hash + 1, false);
   }
 
   SavedWifiSettings save{};
