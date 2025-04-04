@@ -50,6 +50,8 @@ class TotalDailyEnergy : public sensor::Sensor, public Component {
     global_forced_addr = ga_in;
   }
 
+  void reset_total_energy() { this->total_energy_ = 0.0; }
+
  protected:
   void process_new_state_(float state);
 
