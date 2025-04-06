@@ -30,6 +30,16 @@ void TotalDailyEnergy::setup() {
 void TotalDailyEnergy::dump_config() { LOG_SENSOR("", "Total Daily Energy", this); }
 
 void TotalDailyEnergy::loop() {
+
+  if (this->manual_zero) {
+    this->manual_zero = false;
+    this->total_energy_ = 0;
+    this->publish_state_and_save(0);
+  }
+
+  if (this->manual_control)
+    return;
+
   auto t = this->time_->now();
   if (!t.is_valid())
     return;
@@ -76,6 +86,11 @@ void TotalDailyEnergy::process_new_state_(float state) {
   this->last_power_state_ = new_state;
   this->last_update_ = now;
   this->publish_state_and_save(this->total_energy_ + delta_energy);
+}
+
+void TotalDailyEnergy::zero_total_energy() {
+  this->manual_zero = true;
+  this->manual_control = true;
 }
 
 }  // namespace total_daily_energy
