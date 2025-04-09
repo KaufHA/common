@@ -1,9 +1,10 @@
+from esphome import pins
 import esphome.codegen as cg
+from esphome.components import switch
 import esphome.config_validation as cv
 import esphome.final_validate as fv
-from esphome import pins
-from esphome.components import switch
 from esphome.const import CONF_INTERLOCK, CONF_PIN
+
 from .. import gpio_ns
 
 GPIOSwitch = gpio_ns.class_("GPIOSwitch", switch.Switch, cg.Component)

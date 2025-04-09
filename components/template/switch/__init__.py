@@ -1,8 +1,8 @@
+from esphome import automation
 import esphome.codegen as cg
+from esphome.components import switch
 import esphome.config_validation as cv
 import esphome.final_validate as fv
-from esphome import automation
-from esphome.components import switch
 from esphome.const import (
     CONF_ASSUMED_STATE,
     CONF_ID,
@@ -13,6 +13,7 @@ from esphome.const import (
     CONF_TURN_OFF_ACTION,
     CONF_TURN_ON_ACTION,
 )
+
 from .. import template_ns
 
 TemplateSwitch = template_ns.class_("TemplateSwitch", switch.Switch, cg.Component)

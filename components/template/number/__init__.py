@@ -1,8 +1,8 @@
 from esphome import automation
 import esphome.codegen as cg
+from esphome.components import number
 import esphome.config_validation as cv
 import esphome.final_validate as fv
-from esphome.components import number
 from esphome.const import (
     CONF_ID,
     CONF_INITIAL_VALUE,
@@ -11,9 +11,10 @@ from esphome.const import (
     CONF_MIN_VALUE,
     CONF_OPTIMISTIC,
     CONF_RESTORE_VALUE,
-    CONF_STEP,
     CONF_SET_ACTION,
+    CONF_STEP,
 )
+
 from .. import template_ns
 
 TemplateNumber = template_ns.class_(

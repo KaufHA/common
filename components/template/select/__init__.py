@@ -1,17 +1,18 @@
 from esphome import automation
 import esphome.codegen as cg
+from esphome.components import select
 import esphome.config_validation as cv
 import esphome.final_validate as fv
-from esphome.components import select
 from esphome.const import (
     CONF_ID,
     CONF_INITIAL_OPTION,
     CONF_LAMBDA,
-    CONF_OPTIONS,
     CONF_OPTIMISTIC,
+    CONF_OPTIONS,
     CONF_RESTORE_VALUE,
     CONF_SET_ACTION,
 )
+
 from .. import template_ns
 
 TemplateSelect = template_ns.class_(

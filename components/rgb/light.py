@@ -1,8 +1,8 @@
 import esphome.codegen as cg
+from esphome.components import light, output
 import esphome.config_validation as cv
 import esphome.final_validate as fv
-from esphome.components import light, output
-from esphome.const import CONF_BLUE, CONF_GREEN, CONF_RED, CONF_OUTPUT_ID
+from esphome.const import CONF_BLUE, CONF_GREEN, CONF_OUTPUT_ID, CONF_RED
 
 rgb_ns = cg.esphome_ns.namespace("rgb")
 RGBLightOutput = rgb_ns.class_("RGBLightOutput", light.LightOutput)
