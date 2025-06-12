@@ -177,7 +177,7 @@ class ESP8266Preferences : public ESPPreferences {
 
   void setup() {
     s_flash_storage = new uint32_t[ESP8266_FLASH_STORAGE_SIZE];  // NOLINT
-    ESP_LOGVV(TAG, "Loading preferences from flash...");
+    ESP_LOGVV(TAG, "Loading preferences from flash");
 
     {
       InterruptLock lock;
@@ -201,7 +201,7 @@ class ESP8266Preferences : public ESPPreferences {
       }
 
       if ( !forced ) {
-        ESP_LOGD("KAUF Preferences", "              Storing a preference in free flash space.");
+        ESP_LOGD("KAUF Prefs", "!! Storing in free space");
         start = current_flash_offset;
         end = start + length_words + 1;
         current_flash_offset = end;
@@ -209,13 +209,13 @@ class ESP8266Preferences : public ESPPreferences {
         start = id(global_forced_addr);
         end = start + length_words + 1;
         if ( end > init_flash_offset ) {
-          ESP_LOGE("KAUF Preferences", "            !!!! FORCING ADDRESS THAT WAS SUPPOSED TO BE FREE !!!!");
+          ESP_LOGE("KAUF Prefs", "!! FORCING FREE ADDRESS");
         }
         id(global_forced_addr) = 12345; // served its purpose, reset to default
       }
 
       if (end > ESP8266_FLASH_STORAGE_SIZE) {
-        ESP_LOGE("KAUF Preferences", "              !!!! WENT PAST ESP8266_FLASH_STORAGE_SIZE !!!!");
+        ESP_LOGE("KAUF Prefs", "!! WENT PAST STORAGE SIZE");
         return {};
       }
 
@@ -225,7 +225,7 @@ class ESP8266Preferences : public ESPPreferences {
       pref->length_words = length_words;
       pref->in_flash = true;
 
-      ESP_LOGD(TAG, "Making Preference in Flash - start: %u: length: %u, length_words:%u type: %u", start, length, length_words, type);
+      ESP_LOGD(TAG, "Making Pref - st: %u: len: %u, wds:%u tp: %u", start, length, length_words, type);
       return {pref};
     }
 
@@ -271,7 +271,7 @@ class ESP8266Preferences : public ESPPreferences {
     if (s_prevent_write)
       return false;
 
-    ESP_LOGD(TAG, "Saving preferences to flash...");
+    ESP_LOGD(TAG, "Saving");
     SpiFlashOpResult erase_res, write_res = SPI_FLASH_RESULT_OK;
     {
       InterruptLock lock;
@@ -281,11 +281,11 @@ class ESP8266Preferences : public ESPPreferences {
       }
     }
     if (erase_res != SPI_FLASH_RESULT_OK) {
-      ESP_LOGE(TAG, "Erase ESP8266 flash failed!");
+      ESP_LOGE(TAG, "Erase failed");
       return false;
     }
     if (write_res != SPI_FLASH_RESULT_OK) {
-      ESP_LOGE(TAG, "Write ESP8266 flash failed!");
+      ESP_LOGE(TAG, "Write failed");
       return false;
     }
 
@@ -294,14 +294,14 @@ class ESP8266Preferences : public ESPPreferences {
   }
 
   bool reset() override {
-    ESP_LOGD(TAG, "Cleaning up preferences in flash...");
+    ESP_LOGD(TAG, "Erasing flash");
     SpiFlashOpResult erase_res;
     {
       InterruptLock lock;
       erase_res = spi_flash_erase_sector(get_esp8266_flash_sector());
     }
     if (erase_res != SPI_FLASH_RESULT_OK) {
-      ESP_LOGE(TAG, "Erase ESP8266 flash failed!");
+      ESP_LOGE(TAG, "Erase failed!");
       return false;
     }
 

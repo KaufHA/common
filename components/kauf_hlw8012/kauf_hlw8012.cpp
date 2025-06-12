@@ -32,7 +32,7 @@ static const uint32_t HLW8012_CLOCK_FREQUENCY = 3579000;
 
 void Kauf_HLW8012Component::setup() {
   float reference_voltage = 0;
-  ESP_LOGCONFIG(TAG, "Setting up Kauf HLW8012...");
+  ESP_LOGCONFIG(TAG, "Setting up HLW");
   this->sel_pin_->setup();
   this->sel_pin_->digital_write(this->current_mode_);
   this->cf_store_.setup(this->cf_pin_);
@@ -55,16 +55,16 @@ void Kauf_HLW8012Component::setup() {
   }
 }
 void Kauf_HLW8012Component::dump_config() {
-  ESP_LOGCONFIG(TAG, "Kauf HLW8012:");
-  LOG_PIN("  SEL Pin: ", this->sel_pin_)
-  LOG_PIN("  CF Pin: ", this->cf_pin_)
-  LOG_PIN("  CF1 Pin: ", this->cf1_pin_)
-  ESP_LOGCONFIG(TAG, "  Current resistor: %.1f mΩ", this->current_resistor_ * 1000.0f);
-  ESP_LOGCONFIG(TAG, "  Voltage Divider: %.1f", this->voltage_divider_);
-  LOG_UPDATE_INTERVAL(this)
-  LOG_SENSOR("  ", "Voltage", this->voltage_sensor_)
-  LOG_SENSOR("  ", "Current", this->current_sensor_)
-  LOG_SENSOR("  ", "Power", this->power_sensor_)
+  ESP_LOGCONFIG(TAG, "Kauf HLW:");
+  LOG_PIN(" SEL: ", this->sel_pin_)
+  LOG_PIN("  CF: ", this->cf_pin_)
+  LOG_PIN(" CF1: ", this->cf1_pin_)
+  // ESP_LOGCONFIG(TAG, "  Current resistor: %.1f mΩ", this->current_resistor_ * 1000.0f);
+  // ESP_LOGCONFIG(TAG, "  Voltage Divider: %.1f", this->voltage_divider_);
+  // LOG_UPDATE_INTERVAL(this)
+  // LOG_SENSOR("  ", "Voltage", this->voltage_sensor_)
+  // LOG_SENSOR("  ", "Current", this->current_sensor_)
+  // LOG_SENSOR("  ", "Power", this->power_sensor_)
 }
 float Kauf_HLW8012Component::get_setup_priority() const { return setup_priority::DATA; }
 
@@ -149,7 +149,7 @@ void Kauf_HLW8012Component::loop() {
     // if increased or decreased by configured percentage since last published
     if ( ( this->last_sensed_power_ > (this->last_published_power_ * (1.0f+this->early_publish_percent_)) ) ||
          ( this->last_sensed_power_ < (this->last_published_power_ * (1.0f-this->early_publish_percent_)) ) ) {
-      ESP_LOGD(TAG, "Publishing early based on percentage.");
+      ESP_LOGD(TAG, "Pub early %");
       this->update(); }
   }
 
@@ -159,7 +159,7 @@ void Kauf_HLW8012Component::loop() {
     // if increased or decreased by configured absolute value since last published
     if ( ( this->last_sensed_power_ > (this->last_published_power_ + this->early_publish_absolute_) ) ||
          ( this->last_sensed_power_ < (this->last_published_power_ - this->early_publish_absolute_) ) ) {
-      ESP_LOGD(TAG, "Publishing early based on absolute value.");
+      ESP_LOGD(TAG, "Pub early val");
       this->update();
     }
   }
