@@ -103,7 +103,9 @@ export class EntityTable extends LitElement implements RestAction {
   restAction(entity: entityConfig, action: string) {
     fetch(`${basePath}/${entity.domain}/${entity.id}/${action}`, {
       method: "POST",
-      body: "true",
+      headers:{
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
     }).then((r) => {
       console.log(r);
     });
@@ -293,8 +295,8 @@ class ActionRenderer {
     value: string,
   ) {
     return html`
-      <input 
-        type="${type}" 
+      <input
+        type="${type}"
         name="${entity.unique_id}"
         id="${entity.unique_id}"
         .value="${value}"
@@ -302,7 +304,7 @@ class ActionRenderer {
           const val = (<HTMLTextAreaElement>e.target)?.value;
           this.actioner?.restAction(
             entity,
-            `${action}?${opt}=${val}`
+            `${action}?${opt}=${val.replace('T', ' ')}`
           );
         }}"
       />
@@ -460,6 +462,19 @@ class ActionRenderer {
     `;
   }
 
+  render_datetime() {
+    if (!this.entity) return;
+    return html`
+      ${this._datetime(
+        this.entity,
+        "datetime-local",
+        "set",
+        "value",
+        this.entity.value,
+      )}
+    `;
+  }
+
   render_text() {
     if (!this.entity) return;
     return this._textinput(
@@ -535,5 +550,11 @@ class ActionRenderer {
       >
       ${target_temp_slider} ${modes}
     `;
+  }
+  render_valve() {
+    if (!this.entity) return;
+    return html`${this._actionButton(this.entity, "| |", "open")}
+    ${this._actionButton(this.entity, "☐", "stop")}
+    ${this._actionButton(this.entity, "|-|", "close")}`;
   }
 }
