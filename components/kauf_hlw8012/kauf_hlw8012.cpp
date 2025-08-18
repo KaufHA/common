@@ -32,7 +32,6 @@ static const uint32_t HLW8012_CLOCK_FREQUENCY = 3579000;
 
 void Kauf_HLW8012Component::setup() {
   float reference_voltage = 0;
-  ESP_LOGCONFIG(TAG, "Setting up HLW");
   this->sel_pin_->setup();
   this->sel_pin_->digital_write(this->current_mode_);
   this->cf_store_.setup(this->cf_pin_);
@@ -59,13 +58,8 @@ void Kauf_HLW8012Component::dump_config() {
   LOG_PIN(" SEL: ", this->sel_pin_)
   LOG_PIN("  CF: ", this->cf_pin_)
   LOG_PIN(" CF1: ", this->cf1_pin_)
-  // ESP_LOGCONFIG(TAG, "  Current resistor: %.1f mΩ", this->current_resistor_ * 1000.0f);
-  // ESP_LOGCONFIG(TAG, "  Voltage Divider: %.1f", this->voltage_divider_);
-  // LOG_UPDATE_INTERVAL(this)
-  // LOG_SENSOR("  ", "Voltage", this->voltage_sensor_)
-  // LOG_SENSOR("  ", "Current", this->current_sensor_)
-  // LOG_SENSOR("  ", "Power", this->power_sensor_)
 }
+
 float Kauf_HLW8012Component::get_setup_priority() const { return setup_priority::DATA; }
 
 float Kauf_HLW8012Component::period_to_power(float period_in) {

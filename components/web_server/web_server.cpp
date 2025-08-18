@@ -309,7 +309,6 @@ std::string WebServer::get_config_json() {
 }
 
 void WebServer::setup() {
-  ESP_LOGCONFIG(TAG, "Running setup");
   this->setup_controller(this->include_internal_);
   this->base_->init();
 
@@ -412,23 +411,32 @@ void WebServer::handle_js_request(AsyncWebServerRequest *request) {
 }
 #endif
 
-#define set_json_id(root, obj, sensor, start_config) \
-  (root)["id"] = sensor; \
-  if (((start_config) == DETAIL_ALL)) { \
-    (root)["name"] = (obj)->get_name(); \
-    (root)["icon"] = (obj)->get_icon(); \
-    (root)["entity_category"] = (obj)->get_entity_category(); \
-    if ((obj)->is_disabled_by_default()) \
-      (root)["is_disabled_by_default"] = (obj)->is_disabled_by_default(); \
+// Helper functions to reduce code size by avoiding macro expansion
+static void set_json_id(JsonObject &root, EntityBase *obj, const std::string &id, JsonDetail start_config) {
+  root["id"] = id;
+  if (start_config == DETAIL_ALL) {
+    root["name"] = obj->get_name();
+    root["icon"] = obj->get_icon();
+    root["entity_category"] = obj->get_entity_category();
+    bool is_disabled = obj->is_disabled_by_default();
+    if (is_disabled)
+      root["is_disabled_by_default"] = is_disabled;
   }
+}
 
-#define set_json_value(root, obj, sensor, value, start_config) \
-  set_json_id((root), (obj), sensor, start_config); \
-  (root)["value"] = value;
+template<typename T>
+static void set_json_value(JsonObject &root, EntityBase *obj, const std::string &id, const T &value,
+                           JsonDetail start_config) {
+  set_json_id(root, obj, id, start_config);
+  root["value"] = value;
+}
 
-#define set_json_icon_state_value(root, obj, sensor, state, value, start_config) \
-  set_json_value(root, obj, sensor, value, start_config); \
-  (root)["state"] = state;
+template<typename T>
+static void set_json_icon_state_value(JsonObject &root, EntityBase *obj, const std::string &id,
+                                      const std::string &state, const T &value, JsonDetail start_config) {
+  set_json_value(root, obj, id, value, start_config);
+  root["state"] = state;
+}
 
 // Helper to get request detail parameter
 static JsonDetail get_request_detail(AsyncWebServerRequest *request) {
@@ -662,15 +670,8 @@ void WebServer::handle_fan_request(AsyncWebServerRequest *request, const UrlMatc
     } else if (match.method_equals("turn_on") || match.method_equals("turn_off")) {
       auto call = match.method_equals("turn_on") ? obj->turn_on() : obj->turn_off();
 
-      if (request->hasParam("speed_level")) {
-        auto speed_level = request->getParam("speed_level")->value();
-        auto val = parse_number<int>(speed_level.c_str());
-        if (!val.has_value()) {
-          ESP_LOGW(TAG, "Can't convert '%s' to number!", speed_level.c_str());
-          return;
-        }
-        call.set_speed(*val);
-      }
+      parse_int_param_(request, "speed_level", call, &decltype(call)::set_speed);
+
       if (request->hasParam("oscillation")) {
         auto speed = request->getParam("oscillation")->value();
         auto val = parse_on_off(speed.c_str());
@@ -742,69 +743,26 @@ void WebServer::handle_light_request(AsyncWebServerRequest *request, const UrlMa
       request->send(200);
     } else if (match.method_equals("turn_on")) {
       auto call = obj->turn_on();
-      if (request->hasParam("brightness")) {
-        auto brightness = parse_number<float>(request->getParam("brightness")->value().c_str());
-        if (brightness.has_value()) {
-          call.set_brightness(*brightness / 255.0f);
-        }
-      }
-      if (request->hasParam("r")) {
-        auto r = parse_number<float>(request->getParam("r")->value().c_str());
-        if (r.has_value()) {
-          call.set_red(*r / 255.0f);
-        }
-      }
-      if (request->hasParam("g")) {
-        auto g = parse_number<float>(request->getParam("g")->value().c_str());
-        if (g.has_value()) {
-          call.set_green(*g / 255.0f);
-        }
-      }
-      if (request->hasParam("b")) {
-        auto b = parse_number<float>(request->getParam("b")->value().c_str());
-        if (b.has_value()) {
-          call.set_blue(*b / 255.0f);
-        }
-      }
-      if (request->hasParam("white_value")) {
-        auto white_value = parse_number<float>(request->getParam("white_value")->value().c_str());
-        if (white_value.has_value()) {
-          call.set_white(*white_value / 255.0f);
-        }
-      }
-      if (request->hasParam("color_temp")) {
-        auto color_temp = parse_number<float>(request->getParam("color_temp")->value().c_str());
-        if (color_temp.has_value()) {
-          call.set_color_temperature(*color_temp);
-        }
-      }
-      if (request->hasParam("flash")) {
-        auto flash = parse_number<uint32_t>(request->getParam("flash")->value().c_str());
-        if (flash.has_value()) {
-          call.set_flash_length(*flash * 1000);
-        }
-      }
-      if (request->hasParam("transition")) {
-        auto transition = parse_number<uint32_t>(request->getParam("transition")->value().c_str());
-        if (transition.has_value()) {
-          call.set_transition_length(*transition * 1000);
-        }
-      }
-      if (request->hasParam("effect")) {
-        const char *effect = request->getParam("effect")->value().c_str();
-        call.set_effect(effect);
-      }
+
+      // Parse color parameters
+      parse_light_param_(request, "brightness", call, &decltype(call)::set_brightness, 255.0f);
+      parse_light_param_(request, "r", call, &decltype(call)::set_red, 255.0f);
+      parse_light_param_(request, "g", call, &decltype(call)::set_green, 255.0f);
+      parse_light_param_(request, "b", call, &decltype(call)::set_blue, 255.0f);
+      parse_light_param_(request, "white_value", call, &decltype(call)::set_white, 255.0f);
+      parse_light_param_(request, "color_temp", call, &decltype(call)::set_color_temperature);
+
+      // Parse timing parameters
+      parse_light_param_uint_(request, "flash", call, &decltype(call)::set_flash_length, 1000);
+      parse_light_param_uint_(request, "transition", call, &decltype(call)::set_transition_length, 1000);
+
+      parse_string_param_(request, "effect", call, &decltype(call)::set_effect);
 
       this->defer([call]() mutable { call.perform(); });
       request->send(200);
     } else if (match.method_equals("turn_off")) {
       auto call = obj->turn_off();
-      if (request->hasParam("transition")) {
-        auto transition = parse_number<uint32_t>(request->getParam("transition")->value().c_str());
-        if (transition.has_value()) {
-          call.set_transition_length(*transition * 1000);
-        }
-      }
+      parse_light_param_uint_(request, "transition", call, &decltype(call)::set_transition_length, 1000);
       this->defer([call]() mutable { call.perform(); });
       request->send(200);
     } else {
@@ -877,18 +835,8 @@ void WebServer::handle_cover_request(AsyncWebServerRequest *request, const UrlMa
       return;
     }
 
-    if (request->hasParam("position")) {
-      auto position = parse_number<float>(request->getParam("position")->value().c_str());
-      if (position.has_value()) {
-        call.set_position(*position);
-      }
-    }
-    if (request->hasParam("tilt")) {
-      auto tilt = parse_number<float>(request->getParam("tilt")->value().c_str());
-      if (tilt.has_value()) {
-        call.set_tilt(*tilt);
-      }
-    }
+    parse_float_param_(request, "position", call, &decltype(call)::set_position);
+    parse_float_param_(request, "tilt", call, &decltype(call)::set_tilt);
 
     this->defer([call]() mutable { call.perform(); });
     request->send(200);
@@ -942,11 +890,7 @@ void WebServer::handle_number_request(AsyncWebServerRequest *request, const UrlM
     }
 
     auto call = obj->make_call();
-    if (request->hasParam("value")) {
-      auto value = parse_number<float>(request->getParam("value")->value().c_str());
-      if (value.has_value())
-        call.set_value(*value);
-    }
+    parse_float_param_(request, "value", call, &decltype(call)::set_value);
 
     this->defer([call]() mutable { call.perform(); });
     request->send(200);
@@ -1018,10 +962,7 @@ void WebServer::handle_date_request(AsyncWebServerRequest *request, const UrlMat
       return;
     }
 
-    if (request->hasParam("value")) {
-      std::string value = request->getParam("value")->value().c_str();  // NOLINT
-      call.set_date(value);
-    }
+    parse_string_param_(request, "value", call, &decltype(call)::set_date);
 
     this->defer([call]() mutable { call.perform(); });
     request->send(200);
@@ -1077,10 +1018,7 @@ void WebServer::handle_time_request(AsyncWebServerRequest *request, const UrlMat
       return;
     }
 
-    if (request->hasParam("value")) {
-      std::string value = request->getParam("value")->value().c_str();  // NOLINT
-      call.set_time(value);
-    }
+    parse_string_param_(request, "value", call, &decltype(call)::set_time);
 
     this->defer([call]() mutable { call.perform(); });
     request->send(200);
@@ -1135,10 +1073,7 @@ void WebServer::handle_datetime_request(AsyncWebServerRequest *request, const Ur
       return;
     }
 
-    if (request->hasParam("value")) {
-      std::string value = request->getParam("value")->value().c_str();  // NOLINT
-      call.set_datetime(value);
-    }
+    parse_string_param_(request, "value", call, &decltype(call)::set_datetime);
 
     this->defer([call]() mutable { call.perform(); });
     request->send(200);
@@ -1189,10 +1124,7 @@ void WebServer::handle_text_request(AsyncWebServerRequest *request, const UrlMat
     }
 
     auto call = obj->make_call();
-    if (request->hasParam("value")) {
-      String value = request->getParam("value")->value();
-      call.set_value(value.c_str());  // NOLINT
-    }
+    parse_string_param_(request, "value", call, &decltype(call)::set_value);
 
     this->defer([call]() mutable { call.perform(); });
     request->send(200);
@@ -1251,11 +1183,7 @@ void WebServer::handle_select_request(AsyncWebServerRequest *request, const UrlM
     }
 
     auto call = obj->make_call();
-
-    if (request->hasParam("option")) {
-      auto option = request->getParam("option")->value();
-      call.set_option(option.c_str());  // NOLINT
-    }
+    parse_string_param_(request, "option", call, &decltype(call)::set_option);
 
     this->defer([call]() mutable { call.perform(); });
     request->send(200);
@@ -1311,38 +1239,15 @@ void WebServer::handle_climate_request(AsyncWebServerRequest *request, const Url
 
     auto call = obj->make_call();
 
-    if (request->hasParam("mode")) {
-      auto mode = request->getParam("mode")->value();
-      call.set_mode(mode.c_str());  // NOLINT
-    }
+    // Parse string mode parameters
+    parse_string_param_(request, "mode", call, &decltype(call)::set_mode);
+    parse_string_param_(request, "fan_mode", call, &decltype(call)::set_fan_mode);
+    parse_string_param_(request, "swing_mode", call, &decltype(call)::set_swing_mode);
 
-    if (request->hasParam("fan_mode")) {
-      auto mode = request->getParam("fan_mode")->value();
-      call.set_fan_mode(mode.c_str());  // NOLINT
-    }
-
-    if (request->hasParam("swing_mode")) {
-      auto mode = request->getParam("swing_mode")->value();
-      call.set_swing_mode(mode.c_str());  // NOLINT
-    }
-
-    if (request->hasParam("target_temperature_high")) {
-      auto target_temperature_high = parse_number<float>(request->getParam("target_temperature_high")->value().c_str());
-      if (target_temperature_high.has_value())
-        call.set_target_temperature_high(*target_temperature_high);
-    }
-
-    if (request->hasParam("target_temperature_low")) {
-      auto target_temperature_low = parse_number<float>(request->getParam("target_temperature_low")->value().c_str());
-      if (target_temperature_low.has_value())
-        call.set_target_temperature_low(*target_temperature_low);
-    }
-
-    if (request->hasParam("target_temperature")) {
-      auto target_temperature = parse_number<float>(request->getParam("target_temperature")->value().c_str());
-      if (target_temperature.has_value())
-        call.set_target_temperature(*target_temperature);
-    }
+    // Parse temperature parameters
+    parse_float_param_(request, "target_temperature_high", call, &decltype(call)::set_target_temperature_high);
+    parse_float_param_(request, "target_temperature_low", call, &decltype(call)::set_target_temperature_low);
+    parse_float_param_(request, "target_temperature", call, &decltype(call)::set_target_temperature);
 
     this->defer([call]() mutable { call.perform(); });
     request->send(200);
@@ -1533,12 +1438,7 @@ void WebServer::handle_valve_request(AsyncWebServerRequest *request, const UrlMa
       return;
     }
 
-    if (request->hasParam("position")) {
-      auto position = parse_number<float>(request->getParam("position")->value().c_str());
-      if (position.has_value()) {
-        call.set_position(*position);
-      }
-    }
+    parse_float_param_(request, "position", call, &decltype(call)::set_position);
 
     this->defer([call]() mutable { call.perform(); });
     request->send(200);
@@ -1586,9 +1486,7 @@ void WebServer::handle_alarm_control_panel_request(AsyncWebServerRequest *reques
     }
 
     auto call = obj->make_call();
-    if (request->hasParam("code")) {
-      call.set_code(request->getParam("code")->value().c_str());  // NOLINT
-    }
+    parse_string_param_(request, "code", call, &decltype(call)::set_code);
 
     if (match.method_equals("disarm")) {
       call.disarm();
@@ -1655,7 +1553,9 @@ void WebServer::handle_event_request(AsyncWebServerRequest *request, const UrlMa
   request->send(404);
 }
 
-static std::string get_event_type(event::Event *event) { return event->last_event_type ? *event->last_event_type : ""; }
+static std::string get_event_type(event::Event *event) {
+  return (event && event->last_event_type) ? *event->last_event_type : "";
+}
 
 std::string WebServer::event_state_json_generator(WebServer *web_server, void *source) {
   auto *event = static_cast<event::Event *>(source);
@@ -1684,6 +1584,19 @@ std::string WebServer::event_json(event::Event *obj, const std::string &event_ty
 #endif
 
 #ifdef USE_UPDATE
+static const char *update_state_to_string(update::UpdateState state) {
+  switch (state) {
+    case update::UPDATE_STATE_NO_UPDATE:
+      return "NO UPDATE";
+    case update::UPDATE_STATE_AVAILABLE:
+      return "UPDATE AVAILABLE";
+    case update::UPDATE_STATE_INSTALLING:
+      return "INSTALLING";
+    default:
+      return "UNKNOWN";
+  }
+}
+
 void WebServer::on_update(update::UpdateEntity *obj) {
   if (this->events_.empty())
     return;
@@ -1723,20 +1636,7 @@ std::string WebServer::update_json(update::UpdateEntity *obj, JsonDetail start_c
   return json::build_json([this, obj, start_config](JsonObject root) {
     set_json_id(root, obj, "update-" + obj->get_object_id(), start_config);
     root["value"] = obj->update_info.latest_version;
-    switch (obj->state) {
-      case update::UPDATE_STATE_NO_UPDATE:
-        root["state"] = "NO UPDATE";
-        break;
-      case update::UPDATE_STATE_AVAILABLE:
-        root["state"] = "UPDATE AVAILABLE";
-        break;
-      case update::UPDATE_STATE_INSTALLING:
-        root["state"] = "INSTALLING";
-        break;
-      default:
-        root["state"] = "UNKNOWN";
-        break;
-    }
+    root["state"] = update_state_to_string(obj->state);
     if (start_config == DETAIL_ALL) {
       root["current_version"] = obj->update_info.current_version;
       root["title"] = obj->update_info.title;
@@ -1750,184 +1650,183 @@ std::string WebServer::update_json(update::UpdateEntity *obj, JsonDetail start_c
 #endif
 
 bool WebServer::canHandle(AsyncWebServerRequest *request) const {
-  if (request->url() == "/")
+  const auto &url = request->url();
+  const auto method = request->method();
+
+  // Simple URL checks
+  if (url == "/")
     return true;
 
 #ifdef USE_ARDUINO
-  if (request->url() == "/events") {
+  if (url == "/events")
     return true;
-  }
 #endif
 
-  if (request->url() == "/reset")
+  if (url == "/reset")
     return true;
-  if (request->url() == "/clear")
+  if (url == "/clear")
     return true;
-  if ( (request->url() == "/wifisave") && wifi::global_wifi_component->get_initial_ap() )
+  if ( (url == "/wifisave") && wifi::global_wifi_component->get_initial_ap() )
     return true;
 
 #ifdef USE_WEBSERVER_CSS_INCLUDE
-  if (request->url() == "/0.css")
+  if (url == "/0.css")
     return true;
 #endif
 
 #ifdef USE_WEBSERVER_JS_INCLUDE
-  if (request->url() == "/0.js")
+  if (url == "/0.js")
     return true;
 #endif
 
 #ifdef USE_WEBSERVER_PRIVATE_NETWORK_ACCESS
-  if (request->method() == HTTP_OPTIONS && request->hasHeader(HEADER_CORS_REQ_PNA)) {
+  if (method == HTTP_OPTIONS && request->hasHeader(HEADER_CORS_REQ_PNA))
     return true;
-  }
 #endif
 
-  // Store the URL to prevent temporary string destruction
-  // request->url() returns a reference to a String (on Arduino) or std::string (on ESP-IDF)
-  // UrlMatch stores pointers to the string's data, so we must ensure the string outlives match_url()
-  const auto &url = request->url();
+  // Parse URL for component checks
   UrlMatch match = match_url(url.c_str(), url.length(), true);
   if (!match.valid)
     return false;
+
+  // Common pattern check
+  bool is_get = method == HTTP_GET;
+  bool is_post = method == HTTP_POST;
+  bool is_get_or_post = is_get || is_post;
+
+  if (!is_get_or_post)
+    return false;
+
+  // GET-only components
+  if (is_get) {
 #ifdef USE_SENSOR
-  if (request->method() == HTTP_GET && match.domain_equals("sensor"))
-    return true;
+    if (match.domain_equals("sensor"))
+      return true;
 #endif
-
-#ifdef USE_SWITCH
-  if ((request->method() == HTTP_POST || request->method() == HTTP_GET) && match.domain_equals("switch"))
-    return true;
-#endif
-
-#ifdef USE_BUTTON
-  if ((request->method() == HTTP_POST || request->method() == HTTP_GET) && match.domain_equals("button"))
-    return true;
-#endif
-
 #ifdef USE_BINARY_SENSOR
-  if (request->method() == HTTP_GET && match.domain_equals("binary_sensor"))
-    return true;
+    if (match.domain_equals("binary_sensor"))
+      return true;
 #endif
-
-#ifdef USE_FAN
-  if ((request->method() == HTTP_POST || request->method() == HTTP_GET) && match.domain_equals("fan"))
-    return true;
-#endif
-
-#ifdef USE_LIGHT
-  if ((request->method() == HTTP_POST || request->method() == HTTP_GET) && match.domain_equals("light"))
-    return true;
-#endif
-
 #ifdef USE_TEXT_SENSOR
-  if (request->method() == HTTP_GET && match.domain_equals("text_sensor"))
-    return true;
+    if (match.domain_equals("text_sensor"))
+      return true;
 #endif
-
-#ifdef USE_COVER
-  if ((request->method() == HTTP_POST || request->method() == HTTP_GET) && match.domain_equals("cover"))
-    return true;
-#endif
-
-#ifdef USE_NUMBER
-  if ((request->method() == HTTP_POST || request->method() == HTTP_GET) && match.domain_equals("number"))
-    return true;
-#endif
-
-#ifdef USE_DATETIME_DATE
-  if ((request->method() == HTTP_POST || request->method() == HTTP_GET) && match.domain_equals("date"))
-    return true;
-#endif
-
-#ifdef USE_DATETIME_TIME
-  if ((request->method() == HTTP_POST || request->method() == HTTP_GET) && match.domain_equals("time"))
-    return true;
-#endif
-
-#ifdef USE_DATETIME_DATETIME
-  if ((request->method() == HTTP_POST || request->method() == HTTP_GET) && match.domain_equals("datetime"))
-    return true;
-#endif
-
-#ifdef USE_TEXT
-  if ((request->method() == HTTP_POST || request->method() == HTTP_GET) && match.domain_equals("text"))
-    return true;
-#endif
-
-#ifdef USE_SELECT
-  if ((request->method() == HTTP_POST || request->method() == HTTP_GET) && match.domain_equals("select"))
-    return true;
-#endif
-
-#ifdef USE_CLIMATE
-  if ((request->method() == HTTP_POST || request->method() == HTTP_GET) && match.domain_equals("climate"))
-    return true;
-#endif
-
-#ifdef USE_LOCK
-  if ((request->method() == HTTP_POST || request->method() == HTTP_GET) && match.domain_equals("lock"))
-    return true;
-#endif
-
-#ifdef USE_VALVE
-  if ((request->method() == HTTP_POST || request->method() == HTTP_GET) && match.domain_equals("valve"))
-    return true;
-#endif
-
-#ifdef USE_ALARM_CONTROL_PANEL
-  if ((request->method() == HTTP_GET || request->method() == HTTP_POST) && match.domain_equals("alarm_control_panel"))
-    return true;
-#endif
-
 #ifdef USE_EVENT
-  if (request->method() == HTTP_GET && match.domain_equals("event"))
-    return true;
+    if (match.domain_equals("event"))
+      return true;
 #endif
+  }
 
-#ifdef USE_UPDATE
-  if ((request->method() == HTTP_POST || request->method() == HTTP_GET) && match.domain_equals("update"))
-    return true;
+  // GET+POST components
+  if (is_get_or_post) {
+#ifdef USE_SWITCH
+    if (match.domain_equals("switch"))
+      return true;
 #endif
+#ifdef USE_BUTTON
+    if (match.domain_equals("button"))
+      return true;
+#endif
+#ifdef USE_FAN
+    if (match.domain_equals("fan"))
+      return true;
+#endif
+#ifdef USE_LIGHT
+    if (match.domain_equals("light"))
+      return true;
+#endif
+#ifdef USE_COVER
+    if (match.domain_equals("cover"))
+      return true;
+#endif
+#ifdef USE_NUMBER
+    if (match.domain_equals("number"))
+      return true;
+#endif
+#ifdef USE_DATETIME_DATE
+    if (match.domain_equals("date"))
+      return true;
+#endif
+#ifdef USE_DATETIME_TIME
+    if (match.domain_equals("time"))
+      return true;
+#endif
+#ifdef USE_DATETIME_DATETIME
+    if (match.domain_equals("datetime"))
+      return true;
+#endif
+#ifdef USE_TEXT
+    if (match.domain_equals("text"))
+      return true;
+#endif
+#ifdef USE_SELECT
+    if (match.domain_equals("select"))
+      return true;
+#endif
+#ifdef USE_CLIMATE
+    if (match.domain_equals("climate"))
+      return true;
+#endif
+#ifdef USE_LOCK
+    if (match.domain_equals("lock"))
+      return true;
+#endif
+#ifdef USE_VALVE
+    if (match.domain_equals("valve"))
+      return true;
+#endif
+#ifdef USE_ALARM_CONTROL_PANEL
+    if (match.domain_equals("alarm_control_panel"))
+      return true;
+#endif
+#ifdef USE_UPDATE
+    if (match.domain_equals("update"))
+      return true;
+#endif
+  }
 
   return false;
 }
 void WebServer::handleRequest(AsyncWebServerRequest *request) {
-  if (request->url() == "/") {
+  const auto &url = request->url();
+
+  // Handle static routes first
+  if (url == "/") {
     this->handle_index_request(request);
     return;
   }
 
 #ifdef USE_ARDUINO
-  if (request->url() == "/events") {
+  if (url == "/events") {
     this->events_.add_new_client(this, request);
     return;
   }
 #endif
 
-  if (request->url() == "/reset") {
+  if (url == "/reset") {
     this->reset_flash(request);
     return;
   }
 
-  if (request->url() == "/clear") {
+  if (url == "/clear") {
     this->clear_wifi(request);
     return;
   }
 
-  if (request->url() == "/wifisave") {
+  if (url == "/wifisave") {
     this->save_wifi(request);
     return;
   }
 
 #ifdef USE_WEBSERVER_CSS_INCLUDE
-  if (request->url() == "/0.css") {
+  if (url == "/0.css") {
     this->handle_css_request(request);
     return;
   }
 #endif
 
 #ifdef USE_WEBSERVER_JS_INCLUDE
-  if (request->url() == "/0.js") {
+  if (url == "/0.js") {
     this->handle_js_request(request);
     return;
   }
@@ -1940,147 +1839,85 @@ void WebServer::handleRequest(AsyncWebServerRequest *request) {
   }
 #endif
 
-  // See comment in canHandle() for why we store the URL reference
-  const auto &url = request->url();
+  // Parse URL for component routing
   UrlMatch match = match_url(url.c_str(), url.length(), false);
 
+  // Component routing using minimal code repetition
+  struct ComponentRoute {
+    const char *domain;
+    void (WebServer::*handler)(AsyncWebServerRequest *, const UrlMatch &);
+  };
+
+  static const ComponentRoute ROUTES[] = {
 #ifdef USE_SENSOR
-  if (match.domain_equals("sensor")) {
-    this->handle_sensor_request(request, match);
-    return;
-  }
+      {"sensor", &WebServer::handle_sensor_request},
 #endif
-
 #ifdef USE_SWITCH
-  if (match.domain_equals("switch")) {
-    this->handle_switch_request(request, match);
-    return;
-  }
+      {"switch", &WebServer::handle_switch_request},
 #endif
-
 #ifdef USE_BUTTON
-  if (match.domain_equals("button")) {
-    this->handle_button_request(request, match);
-    return;
-  }
+      {"button", &WebServer::handle_button_request},
 #endif
-
 #ifdef USE_BINARY_SENSOR
-  if (match.domain_equals("binary_sensor")) {
-    this->handle_binary_sensor_request(request, match);
-    return;
-  }
+      {"binary_sensor", &WebServer::handle_binary_sensor_request},
 #endif
-
 #ifdef USE_FAN
-  if (match.domain_equals("fan")) {
-    this->handle_fan_request(request, match);
-    return;
-  }
+      {"fan", &WebServer::handle_fan_request},
 #endif
-
 #ifdef USE_LIGHT
-  if (match.domain_equals("light")) {
-    this->handle_light_request(request, match);
-    return;
-  }
+      {"light", &WebServer::handle_light_request},
 #endif
-
 #ifdef USE_TEXT_SENSOR
-  if (match.domain_equals("text_sensor")) {
-    this->handle_text_sensor_request(request, match);
-    return;
-  }
+      {"text_sensor", &WebServer::handle_text_sensor_request},
 #endif
-
 #ifdef USE_COVER
-  if (match.domain_equals("cover")) {
-    this->handle_cover_request(request, match);
-    return;
-  }
+      {"cover", &WebServer::handle_cover_request},
 #endif
-
 #ifdef USE_NUMBER
-  if (match.domain_equals("number")) {
-    this->handle_number_request(request, match);
-    return;
-  }
+      {"number", &WebServer::handle_number_request},
 #endif
-
 #ifdef USE_DATETIME_DATE
-  if (match.domain_equals("date")) {
-    this->handle_date_request(request, match);
-    return;
-  }
+      {"date", &WebServer::handle_date_request},
 #endif
-
 #ifdef USE_DATETIME_TIME
-  if (match.domain_equals("time")) {
-    this->handle_time_request(request, match);
-    return;
-  }
+      {"time", &WebServer::handle_time_request},
 #endif
-
 #ifdef USE_DATETIME_DATETIME
-  if (match.domain_equals("datetime")) {
-    this->handle_datetime_request(request, match);
-    return;
-  }
+      {"datetime", &WebServer::handle_datetime_request},
 #endif
-
 #ifdef USE_TEXT
-  if (match.domain_equals("text")) {
-    this->handle_text_request(request, match);
-    return;
-  }
+      {"text", &WebServer::handle_text_request},
 #endif
-
 #ifdef USE_SELECT
-  if (match.domain_equals("select")) {
-    this->handle_select_request(request, match);
-    return;
-  }
+      {"select", &WebServer::handle_select_request},
 #endif
-
 #ifdef USE_CLIMATE
-  if (match.domain_equals("climate")) {
-    this->handle_climate_request(request, match);
-    return;
-  }
+      {"climate", &WebServer::handle_climate_request},
 #endif
-
 #ifdef USE_LOCK
-  if (match.domain_equals("lock")) {
-    this->handle_lock_request(request, match);
-
-    return;
-  }
+      {"lock", &WebServer::handle_lock_request},
 #endif
-
 #ifdef USE_VALVE
-  if (match.domain_equals("valve")) {
-    this->handle_valve_request(request, match);
-    return;
-  }
+      {"valve", &WebServer::handle_valve_request},
 #endif
-
 #ifdef USE_ALARM_CONTROL_PANEL
-  if (match.domain_equals("alarm_control_panel")) {
-    this->handle_alarm_control_panel_request(request, match);
-
-    return;
-  }
+      {"alarm_control_panel", &WebServer::handle_alarm_control_panel_request},
 #endif
-
 #ifdef USE_UPDATE
-  if (match.domain_equals("update")) {
-    this->handle_update_request(request, match);
-    return;
-  }
+      {"update", &WebServer::handle_update_request},
 #endif
+  };
+
+  // Check each route
+  for (const auto &route : ROUTES) {
+    if (match.domain_equals(route.domain)) {
+      (this->*route.handler)(request, match);
+      return;
+    }
+  }
 
   // No matching handler found - send 404
-  ESP_LOGV(TAG, "Request for unknown URL: %s", request->url().c_str());
+  ESP_LOGV(TAG, "Request for unknown URL: %s", url.c_str());
   request->send(404, "text/plain", "Not Found");
 }
 
