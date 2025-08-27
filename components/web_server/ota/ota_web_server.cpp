@@ -12,6 +12,7 @@
 #include <string>
 
 #ifdef USE_ARDUINO
+#include <StreamString.h>
 #ifdef USE_ESP8266
 #include <Updater.h>
 #elif defined(USE_ESP32) || defined(USE_LIBRETINY)
@@ -258,12 +259,67 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Strin
 }
 
 void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
+#if defined(USE_ARDUINO) && !defined(KAUF_SMALLER)
+  if ( this->kauf_ota_error_code != 0 ) {
+    // create response
+    AsyncResponseStream *stream = request->beginResponseStream("text/html");
+    stream->addHeader("Access-Control-Allow-Origin", "*");
+    stream->print(F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
+
+    stream->print(F("Update Failed. -- "));
+
+    if ( this->kauf_ota_error_code == 1) {
+      stream->print(F("You appear to be trying to flash tasmota-minimal, which could brick the device.  Rename firmware file to not include the word <b>minimal</b> to override."));
+    }
+    if ( this->kauf_ota_error_code == 2) {
+      stream->print(F("You appear to be trying to flash a WLED bin file, which could brick the device.  Rename firmware file to not include the word <b>wled</b> or <b>WLED</b> to override."));
+    }
+    if ( this->kauf_ota_error_code == 3) {
+      stream->print(F("You appear to be trying to flash a mismatched update file, either -1m over -4m or -4m over -1m.  Download the proper update file or remove <b>-1m</b> or <b>-4m</b> from filename to override."));
+    }
+
+    stream->print(F("</body></html>"));
+    request->send(stream);
+
+    this->kauf_ota_error_code = 0;
+  }
+  else if (!Update.hasError()) {
+    AsyncWebServerResponse *response;
+    response = request->beginResponse(200, "text/plain", "Firmware file uploaded successfully.  The device will now process the firmware file and reboot itself.  You can try to connect to the device over Wi-Fi immediately, but don't power cycle for at least five minutes if the device is not reachable.");
+    response->addHeader("Connection", "close");
+    request->send(response);
+  } else {
+
+    // Get error string
+    StreamString ss;
+    Update.printError(ss);
+
+    // create response
+    AsyncResponseStream *stream = request->beginResponseStream("text/html");
+    stream->addHeader("Access-Control-Allow-Origin", "*");
+    stream->print(F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
+
+    stream->print(F("Update Failed.  This device is now restarting itself automatically, which could resolve the error in some cases.<br><br>"));
+    stream->print(ss);
+    if ( ss.find("Not Enough Space") && !last_gzip ) {
+      stream->print(F(" - Using a .bin.gz file instead of a .bin file might help."));
+    }
+
+    stream->print(F("</body></html>"));
+    request->send(stream);
+
+    // reboot
+    this->parent_->set_timeout(100, []() { App.safe_reboot(); });
+  }
+
+#else
   AsyncWebServerResponse *response;
   // Use the ota_success_ flag to determine the actual result
   const char *msg = this->ota_success_ ? "Update Successful!" : "Update Failed!";
   response = request->beginResponse(200, "text/plain", msg);
   response->addHeader("Connection", "close");
   request->send(response);
+#endif
 }
 
 void WebServerOTAComponent::setup() {
