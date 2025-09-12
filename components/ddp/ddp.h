@@ -1,22 +1,9 @@
 #pragma once
-
-#ifdef USE_ARDUINO
-
+#include "esphome/core/defines.h"
+#ifdef USE_NETWORK
 #include "esphome/core/component.h"
+#include "esphome/components/udp/udp_component.h"
 
-#ifdef USE_ESP32
-#include <WiFi.h>
-#endif
-
-#ifdef USE_ESP8266
-#include <ESP8266WiFi.h>
-#include <WiFiUdp.h>
-#endif
-
-#ifdef USE_LIBRETINY
-#include <WiFi.h>
-#include <WiFiUdp.h>
-#endif
 
 #include <map>
 #include <memory>
@@ -41,8 +28,8 @@ class DDPComponent : public esphome::Component {
   void remove_effect(DDPLightEffectBase *light_effect);
 
  protected:
-  std::unique_ptr<WiFiUDP> udp_;
   std::set<DDPLightEffectBase *> light_effects_;
+  udp::UDPComponent *udp_;
 
   bool process_(const uint8_t *payload, uint16_t size);
 };

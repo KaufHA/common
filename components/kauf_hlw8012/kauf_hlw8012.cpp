@@ -58,6 +58,10 @@ void Kauf_HLW8012Component::dump_config() {
   LOG_PIN(" SEL: ", this->sel_pin_)
   LOG_PIN("  CF: ", this->cf_pin_)
   LOG_PIN(" CF1: ", this->cf1_pin_)
+  LOG_UPDATE_INTERVAL(this);
+  LOG_SENSOR("  ", "Voltage", this->voltage_sensor_);
+  LOG_SENSOR("  ", "Current", this->current_sensor_);
+  LOG_SENSOR("  ", "Power", this->power_sensor_);
 }
 
 float Kauf_HLW8012Component::get_setup_priority() const { return setup_priority::DATA; }

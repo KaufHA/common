@@ -181,7 +181,7 @@ void WiFiComponent::loop() {
 
     switch (this->state_) {
       case WIFI_COMPONENT_STATE_COOLDOWN: {
-        this->status_set_warning("waiting to reconnect");
+        this->status_set_warning(LOG_STR("waiting to reconnect"));
         if (millis() - this->action_started_ > 5000) {
           if (this->fast_connect_ || this->retry_hidden_) {
             if (!this->selected_ap_.get_bssid().has_value())
@@ -194,13 +194,13 @@ void WiFiComponent::loop() {
         break;
       }
       case WIFI_COMPONENT_STATE_STA_SCANNING: {
-        this->status_set_warning("scanning for networks");
+        this->status_set_warning(LOG_STR("scanning for networks"));
         this->check_scanning_finished();
         break;
       }
       case WIFI_COMPONENT_STATE_STA_CONNECTING:
       case WIFI_COMPONENT_STATE_STA_CONNECTING_2: {
-        this->status_set_warning("associating to network");
+        this->status_set_warning(LOG_STR("associating to network"));
         this->check_connecting_finished();
         break;
       }
@@ -901,6 +901,7 @@ void WiFiComponent::save_fast_connect_settings_() {
 
     memcpy(fast_connect_save.bssid, bssid.data(), 6);
     fast_connect_save.channel = channel;
+    fast_connect_save.ap_index = this->ap_index_;
 
     this->fast_connect_pref_.save(&fast_connect_save);
 

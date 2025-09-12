@@ -1,19 +1,16 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components.light.types import AddressableLightEffect, LightEffect
-from esphome.components.light.effects import (
-    register_addressable_effect,
-    register_rgb_effect,
-)
+from esphome.components.light.effects import register_addressable_effect, register_rgb_effect
 from esphome.const import CONF_ID, CONF_NAME
 
+AUTO_LOAD = ["udp"]
 DEPENDENCIES = ["network"]
 
 ddp_ns = cg.esphome_ns.namespace("ddp")
 DDPLightEffect = ddp_ns.class_("DDPLightEffect", LightEffect)
 DDPAddressableLightEffect = ddp_ns.class_(
-    "DDPAddressableLightEffect", AddressableLightEffect
-)
+    "DDPAddressableLightEffect", AddressableLightEffect)
 DDPComponent = ddp_ns.class_("DDPComponent", cg.Component)
 
 DDP_SCALING = {
@@ -34,7 +31,7 @@ CONFIG_SCHEMA = cv.All(
             cv.GenerateID(): cv.declare_id(DDPComponent),
         }
     ),
-    cv.only_with_arduino,
+#    cv.only_with_arduino,
 )
 
 

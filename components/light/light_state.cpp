@@ -46,7 +46,7 @@ void LightState::setup() {
       if ( this->has_forced_hash ) {
         this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
       } else {
-        this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->get_object_id_hash());
+        this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->get_preference_hash());
       }
 
       // Attempt to load from preferences, else fall back to default values
@@ -66,7 +66,7 @@ void LightState::setup() {
       if ( this->has_forced_hash ) {
         this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
       } else {
-        this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->get_object_id_hash());
+        this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->get_preference_hash());
       }
 
       this->rtc_.load(&recovered);

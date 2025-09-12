@@ -21,7 +21,7 @@ void TemplateSelect::setup() {
     if ( this->has_forced_hash ) {
       this->pref_ = global_preferences->make_preference<size_t>(this->forced_hash);
     } else {
-      this->pref_ = global_preferences->make_preference<size_t>(this->get_object_id_hash());
+      this->pref_ = global_preferences->make_preference<size_t>(this->get_preference_hash());
     }
 
     if (!this->pref_.load(&index)) {
