@@ -21,7 +21,7 @@ class DDPLightEffectBase {
  public:
   DDPLightEffectBase();
 
-  virtual const std::string &get_name() = 0;
+  virtual const char *get_name() = 0;
 
   virtual void start();
   virtual void stop();

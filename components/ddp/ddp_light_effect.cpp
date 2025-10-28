@@ -9,9 +9,9 @@ namespace ddp {
 
 static const char *const TAG = "ddp_light_effect";
 
-DDPLightEffect::DDPLightEffect(const std::string &name) : LightEffect(name) {}
+DDPLightEffect::DDPLightEffect(const char *name) : LightEffect(name) {}
 
-const std::string &DDPLightEffect::get_name() { return LightEffect::get_name(); }
+const char *DDPLightEffect::get_name() { return LightEffect::get_name(); }
 
 void DDPLightEffect::start() {
 
@@ -39,7 +39,7 @@ void DDPLightEffect::apply() {
   // apply function is not needed normally to display changes to the light
   // from Home Assistant, but it is needed to restore value on timeout.
   if ( this->timeout_check() ) {
-    ESP_LOGD(TAG,"DDP stream for '%s->%s' timed out.", this->state_->get_name().c_str(), this->get_name().c_str());
+    ESP_LOGD(TAG,"DDP stream for '%s->%s' timed out.", this->state_->get_name().c_str(), this->get_name());
     this->next_packet_will_be_first_ = true;
 
     auto call = this->state_->turn_on();
