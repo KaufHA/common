@@ -11,9 +11,9 @@
 #include "light_traits.h"
 #include "light_transformer.h"
 
-#include <vector>
+#include "esphome/core/helpers.h"
 #include <strings.h>
-
+#include <vector>
 #include "esphome/components/globals/globals_component.h"
 
 namespace esphome {
@@ -161,10 +161,10 @@ class LightState : public EntityBase, public Component {
   bool supports_effects();
 
   /// Get all effects for this light state.
-  const std::vector<LightEffect *> &get_effects() const;
+  const FixedVector<LightEffect *> &get_effects() const;
 
   /// Add effects for this light state.
-  void add_effects(const std::vector<LightEffect *> &effects);
+  void add_effects(const std::initializer_list<LightEffect *> &effects);
 
   /// Get the total number of effects available for this light.
   size_t get_effect_count() const { return this->effects_.size(); }
@@ -178,7 +178,7 @@ class LightState : public EntityBase, public Component {
       return 0;
     }
     for (size_t i = 0; i < this->effects_.size(); i++) {
-      if (strcasecmp(effect_name.c_str(), this->effects_[i]->get_name().c_str()) == 0) {
+      if (strcasecmp(effect_name.c_str(), this->effects_[i]->get_name()) == 0) {
         return i + 1;  // Effects are 1-indexed in active_effect_index_
       }
     }
@@ -282,7 +282,7 @@ class LightState : public EntityBase, public Component {
   /// The currently active transformer for this light (transition/flash).
   std::unique_ptr<LightTransformer> transformer_{nullptr};
   /// List of effects for this light.
-  std::vector<LightEffect *> effects_;
+  FixedVector<LightEffect *> effects_;
   /// Object used to store the persisted values of the light.
   ESPPreferenceObject rtc_;
   /// Value for storing the index of the currently active effect. 0 if no effect is active
