@@ -12,7 +12,6 @@ from esphome.components.network import (
 from esphome.components.psram import is_guaranteed as psram_is_guaranteed
 from esphome.config_helpers import filter_source_files_from_platform
 import esphome.config_validation as cv
-from esphome.config_validation import only_with_esp_idf
 from esphome.const import (
     CONF_AP,
     CONF_BSSID,
@@ -69,6 +68,12 @@ CONF_MIN_AUTH_MODE = "min_auth_mode"
 # Maximum number of WiFi networks that can be configured
 # Limited to 127 because selected_sta_index_ is int8_t in C++
 MAX_WIFI_NETWORKS = 127
+
+# Default AP timeout - allows sufficient time to try all BSSIDs during initial connection
+# After AP starts, WiFi scanning is skipped to avoid disrupting the AP, so we only
+# get best-effort connection attempts. Longer timeout ensures we exhaust all options
+# before falling back to AP mode. Aligned with improv wifi_timeout default.
+DEFAULT_AP_TIMEOUT = "90s"
 
 wifi_ns = cg.esphome_ns.namespace("wifi")
 EAPAuth = wifi_ns.struct("EAPAuth")
@@ -188,7 +193,7 @@ CONF_AP_TIMEOUT = "ap_timeout"
 WIFI_NETWORK_AP = WIFI_NETWORK_BASE.extend(
     {
         cv.Optional(
-            CONF_AP_TIMEOUT, default="1min"
+            CONF_AP_TIMEOUT, default=DEFAULT_AP_TIMEOUT
         ): cv.positive_time_period_milliseconds,
     }
 )
@@ -382,7 +387,7 @@ CONFIG_SCHEMA = cv.All(
                 single=True
             ),
             cv.Optional(CONF_USE_PSRAM): cv.All(
-                only_with_esp_idf, cv.requires_component("psram"), cv.boolean
+                cv.only_on_esp32, cv.requires_component("psram"), cv.boolean
             ),
             cv.Optional("forced_hash"): cv.int_,
             cv.Optional("forced_addr"): cv.int_,
