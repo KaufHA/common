@@ -97,6 +97,7 @@ WIFI_MIN_AUTH_MODES = {
 VALIDATE_WIFI_MIN_AUTH_MODE = cv.enum(WIFI_MIN_AUTH_MODES, upper=True)
 WiFiConnectedCondition = wifi_ns.class_("WiFiConnectedCondition", Condition)
 WiFiEnabledCondition = wifi_ns.class_("WiFiEnabledCondition", Condition)
+WiFiAPActiveCondition = wifi_ns.class_("WiFiAPActiveCondition", Condition)
 WiFiEnableAction = wifi_ns.class_("WiFiEnableAction", automation.Action)
 WiFiDisableAction = wifi_ns.class_("WiFiDisableAction", automation.Action)
 WiFiConfigureAction = wifi_ns.class_(
@@ -522,11 +523,14 @@ async def to_code(config):
         cg.add(var.set_min_auth_mode(config[CONF_MIN_AUTH_MODE]))
     if config[CONF_FAST_CONNECT]:
         cg.add_define("USE_WIFI_FAST_CONNECT")
-    cg.add(var.set_passive_scan(config[CONF_PASSIVE_SCAN]))
+    # passive_scan defaults to false in C++ - only set if true
+    if config[CONF_PASSIVE_SCAN]:
+        cg.add(var.set_passive_scan(True))
     if CONF_OUTPUT_POWER in config:
         cg.add(var.set_output_power(config[CONF_OUTPUT_POWER]))
-
-    cg.add(var.set_enable_on_boot(config[CONF_ENABLE_ON_BOOT]))
+    # enable_on_boot defaults to true in C++ - only set if false
+    if not config[CONF_ENABLE_ON_BOOT]:
+        cg.add(var.set_enable_on_boot(False))
 
     if CORE.is_esp8266:
         cg.add_library("ESP8266WiFi", None)
@@ -544,6 +548,7 @@ async def to_code(config):
 
     if config.get(CONF_USE_PSRAM):
         add_idf_sdkconfig_option("CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP", True)
+
     # Apply high performance WiFi settings if high performance networking is enabled
     if CORE.is_esp32 and CORE.using_esp_idf and has_high_performance_networking():
         # Check if PSRAM is guaranteed (set by psram component during final validation)
@@ -636,6 +641,11 @@ async def wifi_enabled_to_code(config, condition_id, template_arg, args):
     return cg.new_Pvariable(condition_id, template_arg)
 
 
+@automation.register_condition("wifi.ap_active", WiFiAPActiveCondition, cv.Schema({}))
+async def wifi_ap_active_to_code(config, condition_id, template_arg, args):
+    return cg.new_Pvariable(condition_id, template_arg)
+
+
 @automation.register_action("wifi.enable", WiFiEnableAction, cv.Schema({}))
 async def wifi_enable_to_code(config, action_id, template_arg, args):
     return cg.new_Pvariable(action_id, template_arg)
@@ -647,6 +657,8 @@ async def wifi_disable_to_code(config, action_id, template_arg, args):
 
 
 KEEP_SCAN_RESULTS_KEY = "wifi_keep_scan_results"
+RUNTIME_POWER_SAVE_KEY = "wifi_runtime_power_save"
+WIFI_LISTENERS_KEY = "wifi_listeners"
 
 
 def request_wifi_scan_results():
@@ -659,13 +671,41 @@ def request_wifi_scan_results():
     CORE.data[KEEP_SCAN_RESULTS_KEY] = True
 
 
+def enable_runtime_power_save_control():
+    """Enable runtime WiFi power save control.
+
+    Components that need to dynamically switch WiFi power saving on/off for latency
+    performance (e.g., audio streaming, large data transfers) should call this
+    function during their code generation. This enables the request_high_performance()
+    and release_high_performance() APIs.
+
+    Only supported on ESP32.
+    """
+    CORE.data[RUNTIME_POWER_SAVE_KEY] = True
+
+
+def request_wifi_listeners() -> None:
+    """Request that WiFi state listeners be compiled in.
+
+    Components that need to be notified about WiFi state changes (IP address changes,
+    scan results, connection state) should call this function during their code generation.
+    This enables the add_ip_state_listener(), add_scan_results_listener(),
+    and add_connect_state_listener() APIs.
+    """
+    CORE.data[WIFI_LISTENERS_KEY] = True
+
+
 @coroutine_with_priority(CoroPriority.FINAL)
 async def final_step():
-    """Final code generation step to configure scan result retention."""
+    """Final code generation step to configure optional WiFi features."""
     if CORE.data.get(KEEP_SCAN_RESULTS_KEY, False):
         cg.add(
             cg.RawExpression("wifi::global_wifi_component->set_keep_scan_results(true)")
         )
+    if CORE.data.get(RUNTIME_POWER_SAVE_KEY, False):
+        cg.add_define("USE_WIFI_RUNTIME_POWER_SAVE")
+    if CORE.data.get(WIFI_LISTENERS_KEY, False):
+        cg.add_define("USE_WIFI_LISTENERS")
 
 
 @automation.register_action(

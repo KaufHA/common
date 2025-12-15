@@ -8,8 +8,7 @@
 
 #include "esphome/components/globals/globals_component.h"
 
-namespace esphome {
-namespace template_ {
+namespace esphome::template_ {
 
 class TemplateNumber final : public number::Number, public PollingComponent {
  public:
@@ -55,5 +54,4 @@ class TemplateNumber final : public number::Number, public PollingComponent {
   ESPPreferenceObject pref_;
 };
 
-}  // namespace template_
-}  // namespace esphome
+}  // namespace esphome::template_
