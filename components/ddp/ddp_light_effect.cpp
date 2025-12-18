@@ -82,7 +82,7 @@ uint16_t DDPLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_
   this->next_packet_will_be_first_ = false;
   this->last_ddp_time_ms_ = millis();
 
-  ESP_LOGV(TAG, "Applying DDP data for '%s->%s': (%02x,%02x,%02x) size = %d, used = %d", this->state_->get_name().c_str(), this->get_name().c_str(), payload[used], payload[used+1], payload[used+2], size, used);
+  ESP_LOGV(TAG, "Applying DDP data for '%s->%s': (%02x,%02x,%02x) size = %d, used = %d", this->state_->get_name().c_str(), this->get_name(), payload[used], payload[used+1], payload[used+2], size, used);
 
   float red   = (float)payload[used]/255.0f;
   float green = (float)payload[used+1]/255.0f;

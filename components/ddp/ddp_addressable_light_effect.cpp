@@ -103,7 +103,7 @@ uint16_t DDPAddressableLightEffect::process_(const uint8_t *payload, uint16_t si
 
   if ( num_pixels < 1 ) { return 0; }
 
-  ESP_LOGV(TAG, "Applying DDP data for '%s' (size: %d - used: %d - num_pixels: %d)", get_name().c_str(), size, used, num_pixels);
+  ESP_LOGV(TAG, "Applying DDP data for '%s' (size: %d - used: %d - num_pixels: %d)", get_name(), size, used, num_pixels);
 
   // will be multiplied by RGB values in scale_* scaling modes
   float multiplier = 1.0f;
