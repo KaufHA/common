@@ -88,6 +88,7 @@ light:
           brightness_scaling: none
           active_sensor: true
 ```
+> **NOTE**: The [NeoPixelBus](https://esphome.io/components/light/neopixelbus/) component does not currently work with the ESP-IDF Framework. Instead, you can use the [ESP32 RMT LED Strip](https://esphome.io/components/light/esp32_rmt_led_strip/) or [SPI LED Strip Light](https://esphome.io/components/light/spi_led_strip/) components.
 
 (4)  Activate the effect.  The effects can be enabled by turning on the light in Home Assistant and then selecting the effect from the light entity's information popup as below:
 
