@@ -46,6 +46,7 @@ Either effect can optionally utilize the following configuration variables:
   - `PIXEL` - Each pixel will individually be scaled up or down to the brightness of the Home Assistant light entity.
   - `STRIP` - Each strip will be scaled up or down so that the brightest pixel of the strip is at the brightness of the Home Assistant light entity.  `PIXEL` and `STRIP` are the same for bulbs.
   - `PACKET` - Each entire packet will be scaled so that the brightest pixel of the packet is at the brightness of the Home Assistant light entity.  `PACKET` and `STRIP` are the same for devices with one LED strip.  
+- **active_sensor** (*Optional*, addressable_ddp only, boolean or mapping): Creates a binary sensor to show if the Addressable DDP effect is actively driving the output (ON) or if no DDP packets have been received and the state is reverted to the ESPHome/Home Assistant color (OFF - after optional timeout above). Set to `true` to create the binary sensor, or set to a mapping with `name: My Custom Sensor Name` to customize the name of the sensor. 
 
 DDP example:
 
@@ -85,6 +86,7 @@ light:
           timeout: 10s
           disable_gamma: true
           brightness_scaling: none
+          active_sensor: true
 ```
 
 (4)  Activate the effect.  The effects can be enabled by turning on the light in Home Assistant and then selecting the effect from the light entity's information popup as below:

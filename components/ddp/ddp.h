@@ -1,9 +1,10 @@
 #pragma once
 
-#ifdef USE_ARDUINO
+#if defined(USE_ARDUINO) || defined(USE_ESP_IDF)
 
 #include "esphome/core/component.h"
 
+#ifdef USE_ARDUINO
 #ifdef USE_ESP32
 #include <WiFi.h>
 #endif
@@ -16,6 +17,11 @@
 #ifdef USE_LIBRETINY
 #include <WiFi.h>
 #include <WiFiUdp.h>
+#endif
+#endif  // USE_ARDUINO
+
+#ifdef USE_ESP_IDF
+#include "esphome/components/socket/socket.h"
 #endif
 
 #include <map>
@@ -41,7 +47,12 @@ class DDPComponent : public esphome::Component {
   void remove_effect(DDPLightEffectBase *light_effect);
 
  protected:
+#ifdef USE_ARDUINO
   std::unique_ptr<WiFiUDP> udp_;
+#endif
+#ifdef USE_ESP_IDF
+  std::unique_ptr<socket::Socket> socket_;
+#endif
   std::set<DDPLightEffectBase *> light_effects_;
 
   bool process_(const uint8_t *payload, uint16_t size);
@@ -50,4 +61,4 @@ class DDPComponent : public esphome::Component {
 }  // namespace ddp
 }  // namespace esphome
 
-#endif  // USE_ARDUINO
+#endif  // USE_ARDUINO || USE_ESP_IDF
