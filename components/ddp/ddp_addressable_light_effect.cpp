@@ -225,7 +225,7 @@ void DDPAddressableLightEffect::set_effect_active_(light::AddressableLight *it, 
 #endif
 }
 
-}  // namespace e131
+}  // namespace ddp
 }  // namespace esphome
 
 #endif  // USE_ARDUINO || USE_ESP_IDF
