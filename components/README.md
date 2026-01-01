@@ -35,7 +35,7 @@ external_components:
 (2) Invoke the ddp component by adding `ddp:` at the top level of your yaml file.  Top level means that `ddp:` is at the beginning of its line and not tabbed over at all.  This can be seen in the first line of both examples below.
 
 Optional ddp component configuration:
-- **stats_interval** (*Optional*, [Time](https://esphome.io/guides/configuration-types.html#config-time)): Log debug stats (packets/sec, last packet size, source) wih the specified interval. Defaults to `0s` which disables stats collection/logging.
+- **stats_interval** (*Optional*, [Time](https://esphome.io/guides/configuration-types.html#config-time)): Log debug stats (packets/sec, last packet size, source) with the specified interval. Defaults to `0s` which disables stats collection/logging.
 
 (3) Add either ddp or addressable_ddp as an effect to any light entity.  The ddp effect is for single lights such as bulbs.  The addressable_ddp effect is for addressable lights such as RGB strips.
 
