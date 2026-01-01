@@ -4,8 +4,10 @@
 #include "esphome/core/log.h"
 
 #include <lwip/sockets.h>
+#include <lwip/inet.h>
 
 #include <array>
+#include <cstdio>
 #include <cerrno>
 
 namespace esphome {
@@ -42,6 +44,20 @@ void DDPComponent::loop() {
 
     if (!this->process_(payload.data(), static_cast<uint16_t>(len))) {
       continue;
+    }
+
+    if (this->stats_interval_ms_ != 0) {
+      char source[64];
+      source[0] = '\0';
+      if (client_addr.ss_family == AF_INET) {
+        auto *addr = reinterpret_cast<struct sockaddr_in *>(&client_addr);
+        const char *ip = inet_ntoa(addr->sin_addr);
+        uint16_t port = ntohs(addr->sin_port);
+        if (ip != nullptr) {
+          snprintf(source, sizeof(source), "%s:%u", ip, port);
+        }
+      }
+      this->note_packet_(source, static_cast<uint16_t>(len));
     }
   }
 }

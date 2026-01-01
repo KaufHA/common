@@ -2,7 +2,10 @@
 
 #include "ddp.h"
 #include "ddp_light_effect_base.h"
+#include "esphome/core/hal.h"
 #include "esphome/core/log.h"
+
+#include <cstring>
 
 namespace esphome {
 namespace ddp {
@@ -12,6 +15,40 @@ static const char *const TAG = "ddp";
 DDPComponent::DDPComponent() {}
 DDPComponent::~DDPComponent() {}
 void DDPComponent::setup() {}
+
+void DDPComponent::note_packet_(const char *source, uint16_t size) {
+  if (this->stats_interval_ms_ == 0) {
+    return;
+  }
+  this->stats_packets_++;
+  this->last_packet_size_ = size;
+  if (source != nullptr && source[0] != '\0') {
+    std::strncpy(this->last_source_, source, sizeof(this->last_source_) - 1);
+    this->last_source_[sizeof(this->last_source_) - 1] = '\0';
+    this->have_source_ = true;
+  }
+
+  uint32_t now = millis();
+  if (this->stats_last_ms_ == 0) {
+    this->stats_last_ms_ = now;
+    return;
+  }
+
+  uint32_t elapsed = now - this->stats_last_ms_;
+  if (elapsed < this->stats_interval_ms_) {
+    return;
+  }
+
+  uint32_t pps = (this->stats_packets_ * 1000) / elapsed;
+  if (this->have_source_) {
+    ESP_LOGD(TAG, "DDP stats: %u pps, last %u bytes from %s", pps, this->last_packet_size_, this->last_source_);
+  } else {
+    ESP_LOGD(TAG, "DDP stats: %u pps, last %u bytes", pps, this->last_packet_size_);
+  }
+
+  this->stats_packets_ = 0;
+  this->stats_last_ms_ = now;
+}
 
 bool DDPComponent::process_(const uint8_t *payload, uint16_t size) {
 

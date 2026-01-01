@@ -3,6 +3,8 @@
 #include "ddp.h"
 #include "esphome/core/log.h"
 
+#include <cstdio>
+
 namespace esphome {
 namespace ddp {
 
@@ -26,6 +28,13 @@ void DDPComponent::loop() {
       continue;
     }
 
+    if (this->stats_interval_ms_ != 0) {
+      IPAddress ip = this->udp_->remoteIP();
+      uint16_t port = this->udp_->remotePort();
+      char source[32];
+      snprintf(source, sizeof(source), "%u.%u.%u.%u:%u", ip[0], ip[1], ip[2], ip[3], port);
+      this->note_packet_(source, static_cast<uint16_t>(payload.size()));
+    }
   }
 }
 

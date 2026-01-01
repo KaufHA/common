@@ -45,6 +45,11 @@ class DDPComponent : public esphome::Component {
 
   void add_effect(DDPLightEffectBase *light_effect);
   void remove_effect(DDPLightEffectBase *light_effect);
+  void set_stats_interval(uint32_t interval_ms) {
+    this->stats_interval_ms_ = interval_ms;
+    this->stats_last_ms_ = 0;
+    this->stats_packets_ = 0;
+  }
 
  protected:
 #ifdef USE_ARDUINO
@@ -56,6 +61,14 @@ class DDPComponent : public esphome::Component {
   std::set<DDPLightEffectBase *> light_effects_;
 
   bool process_(const uint8_t *payload, uint16_t size);
+  void note_packet_(const char *source, uint16_t size);
+
+  uint32_t stats_interval_ms_{0};
+  uint32_t stats_last_ms_{0};
+  uint32_t stats_packets_{0};
+  uint16_t last_packet_size_{0};
+  char last_source_[64]{};
+  bool have_source_{false};
 };
 
 }  // namespace ddp

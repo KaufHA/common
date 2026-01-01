@@ -69,11 +69,15 @@ CONF_DDP_TIMEOUT = "timeout"
 CONF_DDP_DIS_GAMMA = "disable_gamma"
 CONF_DDP_SCALING = "brightness_scaling"
 CONF_ACTIVE_SENSOR = "active_sensor"
+CONF_STATS_INTERVAL = "stats_interval"
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(DDPComponent),
+            cv.Optional(
+                CONF_STATS_INTERVAL, default="0s"
+            ): cv.positive_time_period_milliseconds,
         }
     ),
     cv.only_on(
@@ -92,6 +96,7 @@ CONFIG_SCHEMA = cv.All(
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
+    cg.add(var.set_stats_interval(config[CONF_STATS_INTERVAL]))
 
 
 @register_rgb_effect(
