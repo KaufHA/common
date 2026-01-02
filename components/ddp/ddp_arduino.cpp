@@ -46,7 +46,7 @@ void DDPComponent::add_effect(DDPLightEffectBase *light_effect) {
 
   // only the first effect added needs to start udp listening
   // but we still need to add the effect to the set so it can be applied.
-  if (this->light_effects_.size() == 0) {
+  if (this->light_effects_.empty()) {
     if (!this->udp_) { this->udp_ = make_unique<WiFiUDP>(); }
 
     ESP_LOGD(TAG, "Starting UDP listening for DDP.");
@@ -67,7 +67,7 @@ void DDPComponent::remove_effect(DDPLightEffectBase *light_effect) {
   this->light_effects_.erase(light_effect);
 
   // if no more effects left, stop udp listening
-  if ( (this->light_effects_.size() == 0) && this->udp_) {
+  if ( (this->light_effects_.empty()) && this->udp_) {
     ESP_LOGD(TAG, "Stopping UDP listening for DDP.");
     this->udp_->stop();
   }
