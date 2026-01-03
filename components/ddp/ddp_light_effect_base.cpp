@@ -1,4 +1,4 @@
-#ifdef USE_ARDUINO
+#if defined(USE_ARDUINO) || defined(USE_ESP_IDF)
 
 #include "ddp.h"
 #include "ddp_light_effect_base.h"
@@ -40,4 +40,4 @@ bool DDPLightEffectBase::timeout_check() {
 }  // namespace ddp
 }  // namespace esphome
 
-#endif  // USE_ARDUINO
+#endif  // USE_ARDUINO || USE_ESP_IDF

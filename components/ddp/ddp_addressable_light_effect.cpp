@@ -1,8 +1,11 @@
-#ifdef USE_ARDUINO
+#if defined(USE_ARDUINO) || defined(USE_ESP_IDF)
 
 #include "ddp.h"
 #include "ddp_addressable_light_effect.h"
 #include "esphome/core/log.h"
+#ifdef USE_BINARY_SENSOR
+#include "esphome/components/binary_sensor/binary_sensor.h"
+#endif
 
 namespace esphome {
 namespace ddp {
@@ -12,6 +15,15 @@ static const char *const TAG = "ddp_addressable_light_effect";
 DDPAddressableLightEffect::DDPAddressableLightEffect(const char *name) : AddressableLightEffect(name) {}
 
 const char *DDPAddressableLightEffect::get_name() { return AddressableLightEffect::get_name(); }
+
+#ifdef USE_BINARY_SENSOR
+void DDPAddressableLightEffect::set_effect_active_sensor(binary_sensor::BinarySensor *sensor) {
+  this->effect_active_sensor_ = sensor;
+  if (this->effect_active_sensor_ != nullptr) {
+    this->effect_active_sensor_->publish_state(false);
+  }
+}
+#endif
 
 void DDPAddressableLightEffect::start() {
 
@@ -23,7 +35,7 @@ void DDPAddressableLightEffect::start() {
   DDPLightEffectBase::start();
 
   // not automatically active just because enabled
-  this->get_addressable_()->set_effect_active(false);
+  this->set_effect_active_(this->get_addressable_(), false);
 
 }
 
@@ -31,9 +43,11 @@ void DDPAddressableLightEffect::stop() {
 
   // restore backed up gamma value and recalculate gamma table.
   this->state_->set_gamma_correct(this->gamma_backup_);
-  this->get_addressable_()->setup_state(this->state_);
+  auto *it = this->get_addressable_();
+  it->setup_state(this->state_);
   this->next_packet_will_be_first_ = true;
 
+  this->set_effect_active_(it, false);
   DDPLightEffectBase::stop();
   AddressableLightEffect::stop();
 }
@@ -68,7 +82,7 @@ void DDPAddressableLightEffect::apply(light::AddressableLight &it, const Color &
     it.setup_state(this->state_);
 
     // effect no longer active
-    it.set_effect_active(false);
+    this->set_effect_active_(&it, false);
 
     call.perform();
    }
@@ -92,7 +106,7 @@ uint16_t DDPAddressableLightEffect::process_(const uint8_t *payload, uint16_t si
   auto *it = this->get_addressable_();
 
   // effect is active once a ddp packet is received.
-  it->set_effect_active(true);
+  this->set_effect_active_(it, true);
 
 
 #ifdef USE_ESP32
@@ -163,9 +177,9 @@ uint16_t DDPAddressableLightEffect::process_(const uint8_t *payload, uint16_t si
         break;
     }
 
-    // assign pixel color
+    // assign pixel color; clear white channel for RGBW strips
     auto output = (*it)[(i-used)/3];
-    output.set_rgb(red, green, blue);
+    output.set_rgbw(red, green, blue, 0);
   }
 
   it->schedule_show();
@@ -199,7 +213,19 @@ void DDPAddressableLightEffect::set_max_brightness_() {
   this->get_addressable_()->update_state(this->state_);
 }
 
-}  // namespace e131
+void DDPAddressableLightEffect::set_effect_active_(light::AddressableLight *it, bool active) {
+  if (it == nullptr) {
+    return;
+  }
+  it->set_effect_active(active);
+#ifdef USE_BINARY_SENSOR
+  if (this->effect_active_sensor_ != nullptr) {
+    this->effect_active_sensor_->publish_state(active);
+  }
+#endif
+}
+
+}  // namespace ddp
 }  // namespace esphome
 
-#endif  // USE_ARDUINO
+#endif  // USE_ARDUINO || USE_ESP_IDF

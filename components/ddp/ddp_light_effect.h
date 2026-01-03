@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef USE_ARDUINO
+#if defined(USE_ARDUINO) || defined(USE_ESP_IDF)
 
 #include "esphome/core/component.h"
 #include "esphome/components/light/light_effect.h"
@@ -27,4 +27,4 @@ class DDPLightEffect : public DDPLightEffectBase, public light::LightEffect {
 }  // namespace ddp
 }  // namespace esphome
 
-#endif  // ESPHOME_DDP_LIGHT_EFFECT_H
+#endif  // USE_ARDUINO || USE_ESP_IDF

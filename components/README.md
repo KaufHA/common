@@ -34,6 +34,9 @@ external_components:
 
 (2) Invoke the ddp component by adding `ddp:` at the top level of your yaml file.  Top level means that `ddp:` is at the beginning of its line and not tabbed over at all.  This can be seen in the first line of both examples below.
 
+Optional ddp component configuration:
+- **stats_interval** (*Optional*, [Time](https://esphome.io/guides/configuration-types.html#config-time)): Log debug stats (packets/sec, last packet size, source) with the specified interval. Defaults to `0s` which disables stats collection/logging.
+
 (3) Add either ddp or addressable_ddp as an effect to any light entity.  The ddp effect is for single lights such as bulbs.  The addressable_ddp effect is for addressable lights such as RGB strips.
 
 Either effect can optionally utilize the following configuration variables:
@@ -46,6 +49,7 @@ Either effect can optionally utilize the following configuration variables:
   - `PIXEL` - Each pixel will individually be scaled up or down to the brightness of the Home Assistant light entity.
   - `STRIP` - Each strip will be scaled up or down so that the brightest pixel of the strip is at the brightness of the Home Assistant light entity.  `PIXEL` and `STRIP` are the same for bulbs.
   - `PACKET` - Each entire packet will be scaled so that the brightest pixel of the packet is at the brightness of the Home Assistant light entity.  `PACKET` and `STRIP` are the same for devices with one LED strip.  
+- **active_sensor** (*Optional*, addressable_ddp only, boolean or mapping): Creates a binary sensor to show if the Addressable DDP effect is actively driving the output (ON) or if no DDP packets have been received and the state is reverted to the ESPHome/Home Assistant color (OFF - after optional timeout above). Set to `true` to create the binary sensor, or set to a mapping with `name: My Custom Sensor Name` to customize the name of the sensor. 
 
 DDP example:
 
@@ -85,7 +89,9 @@ light:
           timeout: 10s
           disable_gamma: true
           brightness_scaling: none
+          active_sensor: true
 ```
+> **NOTE**: The [NeoPixelBus](https://esphome.io/components/light/neopixelbus/) component does not currently work with the ESP-IDF Framework. Instead, you can use the [ESP32 RMT LED Strip](https://esphome.io/components/light/esp32_rmt_led_strip/) or [SPI LED Strip Light](https://esphome.io/components/light/spi_led_strip/) components.
 
 (4)  Activate the effect.  The effects can be enabled by turning on the light in Home Assistant and then selecting the effect from the light entity's information popup as below:
 
