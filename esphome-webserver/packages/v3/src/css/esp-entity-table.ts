@@ -72,18 +72,25 @@ export default css`
     margin: auto;
     display: flex;
   }
-
+  .climate-wrap{
+    width: 100%;
+    margin: 10px 0 10px 0;
+  }
+  .climate-row {
+    width: 100%;
+    display: inline-flex;
+    flex-wrap: wrap;
+    text-align: left;
+  }
+  .climate-row > select{
+    width: 50%;
+  }
+  .climate-row > label{
+    align-content: center;
+    width: 150px;
+  }
+    
   input[type="color"]::-webkit-color-swatch-wrapper {
     padding: 0 !important;
-  }
-
-  .climate {
-    width: 100%;
-    display: grid;
-    text-align: center;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    padding: 10px;
-    align-items: center;
   }
 `;

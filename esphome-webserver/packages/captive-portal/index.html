@@ -1,97 +1,92 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" href="data:image" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-    <link rel="stylesheet" type="text/css" href="/src/stylesheet.css" />
-  </head>
-
-  <body>
-    <main>
-      <h2>Found Wi-Fi Networks</h2>
-      <aside>
-        The KAUF device will now try to connect to the network...<br><br>
-        Please give it some time to connect.<br>
-      </aside>
-      <span id="net">
-      </span>
-
-      <h3>Wi-Fi Credentials:</h3>
-      <form method="GET" action="/wifisave">
-        <input id="ssid" name="ssid" length="32" placeholder="SSID" /><br>
-        <input id="psk" name="psk" length="64" type="password" placeholder="Password" /><br>
-        <br>
-        <button type="submit">Save</button>
-      </form>
-      <br>
-      <div style="display:flex">
-        <p>Show password:</p>
-        <p><input type="checkbox" onclick="togglepass();document.getElementById('psk').focus()" style="width:auto"></p>
-      </div>
-      <hr>
-      <br>
-      <h2>Device Parameters</h2>
-      <table border="1" width="100%"><tbody>
-        <tr>
-          <td>Hostname</td>
-          <td id="t_host"></td>
-        </tr>
-        <tr>
-          <td>MAC Address</td>
-          <td id="t_mac"></td>
-        </tr>
-        <tr>
-          <td>Hard-Coded SSID</td>
-          <td id="t_hard"></td>
-        </tr>
-        <tr>
-          <td>Software-Configured SSID</td>
-          <td id="t_soft"></td>
-        </tr>
-        <tr>
-          <td>Free Space for OTA</td>
-          <td id="t_free"></td>
-        </tr>
-        <tr>
-          <td>ESPHome Version</td>
-          <td id="t_esphv"></td>
-        </tr>
-        <tr>
-          <td>Project Name</td>
-          <td id="t_projn"></td>
-        </tr>
-        <tr>
-          <td>Project Version</td>
-          <td id="t_projv"></td>
-        </tr>
-      </tbody></table>
-      <br>
-      <hr>
-      <br>
-      <h2>OTA Update</h2>
-      **** DO NOT USE <b>TASMOTA-MINIMAL</b>.BIN or .BIN.GZ.<br>
-      **** Use tasmota.bin.gz or tasmota-lite.bin.gz.<br><br>
-      **** Do not use any <b>WLED</b> firmware.<br>
-      **** KAUF bulbs have WLED support built in.<br><br>
-      <form method="POST" action="/update" enctype="multipart/form-data">
-        <input type="file" name="update" />
-        <button type="submit">Update</button>
-      </form>
-    </main>
-
-    <script type="module" src="/src/main.ts?module"></script>
-
-    <script>
-      function togglepass() {
-        var x = document.getElementById("psk");
-        if (x.type === "password") {
-          x.type = "text";
-        } else {
-          x.type = "password";
-        }
-      }
-    </script>
-
-  </body>
+<html lang=en>
+<head>
+<meta charset=UTF-8>
+<link rel=icon href=data:image>
+<meta name=viewport content="width=device-width,initial-scale=1,user-scalable=no">
+<link rel=stylesheet href=/src/stylesheet.css>
+</head>
+<body>
+<main>
+<h2>Found Wi-Fi Networks</h2>
+<aside>
+Connecting...<br>
+Please wait.<br>
+</aside>
+<span id=net>
+</span>
+<h3>Wi-Fi Credentials:</h3>
+<form method=GET action=/wifisave>
+<input id=ssid name=ssid length=32 placeholder=SSID><br>
+<input id=psk name=psk length=64 type=password placeholder=Password><br>
+<br>
+<button>Save</button>
+</form>
+<br>
+<div style="display:flex">
+<p>Show password:</p>
+<p><input type=checkbox onclick="togglepass();document.getElementById('psk').focus()" style="width:auto"></p>
+</div>
+<hr>
+<br>
+<h2>Device Parameters</h2>
+<table border="1" width="100%"><tbody>
+<tr>
+<td>Hostname</td>
+<td id="t_host"></td>
+</tr>
+<tr>
+<td>MAC Address</td>
+<td id="t_mac"></td>
+</tr>
+<tr>
+<td>Hard-Coded SSID</td>
+<td id="t_hard"></td>
+</tr>
+<tr>
+<td>Software-Configured SSID</td>
+<td id="t_soft"></td>
+</tr>
+<tr>
+<td>Free Space for OTA</td>
+<td id="t_free"></td>
+</tr>
+<tr>
+<td>ESPHome Version</td>
+<td id="t_esphv"></td>
+</tr>
+<tr>
+<td>Project Name</td>
+<td id="t_projn"></td>
+</tr>
+<tr>
+<td>Project Version</td>
+<td id="t_projv"></td>
+</tr>
+</tbody></table>
+<br>
+<hr>
+<br>
+<h2>OTA Update</h2>
+** DO NOT USE <b>TASMOTA-MINIMAL</b>.BIN or .BIN.GZ.<br>
+** Use tasmota.bin.gz or tasmota-lite.bin.gz.<br><br>
+** Do not use any <b>WLED</b> firmware.<br>
+** KAUF bulbs have WLED support built in.<br><br>
+<form method=POST action=/update enctype=multipart/form-data>
+<input type=file name=update>
+<button>Update</button>
+</form>
+</main>
+<script type=module src=/src/main.ts?module></script>
+<script>
+function togglepass() {
+var x = document.getElementById("psk");
+if (x.type === "password") {
+x.type = "text";
+} else {
+x.type = "password";
+}
+}
+</script>
+</body>
 </html>

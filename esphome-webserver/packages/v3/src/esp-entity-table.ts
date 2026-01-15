@@ -11,12 +11,14 @@ import "iconify-icon";
 interface entityConfig {
   unique_id: string;
   sorting_weight: number;
+  sorting_group?: string;
   domain: string;
   id: string;
   state: string;
   detail: string;
   value: string;
   name: string;
+  device?: string;  // Device name for hierarchical URLs (sub-devices only)
   entity_category?: number;
   when: string;
   icon?: string;
@@ -39,8 +41,6 @@ interface entityConfig {
   current_temperature?: number;
   modes?: number[];
   mode?: number;
-  presets?: number[];
-  preset?: number;
   speed_count?: number;
   speed_level?: number;
   speed: string;
@@ -50,6 +50,14 @@ interface entityConfig {
   value_numeric_history: number[];
   uom?: string;
   is_disabled_by_default?: boolean;
+  // Water heater specific
+  away?: boolean;
+  is_on?: boolean;
+}
+
+interface groupConfig {
+  name: string;
+  sorting_weight: number;  
 }
 
 export const stateOn = "ON";
@@ -58,6 +66,52 @@ export const stateOff = "OFF";
 export function getBasePath() {
   let str = window.location.pathname;
   return str.endsWith("/") ? str.slice(0, -1) : str;
+}
+
+// ID format detection and parsing helpers
+// New format: "domain/entity_name" or "domain/device_name/entity_name"
+// Old format: "domain-object_id" (deprecated)
+
+function isNewIdFormat(id: string): boolean {
+  return id.includes('/');
+}
+
+function parseDomainFromId(id: string): string {
+  if (isNewIdFormat(id)) {
+    return id.split('/')[0];
+  }
+  // Old format: domain-object_id
+  return id.split('-')[0];
+}
+
+function buildEntityActionUrl(basePath: string, entity: entityConfig, action: string): string {
+  if (isNewIdFormat(entity.unique_id)) {
+    // New format: /{domain}/{device?}/{name}/{action}
+    const entityName = encodeURIComponent(entity.name);
+    const devicePart = entity.device
+      ? `${encodeURIComponent(entity.device)}/`
+      : '';
+    return `${basePath}/${entity.domain}/${devicePart}${entityName}/${action}`;
+  }
+  // Old format: /{domain}/{object_id}/{action}
+  const objectId = entity.unique_id.split('-').slice(1).join('-');
+  return `${basePath}/${entity.domain}/${objectId}/${action}`;
+}
+
+function buildIdFetchUrl(basePath: string, id: string): string {
+  // URL-encode each path segment for fetching detail_all
+  let urlPath: string;
+  if (isNewIdFormat(id)) {
+    // New format: domain/name or domain/device/name
+    urlPath = id.split('/').map((s: string) => encodeURIComponent(s)).join('/');
+  } else {
+    // Old format: domain-object_id -> domain/object_id
+    const parts = id.split('-');
+    const domain = parts[0];
+    const objectId = parts.slice(1).join('-');
+    urlPath = `${domain}/${encodeURIComponent(objectId)}`;
+  }
+  return `${basePath}/${urlPath}?detail=all`;
 }
 
 interface RestAction {
@@ -72,6 +126,7 @@ export class EntityTable extends LitElement implements RestAction {
 
   private _actionRenderer = new ActionRenderer();
   private _basePath = getBasePath();
+  private groups: groupConfig[] = [] 
   private static ENTITY_UNDEFINED = "States";
   private static ENTITY_CATEGORIES = [
     "Sensor and Control",
@@ -79,60 +134,129 @@ export class EntityTable extends LitElement implements RestAction {
     "Diagnostic",
   ];
 
+  private _unknown_state_events: {[key: string]: number} = {};
+
   connectedCallback() {
     super.connectedCallback();
-    window.source?.addEventListener("state", (e: Event) => {
+
+    window.source?.addEventListener('state', (e: Event) => {
       const messageEvent = e as MessageEvent;
       const data = JSON.parse(messageEvent.data);
       let idx = this.entities.findIndex((x) => x.unique_id === data.id);
-      if (idx === -1 && data.id) {
-        // Dynamically add discovered..
-        let parts = data.id.split("-");
-        let entity = {
-          ...data,
-          domain: parts[0],
-          unique_id: data.id,
-          id: parts.slice(1).join("-"),
-          entity_category: data.entity_category,
-        } as entityConfig;
-        if (typeof data.value === "number") {
-          entity.value_numeric_history = [data.value];
-        } else if (data.current_temperature) {
-          entity.value_numeric_history = [Number(data.current_temperature)];
-        }
-        entity.has_action = this.hasAction(entity);
-        if (entity.has_action) {
-          this.has_controls = true;
-        }
-        this.entities.push(entity);
-        this.entities.sort((a, b) => {  
-          const sortA = a.sorting_weight ?? a.name;  
-          const sortB = b.sorting_weight ?? b.name;  
-          return a.entity_category < b.entity_category  
-            ? -1  
-            : a.entity_category == b.entity_category  
-            ? sortA < sortB  
-              ? -1  
-              : 1  
-            : 1  
-        });         
-        this.requestUpdate();
-      } else {
-        let history = [...this.entities[idx].value_numeric_history];
-        if (typeof data.value === "number") {
+      if (idx != -1 && data.id) {
+        if (typeof data.value === 'number') {
+          let history = [...this.entities[idx].value_numeric_history];
           history.push(data.value);
-        } else if (data.current_temperature) {
-          history.push(Number(data.current_temperature));
+          this.entities[idx].value_numeric_history = history.splice(-50);
         }
-        this.entities[idx].value_numeric_history = history.splice(-50);
 
         delete data.id;
         delete data.domain;
         delete data.unique_id;
         Object.assign(this.entities[idx], data);
         this.requestUpdate();
+      } else {
+        // is it a `detail_all` event already? (has name and domain)
+        if (data?.name && data?.domain) {
+          this.addEntity(data);
+        } else {
+          if (this._unknown_state_events[data.id]) {
+            this._unknown_state_events[data.id]++;
+          } else {
+            this._unknown_state_events[data.id] = 1;
+          }
+          // ignore the first few events, maybe the esp will send a detail_all
+          // event soon
+          if (this._unknown_state_events[data.id] < 1) {
+            return;
+          }
+
+          fetch(buildIdFetchUrl(this._basePath, data.id), {
+            method: 'GET',
+          })
+              .then((r) => {
+                console.log(r);
+                if (!r.ok) {
+                  throw new Error(`HTTP error! Status: ${r.status}`);
+                }
+                return r.json();
+              })
+              .then((data) => {
+                console.log(data);
+                this.addEntity(data);
+              })
+              .catch((error) => {
+                console.error('Fetch error:', error);
+              });
+        }
       }
     });
+
+    window.source?.addEventListener("sorting_group", (e: Event) => {
+      const messageEvent = e as MessageEvent;
+      const data = JSON.parse(messageEvent.data);
+      const groupIndex = this.groups.findIndex((x) => x.name === data.name);
+      if (groupIndex === -1) {
+        let group = {
+           ...data,
+        } as groupConfig;
+        this.groups.push(group);
+        this.groups.sort((a, b) => {
+          return a.sorting_weight < b.sorting_weight  
+            ? -1  
+            : 1  
+        });
+      }
+    });
+
+    this.groups = EntityTable.ENTITY_CATEGORIES.map((category, index) => ({
+      name: category,
+      sorting_weight: index
+    }));
+
+    this.groups.push({
+      name: EntityTable.ENTITY_UNDEFINED,
+      sorting_weight: -1 
+    });
+  }
+
+  addEntity(data: any) {
+    let idx = this.entities.findIndex((x) => x.unique_id === data.id);
+    if (idx === -1 && data.id) {
+      // Dynamically add discovered entity
+      // domain comes from JSON (new format) or parsed from id (old format)
+      const domain = data.domain || parseDomainFromId(data.id);
+      let entity = {
+        ...data,
+        domain: domain,
+        unique_id: data.id,
+        entity_category: data.entity_category,
+        sorting_group: data.sorting_group ?? (EntityTable.ENTITY_CATEGORIES[parseInt(data.entity_category)] || EntityTable.ENTITY_UNDEFINED),
+        value_numeric_history: [data.value],
+      } as entityConfig;
+      entity.has_action = this.hasAction(entity);
+      if (entity.has_action) {
+        this.has_controls = true;
+      }
+      this.entities.push(entity);
+      this.entities.sort((a, b) => {
+        const sortA = a.sorting_weight ?? a.name;
+        const sortB = b.sorting_weight ?? b.name;
+        return a.sorting_group < b.sorting_group
+          ? -1
+          : a.sorting_group === b.sorting_group
+          ? sortA === sortB
+            ? a.name.toLowerCase() < b.name.toLowerCase()
+              ? -1
+              : 1
+            : sortA < sortB
+              ? -1
+              : 1
+          : 1
+      });
+      this.requestUpdate();
+    }
+
   }
 
   hasAction(entity: entityConfig): boolean {
@@ -148,9 +272,11 @@ export class EntityTable extends LitElement implements RestAction {
   }
 
   restAction(entity: entityConfig, action: string) {
-    fetch(`${this._basePath}/${entity.domain}/${entity.id}/${action}`, {
+    fetch(buildEntityActionUrl(this._basePath, entity, action), {
       method: "POST",
-      body: "true",
+      headers:{
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
     }).then((r) => {
       console.log(r);
     });
@@ -173,24 +299,34 @@ export class EntityTable extends LitElement implements RestAction {
   }
 
   render() {
-    function groupBy(xs: Array<any>, key: string): Map<string, Array<any>> {
-      return xs.reduce(function (rv, x) {
+    const groupBy = (xs: Array<any>, key: string): Map<string, Array<any>> => {
+      const groupedMap = xs.reduce(function (rv, x) {
         (
           rv.get(x[key]) ||
           (() => {
-            let tmp: Array<string> = [];
+            let tmp: Array<any> = [];
             rv.set(x[key], tmp);
             return tmp;
           })()
         ).push(x);
         return rv;
       }, new Map<string, Array<any>>());
+      
+      const sortedGroupedMap = new Map<string, Array<any>>();
+      for (const group of this.groups) {
+        const groupName = group.name;
+        if (groupedMap.has(groupName)) {
+          sortedGroupedMap.set(groupName, groupedMap.get(groupName) || []);
+        }
+      }
+
+      return sortedGroupedMap;
     }
 
     const entities = this.show_all
       ? this.entities
       : this.entities.filter((elem) => !elem.is_disabled_by_default);
-    const grouped = groupBy(entities, "entity_category");
+    const grouped = groupBy(entities, "sorting_group");
     const elems = Array.from(grouped, ([name, value]) => ({ name, value }));
     return html`
       <div>
@@ -200,7 +336,7 @@ export class EntityTable extends LitElement implements RestAction {
               class="tab-header"
               @dblclick="${this._handleTabHeaderDblClick}"
             >
-              ${EntityTable.ENTITY_CATEGORIES[parseInt(group.name)] ||
+              ${group.name ||
               EntityTable.ENTITY_UNDEFINED}
             </div>
             <div class="tab-container">
@@ -219,14 +355,13 @@ export class EntityTable extends LitElement implements RestAction {
                           ></iconify-icon>`
                         : nothing}
                     </div>
-                    <div>${component.name}</div>
+                    <div>${component.device ? `[${component.device}] ` : ''}${component.name}</div>
                     <div>
                       ${this.has_controls && component.has_action
                         ? this.control(component)
                         : html`<div>${component.state}</div>`}
                     </div>
-                    ${component.domain === "sensor" ||
-                    component.domain === "climate"
+                    ${component.domain === "sensor"
                       ? html`<esp-entity-chart
                           .chartdata="${component.value_numeric_history}"
                         ></esp-entity-chart>`
@@ -247,10 +382,7 @@ export class EntityTable extends LitElement implements RestAction {
   }
 
   _handleEntityRowClick(e: any) {
-    if (
-      e?.currentTarget?.domain === "sensor" ||
-      e?.currentTarget?.domain === "climate"
-    ) {
+    if (e?.currentTarget?.domain === "sensor") {
       if (!e?.ctrlKey) e.stopPropagation();
       e?.currentTarget?.classList.toggle(
         "expanded",
@@ -286,64 +418,16 @@ class ActionRenderer {
     return this[method]();
   }
 
-  private _actionButton(entity: entityConfig, label: string, action: string) {
+  private _actionButton(entity: entityConfig, label: string, action: string, isCurrentState: boolean = false) {
     if (!entity) return;
     let a = action || label.toLowerCase();
     return html`<button
-      class="abutton"
+      class="${isCurrentState ? 'abuttonIsState' : 'abutton'}"
+      ?disabled=${isCurrentState}
       @click=${() => this.actioner?.restAction(entity, a)}
     >
       ${label}
     </button>`;
-  }
-
-  private _tempSelector(entity: entityConfig, target: string) {
-    if (!entity) return;
-    let targetTemp =
-      target === "high"
-        ? entity.target_temperature_high
-        : entity.target_temperature || entity.target_temperature_low;
-    let upValue =
-      target === "high"
-        ? Number(entity.target_temperature_high) + Number(entity.step)
-        : Number(entity.target_temperature || entity.target_temperature_low) +
-          Number(entity.step);
-    let downValue =
-      target === "high"
-        ? Number(entity.target_temperature_high) - Number(entity.step)
-        : Number(entity.target_temperature || entity.target_temperature_low) -
-          Number(entity.step);
-    upValue =
-      upValue > Number(entity.max_temp) ? Number(entity.max_temp) : upValue;
-    downValue =
-      downValue > Number(entity.max_temp) ? Number(entity.max_temp) : downValue;
-
-    let upAction = target
-      ? `set?target_temperature_${target}=${upValue}`
-      : `set?target_temperature=${upValue}`;
-    let downAction = target
-      ? `set?target_temperature_${target}=${downValue}`
-      : `set?target_temperature=${downValue}`;
-
-    return html`<button
-        class="abutton"
-        @click=${(e: Event) => {
-          e.stopPropagation();
-          this.actioner?.restAction(entity, upAction);
-        }}
-      >
-        🔺</button
-      ><br />
-      <label>${targetTemp}</label><br />
-      <button
-        class="abutton"
-        @click=${(e: Event) => {
-          e.stopPropagation();
-          this.actioner?.restAction(entity, downAction);
-        }}
-      >
-        🔻
-      </button> `;
   }
 
   private _datetime(
@@ -351,17 +435,20 @@ class ActionRenderer {
     type: string,
     action: string,
     opt: string,
-    value: string
+    value: string,
   ) {
     return html`
-      <input
-        type="${type}"
+      <input 
+        type="${type}" 
         name="${entity.unique_id}"
         id="${entity.unique_id}"
         .value="${value}"
         @change="${(e: Event) => {
           const val = (<HTMLTextAreaElement>e.target)?.value;
-          this.actioner?.restAction(entity, `${action}?${opt}=${val}`);
+          this.actioner?.restAction(
+            entity,
+            `${action}?${opt}=${val.replace('T', ' ')}`
+          );
         }}"
       />
     `;
@@ -386,11 +473,7 @@ class ActionRenderer {
     val: string | number | undefined
   ) {
     return html`<select
-      @click=${(e: Event) => {
-        e.stopPropagation();
-      }}
       @change="${(e: Event) => {
-        e.stopPropagation();
         const val = (<HTMLTextAreaElement>e.target)?.value;
         this.actioner?.restAction(
           entity,
@@ -418,7 +501,7 @@ class ActionRenderer {
     max?: string | undefined,
     step = 1
   ) {
-    if (entity.mode == 1) {
+    if(entity.mode == 1) {
       return html`<div class="range">
         <label>${min || 0}</label>
         <input
@@ -435,23 +518,22 @@ class ActionRenderer {
           }}"
         />
         <label>${max || 100}</label>
-      </div>`;
+      </div>`;      
     } else {
-      return html` <esp-range-slider
+      return html`    
+      <esp-range-slider
         name="${entity.unique_id}"
         step="${step}"
         min="${min}"
         max="${max}"
         .value="${value}"
         @state="${(e: CustomEvent) => {
-          const val = (<HTMLTextAreaElement>e.target)?.value;
-          this.actioner?.restAction(
-            entity,
-            `${action}?${opt}=${e.detail.state}`
-          );
-        }}"
+            const val = (<HTMLTextAreaElement>e.target)?.value;
+            this.actioner?.restAction(entity, `${action}?${opt}=${e.detail.state}`);
+          }}"
       ></esp-range-slider>`;
     }
+
   }
 
   private _textinput(
@@ -544,6 +626,19 @@ class ActionRenderer {
     `;
   }
 
+  render_datetime() {
+    if (!this.entity) return;
+    return html`
+      ${this._datetime(
+        this.entity,
+        "datetime-local",
+        "set",
+        "value",
+        this.entity.value,
+      )}
+    `;
+  }
+
   render_switch() {
     if (!this.entity) return;
     if (this.entity.assumed_state)
@@ -608,16 +703,16 @@ class ActionRenderer {
 
   render_lock() {
     if (!this.entity) return;
-    return html`${this._actionButton(this.entity, "🔐", "lock")}
-    ${this._actionButton(this.entity, "🔓", "unlock")}
+    return html`${this._actionButton(this.entity, "🔐", "lock", this.entity.state === "LOCKED")}
+    ${this._actionButton(this.entity, "🔓", "unlock", this.entity.state === "UNLOCKED")}
     ${this._actionButton(this.entity, "↑", "open")} `;
   }
 
   render_cover() {
     if (!this.entity) return;
-    return html`${this._actionButton(this.entity, "↑", "open")}
+    return html`${this._actionButton(this.entity, "↑", "open", this.entity.state === "OPEN")}
     ${this._actionButton(this.entity, "☐", "stop")}
-    ${this._actionButton(this.entity, "↓", "close")}`;
+    ${this._actionButton(this.entity, "↓", "close", this.entity.state === "CLOSED")}`;
   }
 
   render_button() {
@@ -667,58 +762,188 @@ class ActionRenderer {
 
   render_climate() {
     if (!this.entity) return;
-    let target_temp_slider, target_temp_label;
+    let target_temp_slider, target_temp_label, target_temp;
+    let current_temp = html`<div class="climate-row" style="padding-bottom: 10px";>
+                              <label>Current:&nbsp;${this.entity.current_temperature} °C</label>
+                            </div>`;
+    
     if (
       this.entity.target_temperature_low !== undefined &&
       this.entity.target_temperature_high !== undefined
     ) {
-      target_temp_label = html`${this.entity
-        .target_temperature_low}&nbsp;..&nbsp;${this.entity
-        .target_temperature_high}`;
+      target_temp = html`
+        <div class="climate-row">
+          <label>Target Low:&nbsp;</label>
+          ${this._range(
+            this.entity,
+            "set",
+            "target_temperature_low",
+            this.entity.target_temperature_low,
+            this.entity.min_temp,
+            this.entity.max_temp,
+            this.entity.step
+          )}
+        </div>
+        <div class="climate-row">
+          <label>Target High:&nbsp;</label>
+          ${this._range(
+            this.entity,
+            "set",
+            "target_temperature_high",
+            this.entity.target_temperature_high,
+            this.entity.min_temp,
+            this.entity.max_temp,
+            this.entity.step
+          )}
+        </div>`;
     } else {
-      target_temp_label = html`${this.entity.target_temperature}`;
+      target_temp = html`
+        <div class="climate-row">
+          <label>Target:&nbsp;</label>
+          ${this._range(
+            this.entity,
+            "set",
+            "target_temperature",
+            this.entity.target_temperature!!,
+            this.entity.min_temp,
+            this.entity.max_temp,
+            this.entity.step
+          )}
+        </div>`;
     }
     let modes = html``;
     if ((this.entity.modes ? this.entity.modes.length : 0) > 0) {
-      modes = html` ${this._select(
-        this.entity,
-        "set",
-        "mode",
-        this.entity.modes || [],
-        this.entity.mode || ""
-      )}`;
-    }
-    let presets = html``;
-    if ((this.entity.presets ? this.entity.presets.length : 0) > 0) {
-      presets = html` ${this._select(
-        this.entity,
-        "set",
-        "preset",
-        this.entity.presets || [],
-        this.entity.preset || ""
-      )}`;
-    }
-
-    return html`
-      <section class="climate">
-        <div>
-          ${this._tempSelector(
+      modes = html`
+        <div class="climate-row">
+          <label>Mode:&nbsp;</label>
+          ${this._select(
             this.entity,
-            this.entity.target_temperature_low ? "low" : ""
+            "set",
+            "mode",
+            this.entity.modes || [],
+            this.entity.mode || ""
+          )}
+        </div>`;
+    }
+    return html`
+      <div class="climate-wrap">
+        ${current_temp} ${target_temp} ${modes}
+      </div>
+    `;
+  }
+  render_valve() {
+    if (!this.entity) return;
+    return html`${this._actionButton(this.entity, "OPEN", "open", this.entity.state === "OPEN")}
+    ${this._actionButton(this.entity, "☐", "stop")}
+    ${this._actionButton(this.entity, "CLOSE", "close", this.entity.state === "CLOSED")}`;
+  }
+
+  render_water_heater() {
+    if (!this.entity) return;
+
+    // Current temperature display (if available)
+    let current_temp = this.entity.current_temperature !== undefined
+      ? html`<div class="climate-row" style="padding-bottom: 10px">
+               <label>Current:&nbsp;${this.entity.current_temperature} °C</label>
+             </div>`
+      : nothing;
+
+    // Target temperature control(s)
+    let target_temp;
+    if (
+      this.entity.target_temperature_low !== undefined &&
+      this.entity.target_temperature_high !== undefined
+    ) {
+      target_temp = html`
+        <div class="climate-row">
+          <label>Target Low:&nbsp;</label>
+          ${this._range(
+            this.entity,
+            "set",
+            "target_temperature_low",
+            this.entity.target_temperature_low,
+            this.entity.min_temp,
+            this.entity.max_temp,
+            this.entity.step
           )}
         </div>
-        <div>
-          <label><strong>${this.entity.current_temperature}</strong></label>
-        </div>
-        <div>
-          ${this.entity.target_temperature_high
-            ? this._tempSelector(this.entity, "high")
-            : ""}
-        </div>
-        <div>${modes}</div>
-        <div>${this.entity.state}</div>
-        <div>${presets}</div>
-      </section>
+        <div class="climate-row">
+          <label>Target High:&nbsp;</label>
+          ${this._range(
+            this.entity,
+            "set",
+            "target_temperature_high",
+            this.entity.target_temperature_high,
+            this.entity.min_temp,
+            this.entity.max_temp,
+            this.entity.step
+          )}
+        </div>`;
+    } else if (this.entity.target_temperature !== undefined) {
+      target_temp = html`
+        <div class="climate-row">
+          <label>Target:&nbsp;</label>
+          ${this._range(
+            this.entity,
+            "set",
+            "target_temperature",
+            this.entity.target_temperature,
+            this.entity.min_temp,
+            this.entity.max_temp,
+            this.entity.step
+          )}
+        </div>`;
+    } else {
+      target_temp = nothing;
+    }
+
+    // Mode selector (if modes available)
+    let modes = (this.entity.modes?.length ?? 0) > 0
+      ? html`
+          <div class="climate-row">
+            <label>Mode:&nbsp;</label>
+            ${this._select(
+              this.entity,
+              "set",
+              "mode",
+              this.entity.modes || [],
+              this.entity.state || ""
+            )}
+          </div>`
+      : nothing;
+
+    // Away mode toggle (if supported)
+    let away = this.entity.away !== undefined
+      ? html`
+          <div class="climate-row">
+            <label>Away:&nbsp;</label>
+            ${this._actionButton(
+              this.entity,
+              this.entity.away ? "ON" : "OFF",
+              `set?away=${!this.entity.away}`,
+              false
+            )}
+          </div>`
+      : nothing;
+
+    // On/Off toggle (if supported)
+    let on_off = this.entity.is_on !== undefined
+      ? html`
+          <div class="climate-row">
+            <label>Power:&nbsp;</label>
+            ${this._actionButton(
+              this.entity,
+              this.entity.is_on ? "ON" : "OFF",
+              `set?is_on=${!this.entity.is_on}`,
+              false
+            )}
+          </div>`
+      : nothing;
+
+    return html`
+      <div class="climate-wrap">
+        ${current_temp} ${target_temp} ${modes} ${away} ${on_off}
+      </div>
     `;
   }
 }

@@ -11,6 +11,7 @@ interface entityConfig {
   detail: string;
   value: string;
   name: string;
+  device?: string;  // Device name for hierarchical URLs (sub-devices only)
   when: string;
   icon?: string;
   option?: string[];
@@ -36,6 +37,9 @@ interface entityConfig {
   effects?: string[];
   effect?: string;
   has_action?: boolean;
+  // Water heater specific
+  away?: boolean;
+  is_on?: boolean;
 }
 
 export function getBasePath() {
@@ -44,6 +48,36 @@ export function getBasePath() {
 }
 
 let basePath = getBasePath();
+
+// ID format detection and parsing helpers
+// New format: "domain/entity_name" or "domain/device_name/entity_name"
+// Old format: "domain-object_id" (deprecated)
+
+function isNewIdFormat(id: string): boolean {
+  return id.includes('/');
+}
+
+function parseDomainFromId(id: string): string {
+  if (isNewIdFormat(id)) {
+    return id.split('/')[0];
+  }
+  // Old format: domain-object_id
+  return id.split('-')[0];
+}
+
+function buildEntityActionUrl(entity: entityConfig, action: string): string {
+  if (isNewIdFormat(entity.unique_id)) {
+    // New format: /{domain}/{device?}/{name}/{action}
+    const entityName = encodeURIComponent(entity.name);
+    const devicePart = entity.device
+      ? `${encodeURIComponent(entity.device)}/`
+      : '';
+    return `${basePath}/${entity.domain}/${devicePart}${entityName}/${action}`;
+  }
+  // Old format: /{domain}/{object_id}/{action}
+  const objectId = entity.unique_id.split('-').slice(1).join('-');
+  return `${basePath}/${entity.domain}/${objectId}/${action}`;
+}
 
 interface RestAction {
   restAction(entity?: entityConfig, action?: string): void;
@@ -63,13 +97,13 @@ export class EntityTable extends LitElement implements RestAction {
       const data = JSON.parse(messageEvent.data);
       let idx = this.entities.findIndex((x) => x.unique_id === data.id);
       if (idx === -1 && data.id) {
-        // Dynamically add discovered..
-        let parts = data.id.split("-");
+        // Dynamically add discovered entity
+        // domain comes from JSON (new format) or parsed from id (old format)
+        const domain = data.domain || parseDomainFromId(data.id);
         let entity = {
           ...data,
-          domain: parts[0],
+          domain: domain,
           unique_id: data.id,
-          id: parts.slice(1).join("-"),
         } as entityConfig;
         entity.has_action = this.hasAction(entity);
         if (entity.has_action) {
@@ -101,7 +135,7 @@ export class EntityTable extends LitElement implements RestAction {
   }
 
   restAction(entity: entityConfig, action: string) {
-    fetch(`${basePath}/${entity.domain}/${entity.id}/${action}`, {
+    fetch(buildEntityActionUrl(entity, action), {
       method: "POST",
       headers:{
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -125,7 +159,7 @@ export class EntityTable extends LitElement implements RestAction {
           ${this.entities.map(
             (component) => html`
               <tr>
-                <td>${component.name}</td>
+                <td>${component.device ? `[${component.device}] ` : ''}${component.name}</td>
                 <td>${component.state}</td>
                 ${this.has_controls
                   ? html`<td>
@@ -295,8 +329,8 @@ class ActionRenderer {
     value: string,
   ) {
     return html`
-      <input
-        type="${type}"
+      <input 
+        type="${type}" 
         name="${entity.unique_id}"
         id="${entity.unique_id}"
         .value="${value}"
@@ -556,5 +590,89 @@ class ActionRenderer {
     return html`${this._actionButton(this.entity, "| |", "open")}
     ${this._actionButton(this.entity, "☐", "stop")}
     ${this._actionButton(this.entity, "|-|", "close")}`;
+  }
+  render_water_heater() {
+    if (!this.entity) return;
+    let target_temp_slider = html``;
+    let target_temp_label = html``;
+    let has_target = false;
+    if (
+      this.entity.target_temperature_low !== undefined &&
+      this.entity.target_temperature_high !== undefined
+    ) {
+      has_target = true;
+      target_temp_label = html`Target:&nbsp;${this.entity
+        .target_temperature_low}&nbsp;..&nbsp;${this.entity
+        .target_temperature_high}`;
+      target_temp_slider = html`
+        ${this._range(
+          this.entity,
+          "set",
+          "target_temperature_low",
+          this.entity.target_temperature_low,
+          this.entity.min_temp,
+          this.entity.max_temp,
+          this.entity.step
+        )}
+        ${this._range(
+          this.entity,
+          "set",
+          "target_temperature_high",
+          this.entity.target_temperature_high,
+          this.entity.min_temp,
+          this.entity.max_temp,
+          this.entity.step
+        )}
+      `;
+    } else if (this.entity.target_temperature !== undefined) {
+      has_target = true;
+      target_temp_label = html`Target:&nbsp;${this.entity.target_temperature}`;
+      target_temp_slider = html`
+        ${this._range(
+          this.entity,
+          "set",
+          "target_temperature",
+          this.entity.target_temperature,
+          this.entity.min_temp,
+          this.entity.max_temp,
+          this.entity.step
+        )}
+      `;
+    }
+    let modes = html``;
+    if ((this.entity.modes ? this.entity.modes.length : 0) > 0) {
+      modes = html`Mode:<br />
+        ${this._select(
+          this.entity,
+          "set",
+          "mode",
+          this.entity.modes || [],
+          this.entity.state || ""
+        )}`;
+    }
+    // Away mode toggle (if supported)
+    let away = this.entity.away !== undefined
+      ? html`Away:&nbsp;${this._actionButton(
+          this.entity,
+          this.entity.away ? "ON" : "OFF",
+          `set?away=${!this.entity.away}`
+        )}<br />`
+      : html``;
+    // On/Off toggle (if supported)
+    let on_off = this.entity.is_on !== undefined
+      ? html`Power:&nbsp;${this._actionButton(
+          this.entity,
+          this.entity.is_on ? "ON" : "OFF",
+          `set?is_on=${!this.entity.is_on}`
+        )}<br />`
+      : html``;
+    const has_current = this.entity.current_temperature !== undefined;
+    let current_temp = has_current
+      ? html`Current:&nbsp;${this.entity.current_temperature}`
+      : html``;
+    return html`
+      <label>${current_temp}${has_current && has_target ? ', ' : ''}${target_temp_label}</label>
+      ${target_temp_slider} ${modes} ${away} ${on_off}
+    `;
   }
 }
