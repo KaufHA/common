@@ -31,7 +31,7 @@ void Switch::toggle() {
   this->write_state(this->inverted_ == this->state);
 }
 optional<bool> Switch::get_initial_state() {
-  // always set up rtc_ in case mode changes later to one that saves
+  // KAUF: always set up rtc_ in case mode changes later to one that saves
   if ( this->has_global_forced_addr ) { id(global_forced_addr) = this->forced_addr; }
   if ( this->has_forced_hash ) {
     this->rtc_ = global_preferences->make_preference<bool>(this->forced_hash);
@@ -43,6 +43,7 @@ optional<bool> Switch::get_initial_state() {
   if (!(restore_mode & RESTORE_MODE_PERSISTENT_MASK))
     return {};
 
+  // KAUF: removed make_preference here
   bool initial_state;
   if (!this->rtc_.load(&initial_state))
     return {};
@@ -54,10 +55,10 @@ optional<bool> Switch::get_initial_state_with_restore_mode() {
   }
   bool initial_state = restore_mode & RESTORE_MODE_ON_MASK;  // default value *_OFF or *_ON
 
-  // always call get_initial_state so that rtc_ is set up.
+  // KAUF: always call get_initial_state so that rtc_ is set up.
   optional<bool> restored_state = this->get_initial_state();
 
-  // don't use restored state unless in a persistent mode
+  // KAUF: don't use restored state unless in a persistent mode
   if (restored_state.has_value() && (restore_mode & RESTORE_MODE_PERSISTENT_MASK)) {
     // Invert value if any of the *_INVERTED_* modes
     initial_state = restore_mode & RESTORE_MODE_INVERTED_MASK ? !restored_state.value() : restored_state.value();
@@ -65,6 +66,7 @@ optional<bool> Switch::get_initial_state_with_restore_mode() {
   return initial_state;
 }
 
+// KAUF: allow force_save
 void Switch::publish_state(bool state, bool force_save) {
   if (!force_save && !this->publish_dedup_.next(state))
     return;

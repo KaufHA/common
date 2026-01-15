@@ -14,6 +14,8 @@
 #include "esphome/core/helpers.h"
 #include <strings.h>
 #include <vector>
+
+// KAUF: import globals component for using global variable for forced addr/hash
 #include "esphome/components/globals/globals_component.h"
 
 namespace esphome::light {
@@ -141,9 +143,7 @@ class LightState : public EntityBase, public Component {
   LightOutput *get_output() const;
 
   /// Return the name of the current effect, or if no effect is active "None".
-  std::string get_effect_name();
-  /// Return the name of the current effect as StringRef (for API usage)
-  StringRef get_effect_name_ref();
+  StringRef get_effect_name();
 
   /** Add a listener for remote values changes.
    * Listener is notified when the light's remote values change (state, brightness, color, etc.)
@@ -192,11 +192,11 @@ class LightState : public EntityBase, public Component {
 
   /// Get effect index by name. Returns 0 if effect not found.
   uint32_t get_effect_index(const std::string &effect_name) const {
-    if (strcasecmp(effect_name.c_str(), "none") == 0) {
+    if (str_equals_case_insensitive(effect_name, "none")) {
       return 0;
     }
     for (size_t i = 0; i < this->effects_.size(); i++) {
-      if (strcasecmp(effect_name.c_str(), this->effects_[i]->get_name()) == 0) {
+      if (str_equals_case_insensitive(effect_name, this->effects_[i]->get_name())) {
         return i + 1;  // Effects are 1-indexed in active_effect_index_
       }
     }
@@ -219,7 +219,7 @@ class LightState : public EntityBase, public Component {
     if (index > this->effects_.size()) {
       return "";  // Invalid index
     }
-    return this->effects_[index - 1]->get_name();
+    return std::string(this->effects_[index - 1]->get_name());
   }
 
   /// The result of all the current_values_as_* methods have gamma correction applied.
@@ -252,6 +252,7 @@ class LightState : public EntityBase, public Component {
    */
   bool is_transformer_active();
 
+  // KAUF: force addr/hash stuff
   bool has_forced_hash = false;
   uint32_t forced_hash = 0;
   void set_forced_hash(uint32_t hash_value) {

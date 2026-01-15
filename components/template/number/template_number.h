@@ -6,6 +6,7 @@
 #include "esphome/core/preferences.h"
 #include "esphome/core/template_lambda.h"
 
+// KAUF: import global component for forced addr/hash
 #include "esphome/components/globals/globals_component.h"
 
 namespace esphome::template_ {
@@ -24,6 +25,7 @@ class TemplateNumber final : public number::Number, public PollingComponent {
   void set_initial_value(float initial_value) { initial_value_ = initial_value; }
   void set_restore_value(bool restore_value) { this->restore_value_ = restore_value; }
 
+  // KAUF: forced addr/hash stuff
   bool has_forced_hash = false;
   uint32_t forced_hash = 0;
   void set_forced_hash(uint32_t hash_value) {

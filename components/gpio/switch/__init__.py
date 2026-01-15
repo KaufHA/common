@@ -2,6 +2,8 @@ from esphome import pins
 import esphome.codegen as cg
 from esphome.components import switch
 import esphome.config_validation as cv
+
+# KAUF: add final validation to validate forced address configuration
 import esphome.final_validate as fv
 from esphome.const import CONF_INTERLOCK, CONF_PIN
 
@@ -24,6 +26,7 @@ CONFIG_SCHEMA = (
     .extend(cv.COMPONENT_SCHEMA)
 )
 
+# KAUF: validate forced address configuration
 def final_validate(config):
     if ("esp8266" in fv.full_config.get()):
         esp8266_config = fv.full_config.get()["esp8266"]

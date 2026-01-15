@@ -5,6 +5,7 @@
 #include "esphome/core/helpers.h"
 #include "esphome/core/preferences.h"
 
+// KAUF: Import global component for forced address
 #include "esphome/components/globals/globals_component.h"
 
 namespace esphome {
@@ -49,7 +50,8 @@ class Switch : public EntityBase, public EntityBase_DeviceClass {
    *
    * @param state The new state.
    */
-  void publish_state(bool state, bool force_save = false);
+   // KAUF: add option to force save so we can save a non-changing value
+   void publish_state(bool state, bool force_save = false);
 
   /// Indicates whether or not state is to be retrieved from flash and how
   SwitchRestoreMode restore_mode{SWITCH_RESTORE_DEFAULT_OFF};
@@ -122,6 +124,7 @@ class Switch : public EntityBase, public EntityBase_DeviceClass {
 
   void set_restore_mode(SwitchRestoreMode restore_mode) { this->restore_mode = restore_mode; }
 
+  // KAUF: forced addr/hash stuff
   bool has_forced_hash = false;
   uint32_t forced_hash = 0;
   void set_forced_hash(uint32_t hash_value) {
@@ -155,8 +158,8 @@ class Switch : public EntityBase, public EntityBase_DeviceClass {
   // Pointer first (4 bytes)
   ESPPreferenceObject rtc_;
 
-  // CallbackManager (12 bytes on 32-bit - contains vector)
-  CallbackManager<void(bool)> state_callback_{};
+  // LazyCallbackManager (4 bytes on 32-bit - nullptr when empty)
+  LazyCallbackManager<void(bool)> state_callback_{};
 
   // Small types grouped together
   Deduplicator<bool> publish_dedup_;  // 2 bytes (bool has_value_ + bool last_value_)

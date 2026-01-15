@@ -21,6 +21,7 @@ class GPIOSwitch : public switch_::Switch, public Component {
   void set_interlock(const std::initializer_list<Switch *> &interlock);
   void set_interlock_wait_time(uint32_t interlock_wait_time) { interlock_wait_time_ = interlock_wait_time; }
 
+  // KAUF: function to find out if switch has been set up yet
   bool is_setup();
 
  protected:
@@ -30,6 +31,7 @@ class GPIOSwitch : public switch_::Switch, public Component {
   FixedVector<Switch *> interlock_;
   uint32_t interlock_wait_time_{0};
 
+  // KAUF: variable to store whether switch has been set up yet
   bool is_setup_{false};
 };
 

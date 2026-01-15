@@ -6,6 +6,7 @@
 #include "esphome/core/preferences.h"
 #include "esphome/core/template_lambda.h"
 
+// KAUF: import globals component for forced hash/address
 #include "esphome/components/globals/globals_component.h"
 
 namespace esphome::template_ {
@@ -24,6 +25,7 @@ class TemplateSelect final : public select::Select, public PollingComponent {
   void set_initial_option_index(size_t initial_option_index) { this->initial_option_index_ = initial_option_index; }
   void set_restore_value(bool restore_value) { this->restore_value_ = restore_value; }
 
+  // KAUF: forced addr/hash stuff
   bool has_forced_hash = false;
   uint32_t forced_hash = 0;
   void set_forced_hash(uint32_t hash_value) {

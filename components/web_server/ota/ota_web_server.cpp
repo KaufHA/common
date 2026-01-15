@@ -9,13 +9,12 @@
 #include "esphome/components/captive_portal/captive_portal.h"
 #endif
 
+// KAUF: added to compare strings in filename
 #include <string>
+#include <StreamString.h>
 
 #ifdef USE_ARDUINO
-#include <StreamString.h>
-#ifdef USE_ESP8266
-#include <Updater.h>
-#elif defined(USE_ESP32) || defined(USE_LIBRETINY)
+#if defined(USE_LIBRETINY)
 #include <Update.h>
 #endif
 #endif  // USE_ARDUINO
@@ -26,8 +25,7 @@ using PlatformString = std::string;
 using PlatformString = String;
 #endif
 
-namespace esphome {
-namespace web_server {
+namespace esphome::web_server {
 
 static const char *const TAG = "web_server.ota";
 
@@ -71,9 +69,9 @@ class OTARequestHandler : public AsyncWebHandler {
 
  private:
   std::unique_ptr<ota::OTABackend> ota_backend_{nullptr};
-  uint16_t kauf_ota_error_code = 0;
-  bool last_gzip = false;
 
+  // KAUF: new variables to store info
+  uint16_t kauf_ota_error_code = 0;
 };
 
 void OTARequestHandler::report_ota_progress_(AsyncWebServerRequest *request) {
@@ -90,9 +88,9 @@ void OTARequestHandler::report_ota_progress_(AsyncWebServerRequest *request) {
     } else {
       ESP_LOGD(TAG, "OTA in progress: %" PRIu32 " bytes read", this->ota_read_length_);
     }
-#ifdef USE_OTA_STATE_CALLBACK
-    // Report progress - use call_deferred since we're in web server task
-    this->parent_->state_callback_.call_deferred(ota::OTA_IN_PROGRESS, percentage, 0);
+#ifdef USE_OTA_STATE_LISTENER
+    // Report progress - use notify_state_deferred_ since we're in web server task
+    this->parent_->notify_state_deferred_(ota::OTA_IN_PROGRESS, percentage, 0);
 #endif
     this->last_ota_progress_ = now;
   }
@@ -116,7 +114,7 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Platf
                                      uint8_t *data, size_t len, bool final) {
   ota::OTAResponseTypes error_code = ota::OTA_RESPONSE_OK;
 
-
+  // KAUF: analyze filename and don't update in some cases.
   std::string str = filename.c_str();
 
   // kill process if already errored out
@@ -149,12 +147,6 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Platf
      return;
   }
 
-  // remember whether a gzip file was used
-  found = str.find(".gz");
-  if (found!=std::string::npos) {
-    last_gzip = true;
-  }
-
   // if used, confirm filename does not conflict with sensor value
 #ifdef SENSOR_4M
   found = str.find("-1m");
@@ -177,17 +169,14 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Platf
     // Initialize OTA on first call
     this->ota_init_(filename.c_str());
 
-#ifdef USE_OTA_STATE_CALLBACK
-    // Notify OTA started - use call_deferred since we're in web server task
-    this->parent_->state_callback_.call_deferred(ota::OTA_STARTED, 0.0f, 0);
+#ifdef USE_OTA_STATE_LISTENER
+    // Notify OTA started - use notify_state_deferred_ since we're in web server task
+    this->parent_->notify_state_deferred_(ota::OTA_STARTED, 0.0f, 0);
 #endif
 
     // Platform-specific pre-initialization
 #ifdef USE_ARDUINO
-#ifdef USE_ESP8266
-    Update.runAsync(true);
-#endif
-#if defined(USE_ESP32) || defined(USE_LIBRETINY)
+#if defined(USE_LIBRETINY)
     if (Update.isRunning()) {
       Update.abort();
     }
@@ -197,9 +186,9 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Platf
     this->ota_backend_ = ota::make_ota_backend();
     if (!this->ota_backend_) {
       ESP_LOGE(TAG, "Failed to create OTA backend");
-#ifdef USE_OTA_STATE_CALLBACK
-      this->parent_->state_callback_.call_deferred(ota::OTA_ERROR, 0.0f,
-                                                   static_cast<uint8_t>(ota::OTA_RESPONSE_ERROR_UNKNOWN));
+#ifdef USE_OTA_STATE_LISTENER
+      this->parent_->notify_state_deferred_(ota::OTA_ERROR, 0.0f,
+                                            static_cast<uint8_t>(ota::OTA_RESPONSE_ERROR_UNKNOWN));
 #endif
       return;
     }
@@ -211,8 +200,8 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Platf
     if (error_code != ota::OTA_RESPONSE_OK) {
       ESP_LOGE(TAG, "OTA begin failed: %d", error_code);
       this->ota_backend_.reset();
-#ifdef USE_OTA_STATE_CALLBACK
-      this->parent_->state_callback_.call_deferred(ota::OTA_ERROR, 0.0f, static_cast<uint8_t>(error_code));
+#ifdef USE_OTA_STATE_LISTENER
+      this->parent_->notify_state_deferred_(ota::OTA_ERROR, 0.0f, static_cast<uint8_t>(error_code));
 #endif
       return;
     }
@@ -229,8 +218,8 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Platf
       ESP_LOGE(TAG, "OTA write failed: %d", error_code);
       this->ota_backend_->abort();
       this->ota_backend_.reset();
-#ifdef USE_OTA_STATE_CALLBACK
-      this->parent_->state_callback_.call_deferred(ota::OTA_ERROR, 0.0f, static_cast<uint8_t>(error_code));
+#ifdef USE_OTA_STATE_LISTENER
+      this->parent_->notify_state_deferred_(ota::OTA_ERROR, 0.0f, static_cast<uint8_t>(error_code));
 #endif
       return;
     }
@@ -249,15 +238,15 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Platf
     error_code = this->ota_backend_->end();
     if (error_code == ota::OTA_RESPONSE_OK) {
       this->ota_success_ = true;
-#ifdef USE_OTA_STATE_CALLBACK
-      // Report completion before reboot - use call_deferred since we're in web server task
-      this->parent_->state_callback_.call_deferred(ota::OTA_COMPLETED, 100.0f, 0);
+#ifdef USE_OTA_STATE_LISTENER
+      // Report completion before reboot - use notify_state_deferred_ since we're in web server task
+      this->parent_->notify_state_deferred_(ota::OTA_COMPLETED, 100.0f, 0);
 #endif
       this->schedule_ota_reboot_();
     } else {
       ESP_LOGE(TAG, "OTA end failed: %d", error_code);
-#ifdef USE_OTA_STATE_CALLBACK
-      this->parent_->state_callback_.call_deferred(ota::OTA_ERROR, 0.0f, static_cast<uint8_t>(error_code));
+#ifdef USE_OTA_STATE_LISTENER
+      this->parent_->notify_state_deferred_(ota::OTA_ERROR, 0.0f, static_cast<uint8_t>(error_code));
 #endif
     }
     this->ota_backend_.reset();
@@ -265,6 +254,8 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Platf
 }
 
 void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
+
+// KAUF: print out error messages.
 #if defined(USE_ARDUINO) && !defined(KAUF_SMALLER)
   if ( this->kauf_ota_error_code != 0 ) {
     // create response
@@ -289,27 +280,18 @@ void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
 
     this->kauf_ota_error_code = 0;
   }
-  else if (!Update.hasError()) {
+  else if (this->ota_success_) {
     AsyncWebServerResponse *response;
     response = request->beginResponse(200, "text/plain", "Firmware file uploaded successfully.  The device will now process the firmware file and reboot itself.  You can try to connect to the device over Wi-Fi immediately, but don't power cycle for at least five minutes if the device is not reachable.");
     response->addHeader("Connection", "close");
     request->send(response);
   } else {
 
-    // Get error string
-    StreamString ss;
-    Update.printError(ss);
-
     // create response
     AsyncResponseStream *stream = request->beginResponseStream("text/html");
     stream->addHeader("Access-Control-Allow-Origin", "*");
     stream->print(F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
-
     stream->print(F("Update Failed.  This device is now restarting itself automatically, which could resolve the error in some cases.<br><br>"));
-    stream->print(ss);
-    if ( ss.find("Not Enough Space") && !last_gzip ) {
-      stream->print(F(" - Using a .bin.gz file instead of a .bin file might help."));
-    }
 
     stream->print(F("</body></html>"));
     request->send(stream);
@@ -318,6 +300,7 @@ void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
     this->parent_->set_timeout(100, []() { App.safe_reboot(); });
   }
 
+// KAUF: if KAUF_SMALLER is defined, just use stock function
 #else
   AsyncWebServerResponse *response;
   // Use the ota_success_ flag to determine the actual result
@@ -336,6 +319,8 @@ void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
   response->addHeader("Connection", "close");
 #endif
   request->send(response);
+
+// KAUF: end if for printing error messages or alternatively stock functionality.
 #endif
 }
 
@@ -350,15 +335,10 @@ void WebServerOTAComponent::setup() {
 
   // AsyncWebServer takes ownership of the handler and will delete it when the server is destroyed
   base->add_handler(new OTARequestHandler(this));  // NOLINT
-#ifdef USE_OTA_STATE_CALLBACK
-  // Register with global OTA callback system
-  ota::register_ota_platform(this);
-#endif
 }
 
 void WebServerOTAComponent::dump_config() { ESP_LOGCONFIG(TAG, "Web Server OTA"); }
 
-}  // namespace web_server
-}  // namespace esphome
+}  // namespace esphome::web_server
 
 #endif  // USE_WEBSERVER_OTA

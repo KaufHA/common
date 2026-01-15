@@ -6,6 +6,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/time/real_time_clock.h"
 
+// KAUF: import globals component for forced addr
 #include "esphome/components/globals/globals_component.h"
 
 namespace esphome {
@@ -29,7 +30,7 @@ class TotalDailyEnergy : public sensor::Sensor, public Component {
 
   void publish_state_and_save(float state);
 
-
+  // KAUF: forced addr/hash stuff
   bool has_forced_hash = false;
   uint32_t forced_hash = 0;
   void set_forced_hash(uint32_t hash_value) {
@@ -49,6 +50,7 @@ class TotalDailyEnergy : public sensor::Sensor, public Component {
     global_forced_addr = ga_in;
   }
 
+  // KAUF: new stuff for manual zeroing
   void zero_total_energy();
   bool manual_control = false;
   bool manual_zero = false;

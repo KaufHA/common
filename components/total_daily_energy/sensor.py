@@ -1,6 +1,8 @@
 import esphome.codegen as cg
 from esphome.components import sensor, time
 import esphome.config_validation as cv
+
+# KAUF: add final validation for forced address
 import esphome.final_validate as fv
 from esphome.const import (
     CONF_ACCURACY_DECIMALS,
@@ -55,6 +57,8 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_METHOD, default="right"): cv.enum(
                 TOTAL_DAILY_ENERGY_METHODS, lower=True
             ),
+
+            # KAUF: options for forced address / hash
             cv.Optional("forced_hash"): cv.int_,
             cv.Optional("forced_addr"): cv.int_,
             cv.Optional("global_addr"): cv.use_id(globals),
@@ -63,7 +67,7 @@ CONFIG_SCHEMA = (
     .extend(cv.COMPONENT_SCHEMA)
 )
 
-
+# KAUF: validation for forced addr
 def final_validate(config):
     if ("esp8266" in fv.full_config.get()):
         esp8266_config = fv.full_config.get()["esp8266"]
@@ -106,6 +110,7 @@ FINAL_VALIDATE_SCHEMA = cv.All(
     inherit_property_from(
         CONF_ACCURACY_DECIMALS, CONF_POWER_ID, transform=inherit_accuracy_decimals
     ),
+    # KAUF: final validate
     final_validate,
 )
 
@@ -121,6 +126,7 @@ async def to_code(config):
     cg.add(var.set_restore(config[CONF_RESTORE]))
     cg.add(var.set_method(config[CONF_METHOD]))
 
+    # KAUF: set up forced addr/hash
     if "forced_hash" in config:
         cg.add(var.set_forced_hash(config["forced_hash"]))
 

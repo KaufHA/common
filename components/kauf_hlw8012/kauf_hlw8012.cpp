@@ -54,10 +54,10 @@ void Kauf_HLW8012Component::setup() {
   }
 }
 void Kauf_HLW8012Component::dump_config() {
-  ESP_LOGCONFIG(TAG, "Kauf HLW:");
-  LOG_PIN(" SEL: ", this->sel_pin_)
-  LOG_PIN("  CF: ", this->cf_pin_)
-  LOG_PIN(" CF1: ", this->cf1_pin_)
+  ESP_LOGCONFIG(TAG, "Kauf HLW8012:");
+  LOG_PIN(" SEL: ", this->sel_pin_);
+  LOG_PIN("  CF: ", this->cf_pin_);
+  LOG_PIN(" CF1: ", this->cf1_pin_);
   LOG_UPDATE_INTERVAL(this);
   LOG_SENSOR("  ", "Voltage", this->voltage_sensor_);
   LOG_SENSOR("  ", "Current", this->current_sensor_);

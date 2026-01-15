@@ -2,13 +2,14 @@ from esphome import automation
 import esphome.codegen as cg
 from esphome.components import switch
 import esphome.config_validation as cv
+
+# KAUF: add final validate for forced address
 import esphome.final_validate as fv
 from esphome.const import (
     CONF_ASSUMED_STATE,
     CONF_ID,
     CONF_LAMBDA,
     CONF_OPTIMISTIC,
-    CONF_RESTORE_STATE,
     CONF_STATE,
     CONF_TURN_OFF_ACTION,
     CONF_TURN_ON_ACTION,
@@ -29,6 +30,8 @@ def validate(config):
             "Either optimistic mode must be enabled, or turn_on_action or turn_off_action must be set, "
             "to handle the switch being set."
         )
+
+    # KAUF: validate global_addr exists
     if "forced_addr" in config and "global_addr" not in config:
         raise cv.Invalid(
             "Forced_addr requires global_addr"
@@ -49,15 +52,13 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_TURN_ON_ACTION): automation.validate_automation(
                 single=True
             ),
-            cv.Optional(CONF_RESTORE_STATE): cv.invalid(
-                "The restore_state option has been removed in 2023.7.0. Use the restore_mode option instead"
-            ),
         }
     )
     .extend(cv.COMPONENT_SCHEMA),
     validate,
 )
 
+# KAUF: validate forced address
 def final_validate(config):
     if ("esp8266" in fv.full_config.get()):
         esp8266_config = fv.full_config.get()["esp8266"]

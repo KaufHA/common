@@ -14,6 +14,7 @@ void TemplateNumber::setup() {
     value = this->initial_value_;
   } else {
 
+    // KAUF: implement forced addr/hash
     if ( this->has_global_forced_addr ) { id(global_forced_addr) = this->forced_addr; }
     if ( this->has_forced_hash ) {
       this->pref_ = global_preferences->make_preference<float>(this->forced_hash);

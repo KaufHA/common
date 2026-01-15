@@ -1,7 +1,6 @@
 #ifdef USE_ESP8266
 
 #include <c_types.h>
-#include <cinttypes>
 extern "C" {
 #include "spi_flash.h"
 }
@@ -27,6 +26,16 @@ static constexpr uint32_t ESP_RTC_USER_MEM_START = 0x60001200;
 static constexpr uint32_t ESP_RTC_USER_MEM_SIZE_WORDS = 128;
 static constexpr uint32_t ESP_RTC_USER_MEM_SIZE_BYTES = ESP_RTC_USER_MEM_SIZE_WORDS * 4;
 
+// RTC memory layout for preferences:
+// - Eboot region: RTC words 0-31 (reserved, mapped from preference offset 96-127)
+// - Normal region: RTC words 32-127 (mapped from preference offset 0-95)
+static constexpr uint32_t RTC_EBOOT_REGION_WORDS = 32;   // Words 0-31 reserved for eboot
+static constexpr uint32_t RTC_NORMAL_REGION_WORDS = 96;  // Words 32-127 for normal prefs
+static constexpr uint32_t PREF_TOTAL_WORDS = RTC_EBOOT_REGION_WORDS + RTC_NORMAL_REGION_WORDS;  // 128
+
+// Maximum preference size in words (limited by uint8_t length_words field)
+static constexpr uint32_t MAX_PREFERENCE_WORDS = 255;
+
 #define ESP_RTC_USER_MEM ((uint32_t *) ESP_RTC_USER_MEM_START)
 
 #ifdef USE_ESP8266_PREFERENCES_FLASH
@@ -35,6 +44,7 @@ static constexpr uint32_t ESP8266_FLASH_STORAGE_SIZE = 128;
 static constexpr uint32_t ESP8266_FLASH_STORAGE_SIZE = 64;
 #endif
 
+// KAUF: set up variables for global forced address
 bool has_global_forced_addr = false;
 globals::GlobalsComponent<int> *global_forced_addr;
 void set_global_addr(globals::GlobalsComponent<int> *ga_in) {
@@ -125,6 +135,10 @@ static bool load_from_rtc(size_t offset, uint32_t *data, size_t len) {
   return true;
 }
 
+// Stack buffer size - 16 words total: up to 15 words of preference data + 1 word CRC (60 bytes of preference data)
+// This handles virtually all real-world preferences without heap allocation
+static constexpr size_t PREF_BUFFER_WORDS = 16;
+
 class ESP8266PreferenceBackend : public ESPPreferenceBackend {
  public:
   uint32_t type = 0;
@@ -133,36 +147,54 @@ class ESP8266PreferenceBackend : public ESPPreferenceBackend {
   bool in_flash = false;
 
   bool save(const uint8_t *data, size_t len) override {
-    if (bytes_to_words(len) != length_words) {
+    if (bytes_to_words(len) != this->length_words)
       return false;
-    }
-    size_t buffer_size = static_cast<size_t>(length_words) + 1;
-    std::unique_ptr<uint32_t[]> buffer(new uint32_t[buffer_size]());  // Note the () for zero-initialization
-    memcpy(buffer.get(), data, len);
-    buffer[length_words] = calculate_crc(buffer.get(), buffer.get() + length_words, type);
 
-    if (in_flash) {
-      return save_to_flash(offset, buffer.get(), buffer_size);
+    const size_t buffer_size = static_cast<size_t>(this->length_words) + 1;
+    uint32_t stack_buffer[PREF_BUFFER_WORDS];
+    std::unique_ptr<uint32_t[]> heap_buffer;
+    uint32_t *buffer;
+
+    if (buffer_size <= PREF_BUFFER_WORDS) {
+      buffer = stack_buffer;
+    } else {
+      heap_buffer = make_unique<uint32_t[]>(buffer_size);
+      buffer = heap_buffer.get();
     }
-    return save_to_rtc(offset, buffer.get(), buffer_size);
+    memset(buffer, 0, buffer_size * sizeof(uint32_t));
+
+    memcpy(buffer, data, len);
+    buffer[this->length_words] = calculate_crc(buffer, buffer + this->length_words, this->type);
+
+    return this->in_flash ? save_to_flash(this->offset, buffer, buffer_size)
+                          : save_to_rtc(this->offset, buffer, buffer_size);
   }
+
   bool load(uint8_t *data, size_t len) override {
-    if (bytes_to_words(len) != length_words) {
+    if (bytes_to_words(len) != this->length_words)
       return false;
+
+    const size_t buffer_size = static_cast<size_t>(this->length_words) + 1;
+    uint32_t stack_buffer[PREF_BUFFER_WORDS];
+    std::unique_ptr<uint32_t[]> heap_buffer;
+    uint32_t *buffer;
+
+    if (buffer_size <= PREF_BUFFER_WORDS) {
+      buffer = stack_buffer;
+    } else {
+      heap_buffer = make_unique<uint32_t[]>(buffer_size);
+      buffer = heap_buffer.get();
     }
-    size_t buffer_size = static_cast<size_t>(length_words) + 1;
-    std::unique_ptr<uint32_t[]> buffer(new uint32_t[buffer_size]());
-    bool ret = in_flash ? load_from_flash(offset, buffer.get(), buffer_size)
-                        : load_from_rtc(offset, buffer.get(), buffer_size);
+
+    bool ret = this->in_flash ? load_from_flash(this->offset, buffer, buffer_size)
+                              : load_from_rtc(this->offset, buffer, buffer_size);
     if (!ret)
       return false;
 
-    uint32_t crc = calculate_crc(buffer.get(), buffer.get() + length_words, type);
-    if (buffer[length_words] != crc) {
+    if (buffer[this->length_words] != calculate_crc(buffer, buffer + this->length_words, this->type))
       return false;
-    }
 
-    memcpy(data, buffer.get(), len);
+    memcpy(data, buffer, len);
     return true;
   }
 };
@@ -171,6 +203,8 @@ class ESP8266Preferences : public ESPPreferences {
  public:
   uint32_t current_offset = 0;
   uint32_t current_flash_offset = 0;  // in words
+
+  // KAUF: used as a bookmark for where free space starts
   uint32_t init_flash_offset;
 
   void setup() {
@@ -184,78 +218,71 @@ class ESP8266Preferences : public ESPPreferences {
   }
 
   ESPPreferenceObject make_preference(size_t length, uint32_t type, bool in_flash) override {
-    uint32_t length_words = bytes_to_words(length);
-    if (length_words > 255) {
-      ESP_LOGE(TAG, "Preference too large: %" PRIu32 " words > 255", length_words);
+    const uint32_t length_words = bytes_to_words(length);
+    if (length_words > MAX_PREFERENCE_WORDS) {
+      ESP_LOGE(TAG, "Preference too large: %u words", static_cast<unsigned int>(length_words));
       return {};
     }
+
+    const uint32_t total_words = length_words + 1;  // +1 for CRC
+    uint16_t offset;
+
     if (in_flash) {
-
-      uint32_t start;
-      uint32_t end;
-
+      // KAUF: Check for forced address
       bool forced = false;
-
-      if ( has_global_forced_addr ) {
-        if ( id(global_forced_addr) != 12345 ) {
+      if (has_global_forced_addr) {
+        if (id(global_forced_addr) != 12345) {
           forced = true;
         }
       }
-
-      if ( !forced ) {
+      
+      if (!forced) {
+        // KAUF: Normal allocation from current_flash_offset, code from stock ESPHome
         ESP_LOGV("KAUF Prefs", "!! Storing in free space");
-        start = current_flash_offset;
-        end = start + length_words + 1;
-        current_flash_offset = end;
+        if (this->current_flash_offset + total_words > ESP8266_FLASH_STORAGE_SIZE)
+          return {};
+        offset = static_cast<uint16_t>(this->current_flash_offset);
+        this->current_flash_offset += total_words;
       } else {
-        start = id(global_forced_addr);
-        end = start + length_words + 1;
-        if ( end > init_flash_offset ) {
+        // KAUF: Use forced address
+        uint32_t start = id(global_forced_addr);
+        uint32_t end = start + total_words;
+        
+        if (end > init_flash_offset) {
           ESP_LOGV("KAUF Prefs", "!! FORCING FREE ADDRESS");
         }
-        id(global_forced_addr) = 12345; // served its purpose, reset to default
+        if (end > ESP8266_FLASH_STORAGE_SIZE) {
+          ESP_LOGV("KAUF Prefs", "!! WENT PAST STORAGE SIZE");
+          return {};
+        }
+        
+        offset = static_cast<uint16_t>(start);
+        id(global_forced_addr) = 12345;  // served its purpose, reset to default
       }
-
-      if (end > ESP8266_FLASH_STORAGE_SIZE) {
-        ESP_LOGV("KAUF Prefs", "!! WENT PAST STORAGE SIZE");
-        return {};
+      
+      ESP_LOGV(TAG, "Making Pref - st: %u: len: %zu, wds:%u tp: %u", offset, length, static_cast<unsigned int>(length_words), type);
+    } else {
+      uint32_t start = this->current_offset;
+      bool in_normal = start < RTC_NORMAL_REGION_WORDS;
+      // Normal: offset 0-95 maps to RTC offset 32-127
+      // Eboot: offset 96-127 maps to RTC offset 0-31
+      if (in_normal && start + total_words > RTC_NORMAL_REGION_WORDS) {
+        // start is in normal but end is not -> switch to Eboot
+        this->current_offset = start = RTC_NORMAL_REGION_WORDS;
+        in_normal = false;
       }
-
-      auto *pref = new ESP8266PreferenceBackend();  // NOLINT(cppcoreguidelines-owning-memory)
-      pref->offset = static_cast<uint16_t>(start);
-      pref->type = type;
-      pref->length_words = static_cast<uint8_t>(length_words);
-      pref->in_flash = true;
-
-      ESP_LOGV(TAG, "Making Pref - st: %u: len: %u, wds:%u tp: %u", start, length, length_words, type);
-      return {pref};
+      if (start + total_words > PREF_TOTAL_WORDS)
+        return {};  // Doesn't fit in RTC memory
+      // Convert preference offset to RTC memory offset
+      offset = static_cast<uint16_t>(in_normal ? start + RTC_EBOOT_REGION_WORDS : start - RTC_NORMAL_REGION_WORDS);
+      this->current_offset = start + total_words;
     }
-
-    uint32_t start = current_offset;
-    uint32_t end = start + length_words + 1;
-    bool in_normal = start < 96;
-    // Normal: offset 0-95 maps to RTC offset 32 - 127,
-    // Eboot: offset 96-127 maps to RTC offset 0 - 31 words
-    if (in_normal && end > 96) {
-      // start is in normal but end is not -> switch to Eboot
-      current_offset = start = 96;
-      end = start + length_words + 1;
-      in_normal = false;
-    }
-
-    if (end > 128) {
-      // Doesn't fit in data, return uninitialized preference obj.
-      return {};
-    }
-
-    uint32_t rtc_offset = in_normal ? start + 32 : start - 96;
 
     auto *pref = new ESP8266PreferenceBackend();  // NOLINT(cppcoreguidelines-owning-memory)
-    pref->offset = static_cast<uint16_t>(rtc_offset);
+    pref->offset = offset;
     pref->type = type;
     pref->length_words = static_cast<uint8_t>(length_words);
-    pref->in_flash = false;
-    current_offset += length_words + 1;
+    pref->in_flash = in_flash;
     return pref;
   }
 

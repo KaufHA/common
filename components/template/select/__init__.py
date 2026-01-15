@@ -2,6 +2,8 @@ from esphome import automation
 import esphome.codegen as cg
 from esphome.components import select
 import esphome.config_validation as cv
+
+# KAUF: add final validation for forced address
 import esphome.final_validate as fv
 from esphome.const import (
     CONF_ID,
@@ -41,6 +43,7 @@ def validate(config):
             "Either optimistic mode must be enabled, or set_action must be set, to handle the option being set."
         )
 
+    # KAUF: validate global address exists
     if "forced_addr" in config and "global_addr" not in config:
         raise cv.Invalid(
             "Forced_addr requires global_addr"
@@ -62,6 +65,8 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_SET_ACTION): automation.validate_automation(single=True),
             cv.Optional(CONF_INITIAL_OPTION): cv.string_strict,
             cv.Optional(CONF_RESTORE_VALUE): cv.boolean,
+
+            # KAUF: options for forced addr/hash
             cv.Optional("forced_hash"): cv.int_,
             cv.Optional("forced_addr"): cv.int_,
             cv.Optional("global_addr"): cv.use_id(globals),
@@ -71,6 +76,7 @@ CONFIG_SCHEMA = cv.All(
     validate,
 )
 
+# KAUF: validate forced address
 def final_validate(config):
     if ("esp8266" in fv.full_config.get()):
         esp8266_config = fv.full_config.get()["esp8266"]
@@ -120,6 +126,7 @@ async def to_code(config):
             var.get_set_trigger(), [(cg.std_string, "x")], config[CONF_SET_ACTION]
         )
 
+    # KAUF: set up forced addr/hash
     if "forced_hash" in config:
         cg.add(var.set_forced_hash(config["forced_hash"]))
 

@@ -24,6 +24,7 @@ void GPIOSwitch::setup() {
     this->turn_off();
   }
 
+  // KAUF: set variable so we know this switch is setup / value can be trusted
   this->is_setup_ = true;
 
 }
@@ -72,6 +73,7 @@ void GPIOSwitch::write_state(bool state) {
 }
 void GPIOSwitch::set_interlock(const std::initializer_list<Switch *> &interlock) { this->interlock_ = interlock; }
 
+// KAUF: Function to find out if this switch has been set up yet
 bool GPIOSwitch::is_setup() { return this->is_setup_; }
 
 }  // namespace gpio

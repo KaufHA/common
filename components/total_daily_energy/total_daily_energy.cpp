@@ -11,6 +11,7 @@ void TotalDailyEnergy::setup() {
 
   if (this->restore_) {
 
+    // KAUF: implement forced addr/hash
     if ( this->has_global_forced_addr ) { id(global_forced_addr) = this->forced_addr; }
     if ( this->has_forced_hash ) {
       this->pref_ = global_preferences->make_preference<float>(this->forced_hash);
@@ -31,6 +32,7 @@ void TotalDailyEnergy::dump_config() { LOG_SENSOR("", "Total Daily Energy", this
 
 void TotalDailyEnergy::loop() {
 
+  // KAUF: allow manually zeroing, which disables automatic zeroing.
   if (this->manual_zero) {
     this->manual_zero = false;
     this->total_energy_ = 0;
@@ -88,6 +90,7 @@ void TotalDailyEnergy::process_new_state_(float state) {
   this->publish_state_and_save(this->total_energy_ + delta_energy);
 }
 
+// KAUF: zero out total energy manually
 void TotalDailyEnergy::zero_total_energy() {
   this->manual_zero = true;
   this->manual_control = true;

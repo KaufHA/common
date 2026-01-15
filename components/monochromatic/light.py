@@ -15,6 +15,7 @@ CONFIG_SCHEMA = light.BRIGHTNESS_ONLY_LIGHT_SCHEMA.extend(
     }
 )
 
+# KAUF: validate forced address configuration
 def final_validate(config):
     if ("esp8266" in fv.full_config.get()):
         esp8266_config = fv.full_config.get()["esp8266"]

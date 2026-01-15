@@ -106,6 +106,8 @@ LIGHT_SCHEMA = (
                 }
             ),
             cv.Optional(CONF_INITIAL_STATE): LIGHT_STATE_SCHEMA,
+
+            # KAUF: options to force address and hash
             cv.Optional("forced_hash"): cv.int_,
             cv.Optional("forced_addr"): cv.int_,
             cv.Optional("global_addr"): cv.use_id(globals),
@@ -271,7 +273,7 @@ async def setup_light_core_(light_var, output_var, config):
     if web_server_config := config.get(CONF_WEB_SERVER):
         await web_server.add_entity_config(light_var, web_server_config)
 
-    # set forced hash if it exists
+    # KAUF: set forced hash/addr if it exists
     if "forced_hash" in config:
         cg.add(light_var.set_forced_hash(config["forced_hash"]))
 

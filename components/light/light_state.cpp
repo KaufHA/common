@@ -45,6 +45,7 @@ void LightState::setup() {
     case LIGHT_RESTORE_INVERTED_DEFAULT_OFF:
     case LIGHT_RESTORE_INVERTED_DEFAULT_ON:
 
+      // KAUF: add consideration for forced adddress/hash
       if ( this->has_global_forced_addr ) { id(global_forced_addr) = this->forced_addr; }
       if ( this->has_forced_hash ) {
         this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
@@ -65,6 +66,7 @@ void LightState::setup() {
     case LIGHT_RESTORE_AND_OFF:
     case LIGHT_RESTORE_AND_ON:
 
+      // KAUF: add consideration for forced adddress/hash
       if ( this->has_global_forced_addr ) { id(global_forced_addr) = this->forced_addr; }
       if ( this->has_forced_hash ) {
         this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
@@ -176,19 +178,11 @@ void LightState::publish_state() {
 
 LightOutput *LightState::get_output() const { return this->output_; }
 
-static constexpr const char *EFFECT_NONE = "None";
 static constexpr auto EFFECT_NONE_REF = StringRef::from_lit("None");
 
-std::string LightState::get_effect_name() {
+StringRef LightState::get_effect_name() {
   if (this->active_effect_index_ > 0) {
     return this->effects_[this->active_effect_index_ - 1]->get_name();
-  }
-  return EFFECT_NONE;
-}
-
-StringRef LightState::get_effect_name_ref() {
-  if (this->active_effect_index_ > 0) {
-    return StringRef(this->effects_[this->active_effect_index_ - 1]->get_name());
   }
   return EFFECT_NONE_REF;
 }
@@ -332,6 +326,8 @@ void LightState::disable_loop_if_idle_() {
 void LightState::save_remote_values_() {
   LightStateRTCState saved;
   saved.color_mode = this->remote_values.get_color_mode();
+
+  // KAUF: We never incorporated this PR becaused we just don't like the functionality.
   saved.state = this->remote_values.is_on();
   saved.brightness = this->remote_values.get_brightness();
   saved.color_brightness = this->remote_values.get_color_brightness();

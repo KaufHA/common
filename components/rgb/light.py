@@ -1,6 +1,8 @@
 import esphome.codegen as cg
 from esphome.components import light, output
 import esphome.config_validation as cv
+
+# KAUF: add final validation for forced address config
 import esphome.final_validate as fv
 from esphome.const import CONF_BLUE, CONF_GREEN, CONF_OUTPUT_ID, CONF_RED
 
@@ -16,7 +18,7 @@ CONFIG_SCHEMA = light.RGB_LIGHT_SCHEMA.extend(
     }
 )
 
-
+# KAUF: validate forced address config
 def final_validate(config):
     if ("esp8266" in fv.full_config.get()):
         esp8266_config = fv.full_config.get()["esp8266"]
