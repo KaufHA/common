@@ -12,7 +12,7 @@
 #include <cinttypes>
 #include <cstdio>
 
-#ifdef USE_OTA_ROLLBACK
+#if defined(USE_ESP32) && defined(USE_OTA_ROLLBACK)
 #include <esp_ota_ops.h>
 #endif
 
@@ -29,6 +29,17 @@ void SafeModeComponent::dump_config() {
                 this->safe_mode_boot_is_good_after_ / 1000,  // because milliseconds
                 this->safe_mode_num_attempts_,
                 this->safe_mode_enable_time_ / 1000);  // because milliseconds
+#if defined(USE_ESP32) && defined(USE_OTA_ROLLBACK)
+  const char *state_str;
+  if (this->ota_state_ == ESP_OTA_IMG_NEW) {
+    state_str = "not supported";
+  } else if (this->ota_state_ == ESP_OTA_IMG_PENDING_VERIFY) {
+    state_str = "supported";
+  } else {
+    state_str = "support unknown";
+  }
+  ESP_LOGCONFIG(TAG, "  Bootloader rollback: %s", state_str);
+#endif
 
   if (this->safe_mode_rtc_value_ > 1 && this->safe_mode_rtc_value_ != SafeModeComponent::ENTER_SAFE_MODE_MAGIC) {
     auto remaining_restarts = this->safe_mode_num_attempts_ - this->safe_mode_rtc_value_;
@@ -39,7 +50,7 @@ void SafeModeComponent::dump_config() {
     }
   }
 
-#ifdef USE_OTA_ROLLBACK
+#if defined(USE_ESP32) && defined(USE_OTA_ROLLBACK)
   const esp_partition_t *last_invalid = esp_ota_get_last_invalid_partition();
   if (last_invalid != nullptr) {
     ESP_LOGW(TAG,
@@ -58,7 +69,7 @@ void SafeModeComponent::loop() {
     ESP_LOGI(TAG, "Boot seems successful; resetting boot loop counter");
     this->clean_rtc();
     this->boot_successful_ = true;
-#ifdef USE_OTA_ROLLBACK
+#if defined(USE_ESP32) && defined(USE_OTA_ROLLBACK)
     // Mark OTA partition as valid to prevent rollback
     esp_ota_mark_app_valid_cancel_rollback();
 #endif
@@ -93,6 +104,12 @@ bool SafeModeComponent::should_enter_safe_mode(uint8_t num_attempts, uint32_t en
   this->safe_mode_num_attempts_ = num_attempts;
   this->rtc_ = global_preferences->make_preference<uint32_t>(233825507UL, false);
 
+#if defined(USE_ESP32) && defined(USE_OTA_ROLLBACK)
+  // Check partition state to detect if bootloader supports rollback
+  const esp_partition_t *running = esp_ota_get_running_partition();
+  esp_ota_get_state_partition(running, &this->ota_state_);
+#endif
+
   uint32_t rtc_val = this->read_rtc_();
   this->safe_mode_rtc_value_ = rtc_val;
 
@@ -116,7 +133,7 @@ bool SafeModeComponent::should_enter_safe_mode(uint8_t num_attempts, uint32_t en
     ESP_LOGE(TAG, "Boot loop detected");
   }
 
-    // force wifi ap in safe mode
+    // KAUF: force wifi ap in safe mode
     wifi::global_wifi_component->set_ap_timeout(15000);
 
   this->status_set_error();
