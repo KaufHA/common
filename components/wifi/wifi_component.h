@@ -12,9 +12,6 @@
 #include <string>
 #include <vector>
 
-// KAUF: import globals component for forced address
-#include "esphome/components/globals/globals_component.h"
-
 
 #ifdef USE_LIBRETINY
 #include <WiFi.h>
@@ -350,24 +347,15 @@ class WiFiComponent : public Component {
   }
 
   // KAUF: stuff for forced addr/hash
-  bool has_forced_hash = false;
+#ifdef KAUF_USE_FORCED_HASH
   uint32_t forced_hash = 0;
-  void set_forced_hash(uint32_t hash_value) {
-    forced_hash = hash_value;
-    has_forced_hash = true;
-  }
+  void set_forced_hash(uint32_t hash_value) { this->forced_hash = hash_value; }
+#endif
 
+#ifdef KAUF_USE_FORCED_ADDR
   uint32_t forced_addr = 12345;
-  void set_forced_addr(uint32_t addr_value) {
-    forced_addr = addr_value;
-  }
-
-  bool has_global_forced_addr = false;
-  globals::GlobalsComponent<int> *global_forced_addr;
-  void set_global_addr(globals::GlobalsComponent<int> *ga_in) {
-    has_global_forced_addr = true;
-    global_forced_addr = ga_in;
-  }
+  void set_forced_addr(uint32_t addr_value) { this->forced_addr = addr_value; }
+#endif
 
   // KAUF: strings to store configured ssid's
   std::string hard_ssid = "";

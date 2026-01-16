@@ -5,6 +5,10 @@
 #include "light_output.h"
 #include "transformers.h"
 
+#ifdef KAUF_USE_FORCED_ADDR
+#include "esphome/components/esp8266/preferences.h"
+#endif
+
 namespace esphome::light {
 
 static const char *const TAG = "light";
@@ -46,12 +50,14 @@ void LightState::setup() {
     case LIGHT_RESTORE_INVERTED_DEFAULT_ON:
 
       // KAUF: add consideration for forced adddress/hash
-      if ( this->has_global_forced_addr ) { id(global_forced_addr) = this->forced_addr; }
-      if ( this->has_forced_hash ) {
-        this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
-      } else {
-        this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->get_preference_hash());
-      }
+#ifdef KAUF_USE_FORCED_ADDR
+      esp8266::set_next_forced_addr(this->forced_addr);
+#endif
+#ifdef KAUF_USE_FORCED_HASH
+      this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
+#else
+      this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->get_preference_hash());
+#endif
 
       // Attempt to load from preferences, else fall back to default values
       if (!this->rtc_.load(&recovered)) {
@@ -67,12 +73,14 @@ void LightState::setup() {
     case LIGHT_RESTORE_AND_ON:
 
       // KAUF: add consideration for forced adddress/hash
-      if ( this->has_global_forced_addr ) { id(global_forced_addr) = this->forced_addr; }
-      if ( this->has_forced_hash ) {
-        this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
-      } else {
-        this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->get_preference_hash());
-      }
+#ifdef KAUF_USE_FORCED_ADDR
+      esp8266::set_next_forced_addr(this->forced_addr);
+#endif
+#ifdef KAUF_USE_FORCED_HASH
+      this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
+#else
+      this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->get_preference_hash());
+#endif
 
       this->rtc_.load(&recovered);
       recovered.state = (this->restore_mode_ == LIGHT_RESTORE_AND_ON);

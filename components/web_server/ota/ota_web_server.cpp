@@ -295,9 +295,6 @@ void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
 
     stream->print(F("</body></html>"));
     request->send(stream);
-
-    // reboot
-    this->parent_->set_timeout(100, []() { App.safe_reboot(); });
   }
 
 // KAUF: if KAUF_SMALLER is defined, just use stock function

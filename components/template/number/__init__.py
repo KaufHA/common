@@ -2,9 +2,6 @@ from esphome import automation
 import esphome.codegen as cg
 from esphome.components import number
 import esphome.config_validation as cv
-
-# KAUF: add final validation for forced addr
-import esphome.final_validate as fv
 from esphome.const import (
     CONF_ID,
     CONF_INITIAL_VALUE,
@@ -46,12 +43,6 @@ def validate(config):
             "Either optimistic mode must be enabled, or set_action must be set, to handle the number being set."
         )
 
-    # KAUF: global_addr check
-    if "forced_addr" in config and "global_addr" not in config:
-        raise cv.Invalid(
-            "Forced_addr requires global_addr"
-        )
-
     return config
 
 
@@ -71,32 +62,12 @@ CONFIG_SCHEMA = cv.All(
             # KAUF: options for forced hash/addr
             cv.Optional("forced_hash"): cv.int_,
             cv.Optional("forced_addr"): cv.int_,
-            cv.Optional("global_addr"): cv.use_id(globals),
         }
     )
     .extend(cv.polling_component_schema("60s")),
     validate_min_max,
     validate,
 )
-
-# KAUF: validation for forced addr
-def final_validate(config):
-    if ("esp8266" in fv.full_config.get()):
-        esp8266_config = fv.full_config.get()["esp8266"]
-        if ( ("start_free" in esp8266_config) and ("forced_addr" in config)):
-            if ( (esp8266_config["start_free"] <= config["forced_addr"] + 1) ):
-                start_free_num = esp8266_config["start_free"]
-                forced_addr_num = config["forced_addr"]
-                raise cv.Invalid(
-                    f"Forced address ({forced_addr_num}) conflicts with esp8266: start_free ({start_free_num})"
-                )
-    else:
-        if ("forced_addr" in config):
-            raise cv.Invalid(
-                "Forced_addr is only compatible with esp8266 platform"
-            )
-
-FINAL_VALIDATE_SCHEMA = final_validate
 
 
 async def to_code(config):
@@ -129,11 +100,9 @@ async def to_code(config):
 
     # KAUF: set up forced hash/addr if present
     if "forced_hash" in config:
+        cg.add_define("KAUF_USE_FORCED_HASH")
         cg.add(var.set_forced_hash(config["forced_hash"]))
 
     if "forced_addr" in config:
+        cg.add_define("KAUF_USE_FORCED_ADDR")
         cg.add(var.set_forced_addr(config["forced_addr"]))
-
-    if "global_addr" in config:
-        ga = await cg.get_variable(config["global_addr"])
-        cg.add(var.set_global_addr(ga))

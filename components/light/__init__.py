@@ -110,7 +110,6 @@ LIGHT_SCHEMA = (
             # KAUF: options to force address and hash
             cv.Optional("forced_hash"): cv.int_,
             cv.Optional("forced_addr"): cv.int_,
-            cv.Optional("global_addr"): cv.use_id(globals),
         }
     )
 )
@@ -275,14 +274,12 @@ async def setup_light_core_(light_var, output_var, config):
 
     # KAUF: set forced hash/addr if it exists
     if "forced_hash" in config:
+        cg.add_define("KAUF_USE_FORCED_HASH")
         cg.add(light_var.set_forced_hash(config["forced_hash"]))
 
     if "forced_addr" in config:
+        cg.add_define("KAUF_USE_FORCED_ADDR")
         cg.add(light_var.set_forced_addr(config["forced_addr"]))
-
-    if "global_addr" in config:
-        ga = await cg.get_variable(config["global_addr"])
-        cg.add(light_var.set_global_addr(ga))
 
 
 async def register_light(output_var, config):

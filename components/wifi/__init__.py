@@ -265,21 +265,6 @@ def final_validate(config):
             "Add 'captive_portal:' or 'web_server:' to your configuration."
         )
 
-    # KAUF: add validation for forced address stuff
-    if ("esp8266" in fv.full_config.get()):
-        esp8266_config = fv.full_config.get()["esp8266"]
-        if ( ("start_free" in esp8266_config) and ("forced_addr" in config) ):
-            if ( esp8266_config["start_free"] <= config["forced_addr"] + 25):
-                start_free_num = esp8266_config["start_free"]
-                forced_addr_num = config["forced_addr"]
-                raise cv.Invalid(
-                    f"Forced address ({forced_addr_num}) conflicts with esp8266: start_free ({start_free_num})"
-                )
-    else:
-        if ("forced_addr" in config):
-            raise cv.Invalid(
-                "Forced_addr is only compatible with esp8266 platform"
-        )
 
 FINAL_VALIDATE_SCHEMA = cv.All(
     final_validate,
@@ -341,12 +326,6 @@ def _validate(config):
 
         config[CONF_USE_ADDRESS] = use_address
 
-    # KAUF: validate global addr exists
-    if "forced_addr" in config and "global_addr" not in config:
-        raise cv.Invalid(
-            "Forced_addr requires global_addr"
-        )
-
     return config
 
 
@@ -407,7 +386,6 @@ CONFIG_SCHEMA = cv.All(
             # KAUF: additional options
             cv.Optional("forced_hash"): cv.int_,
             cv.Optional("forced_addr"): cv.int_,
-            cv.Optional("global_addr"): cv.use_id(globals),
             cv.Optional("disable_scanning", default=False): cv.boolean,
             cv.Optional("only_networks", default=False): cv.boolean,
             cv.Optional("phy_mode", default='n'): validate_phy,
@@ -641,14 +619,12 @@ async def to_code(config):
 
     # KAUF: configure forced address and hash
     if "forced_hash" in config:
+        cg.add_define("KAUF_USE_FORCED_HASH")
         cg.add(var.set_forced_hash(config["forced_hash"]))
 
     if "forced_addr" in config:
+        cg.add_define("KAUF_USE_FORCED_ADDR")
         cg.add(var.set_forced_addr(config["forced_addr"]))
-
-    if "global_addr" in config:
-        ga = await cg.get_variable(config["global_addr"])
-        cg.add(var.set_global_addr(ga))
 
     # KAUF: configure other options
     cg.add(var.set_disable_scanning(config["disable_scanning"]))

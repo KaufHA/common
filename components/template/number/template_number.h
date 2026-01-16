@@ -6,9 +6,6 @@
 #include "esphome/core/preferences.h"
 #include "esphome/core/template_lambda.h"
 
-// KAUF: import global component for forced addr/hash
-#include "esphome/components/globals/globals_component.h"
-
 namespace esphome::template_ {
 
 class TemplateNumber final : public number::Number, public PollingComponent {
@@ -26,24 +23,15 @@ class TemplateNumber final : public number::Number, public PollingComponent {
   void set_restore_value(bool restore_value) { this->restore_value_ = restore_value; }
 
   // KAUF: forced addr/hash stuff
-  bool has_forced_hash = false;
+#ifdef KAUF_USE_FORCED_HASH
   uint32_t forced_hash = 0;
-  void set_forced_hash(uint32_t hash_value) {
-    forced_hash = hash_value;
-    has_forced_hash = true;
-  }
+  void set_forced_hash(uint32_t hash_value) { this->forced_hash = hash_value; }
+#endif
 
+#ifdef KAUF_USE_FORCED_ADDR
   uint32_t forced_addr = 12345;
-  void set_forced_addr(uint32_t addr_value) {
-    forced_addr = addr_value;
-  }
-
-  bool has_global_forced_addr = false;
-  globals::GlobalsComponent<int> *global_forced_addr;
-  void set_global_addr(globals::GlobalsComponent<int> *ga_in) {
-    has_global_forced_addr = true;
-    global_forced_addr = ga_in;
-  }
+  void set_forced_addr(uint32_t addr_value) { this->forced_addr = addr_value; }
+#endif
 
  protected:
   void control(float value) override;

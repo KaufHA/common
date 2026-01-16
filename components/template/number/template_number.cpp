@@ -1,6 +1,10 @@
 #include "template_number.h"
 #include "esphome/core/log.h"
 
+#ifdef KAUF_USE_FORCED_ADDR
+#include "esphome/components/esp8266/preferences.h"
+#endif
+
 namespace esphome::template_ {
 
 static const char *const TAG = "template.number";
@@ -15,12 +19,14 @@ void TemplateNumber::setup() {
   } else {
 
     // KAUF: implement forced addr/hash
-    if ( this->has_global_forced_addr ) { id(global_forced_addr) = this->forced_addr; }
-    if ( this->has_forced_hash ) {
-      this->pref_ = global_preferences->make_preference<float>(this->forced_hash);
-    } else {
-      this->pref_ = global_preferences->make_preference<float>(this->get_preference_hash());
-    }
+#ifdef KAUF_USE_FORCED_ADDR
+    esp8266::set_next_forced_addr(this->forced_addr);
+#endif
+#ifdef KAUF_USE_FORCED_HASH
+    this->pref_ = global_preferences->make_preference<float>(this->forced_hash);
+#else
+    this->pref_ = global_preferences->make_preference<float>(this->get_preference_hash());
+#endif
 
     if (!this->pref_.load(&value)) {
       if (!std::isnan(this->initial_value_)) {

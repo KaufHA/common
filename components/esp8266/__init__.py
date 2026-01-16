@@ -3,6 +3,7 @@ from pathlib import Path
 
 import esphome.codegen as cg
 import esphome.config_validation as cv
+import esphome.final_validate as fv
 from esphome.const import (
     CONF_BOARD,
     CONF_BOARD_FLASH_MODE,
@@ -179,13 +180,53 @@ CONFIG_SCHEMA = cv.All(
             ),
             cv.Optional(CONF_ENABLE_SERIAL): cv.boolean,
             cv.Optional(CONF_ENABLE_SERIAL1): cv.boolean,
-            # KAUF: add options for fixed addresses
+            # KAUF: start_free marks where free space begins in KAUF forced_addr scheme
             cv.Optional("start_free", default=0): cv.int_,
-            cv.Optional("global_addr"): cv.use_id(globals),
         }
     ),
     set_core_data,
 )
+
+
+# KAUF: validate forced_addr for all components against start_free
+def _final_validate(config):
+    full_config = fv.full_config.get()
+    start_free = config.get("start_free", 0)
+
+    if start_free == 0:
+        return
+
+    # Component types that can have forced_addr, with their size offsets
+    # Size is how many words the component uses for preferences
+    component_sizes = {
+        "switch": 1,
+        "sensor": 1,
+        "number": 1,
+        "select": 1,
+        "light": 11,
+        "wifi": 25,
+    }
+
+    for key, size in component_sizes.items():
+        if key not in full_config:
+            continue
+        items = full_config[key]
+        # Handle both list of items and single item
+        if not isinstance(items, list):
+            items = [items]
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            if "forced_addr" in item:
+                forced_addr = item["forced_addr"]
+                if start_free <= forced_addr + size:
+                    item_id = item.get("id", "unknown")
+                    raise cv.Invalid(
+                        f"Forced address ({forced_addr}) for {key} '{item_id}' conflicts with esp8266: start_free ({start_free})"
+                    )
+
+
+FINAL_VALIDATE_SCHEMA = _final_validate
 
 
 @coroutine_with_priority(CoroPriority.PLATFORM)
@@ -291,11 +332,6 @@ async def to_code(config):
     CORE.add_job(add_pin_initial_states_array)
     CORE.add_job(finalize_waveform_config)
     CORE.add_job(finalize_serial_config)
-
-    # KAUF: add code to set global address variable
-    if "global_addr" in config:
-        ga = await cg.get_variable(config["global_addr"])
-        cg.add(esp8266_ns.set_global_addr(ga))
 
 @coroutine_with_priority(CoroPriority.WORKAROUNDS)
 async def finalize_waveform_config() -> None:

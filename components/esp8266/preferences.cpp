@@ -44,13 +44,10 @@ static constexpr uint32_t ESP8266_FLASH_STORAGE_SIZE = 128;
 static constexpr uint32_t ESP8266_FLASH_STORAGE_SIZE = 64;
 #endif
 
-// KAUF: set up variables for global forced address
-bool has_global_forced_addr = false;
-globals::GlobalsComponent<int> *global_forced_addr;
-void set_global_addr(globals::GlobalsComponent<int> *ga_in) {
-  has_global_forced_addr = true;
-  global_forced_addr = ga_in;
-}
+// KAUF: static variable for forced address (12345 = sentinel/disabled)
+static uint32_t s_next_forced_addr = 12345;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+
+void set_next_forced_addr(uint32_t addr) { s_next_forced_addr = addr; }
 
 static inline bool esp_rtc_user_mem_read(uint32_t index, uint32_t *dest) {
   if (index >= ESP_RTC_USER_MEM_SIZE_WORDS) {
@@ -229,13 +226,8 @@ class ESP8266Preferences : public ESPPreferences {
 
     if (in_flash) {
       // KAUF: Check for forced address
-      bool forced = false;
-      if (has_global_forced_addr) {
-        if (id(global_forced_addr) != 12345) {
-          forced = true;
-        }
-      }
-      
+      bool forced = (s_next_forced_addr != 12345);
+
       if (!forced) {
         // KAUF: Normal allocation from current_flash_offset, code from stock ESPHome
         ESP_LOGV("KAUF Prefs", "!! Storing in free space");
@@ -245,7 +237,7 @@ class ESP8266Preferences : public ESPPreferences {
         this->current_flash_offset += total_words;
       } else {
         // KAUF: Use forced address
-        uint32_t start = id(global_forced_addr);
+        uint32_t start = s_next_forced_addr;
         uint32_t end = start + total_words;
         
         if (end > init_flash_offset) {
@@ -257,7 +249,7 @@ class ESP8266Preferences : public ESPPreferences {
         }
         
         offset = static_cast<uint16_t>(start);
-        id(global_forced_addr) = 12345;  // served its purpose, reset to default
+        s_next_forced_addr = 12345;  // KAUF: served its purpose, reset to default
       }
       
       ESP_LOGV(TAG, "Making Pref - st: %u: len: %zu, wds:%u tp: %u", offset, length, static_cast<unsigned int>(length_words), type);

@@ -15,9 +15,6 @@
 #include <strings.h>
 #include <vector>
 
-// KAUF: import globals component for using global variable for forced addr/hash
-#include "esphome/components/globals/globals_component.h"
-
 namespace esphome::light {
 
 class LightOutput;
@@ -253,25 +250,15 @@ class LightState : public EntityBase, public Component {
   bool is_transformer_active();
 
   // KAUF: force addr/hash stuff
-  bool has_forced_hash = false;
+#ifdef KAUF_USE_FORCED_HASH
   uint32_t forced_hash = 0;
-  void set_forced_hash(uint32_t hash_value) {
-    forced_hash = hash_value;
-    has_forced_hash = true;
-  }
+  void set_forced_hash(uint32_t hash_value) { this->forced_hash = hash_value; }
+#endif
 
+#ifdef KAUF_USE_FORCED_ADDR
   uint32_t forced_addr = 12345;
-  void set_forced_addr(uint32_t addr_value) {
-    forced_addr = addr_value;
-  }
-
-  bool has_global_forced_addr = false;
-  globals::GlobalsComponent<int> *global_forced_addr;
-  void set_global_addr(globals::GlobalsComponent<int> *ga_in) {
-    has_global_forced_addr = true;
-    global_forced_addr = ga_in;
-  }
-
+  void set_forced_addr(uint32_t addr_value) { this->forced_addr = addr_value; }
+#endif
 
  protected:
   friend LightOutput;

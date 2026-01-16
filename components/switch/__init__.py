@@ -98,10 +98,9 @@ _SWITCH_SCHEMA = (
                 }
             ),
             cv.Optional(CONF_DEVICE_CLASS): validate_device_class,
-        # KAUF: add options for forcing hash/addr
-        cv.Optional("forced_hash"): cv.int_,
-        cv.Optional("forced_addr"): cv.int_,
-        cv.Optional("global_addr"): cv.use_id(globals),
+            # KAUF: add options for forcing hash/addr
+            cv.Optional("forced_hash"): cv.int_,
+            cv.Optional("forced_addr"): cv.int_,
         }
     )
 )
@@ -175,14 +174,12 @@ async def setup_switch_core_(var, config):
 
     # KAUF: set up forced addr/hash
     if "forced_hash" in config:
+        cg.add_define("KAUF_USE_FORCED_HASH")
         cg.add(var.set_forced_hash(config["forced_hash"]))
 
     if "forced_addr" in config:
+        cg.add_define("KAUF_USE_FORCED_ADDR")
         cg.add(var.set_forced_addr(config["forced_addr"]))
-
-    if "global_addr" in config:
-        ga = await cg.get_variable(config["global_addr"])
-        cg.add(var.set_global_addr(ga))
 
 async def register_switch(var, config):
     if not CORE.has_id(config[CONF_ID]):
