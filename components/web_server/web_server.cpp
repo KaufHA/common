@@ -411,6 +411,7 @@ std::string WebServer::get_config_json() {
   root[ESPHOME_F("has_ap")]    = wifi::global_wifi_component->has_ap();
   root[ESPHOME_F("free_sp")]   = ESP.getFreeSketchSpace();
   root[ESPHOME_F("mac_addr")]  = get_mac_address_pretty();
+  root[ESPHOME_F("hostname")]  = App.get_name();
 
   return builder.serialize();
 }

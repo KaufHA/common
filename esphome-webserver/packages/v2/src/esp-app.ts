@@ -215,7 +215,7 @@ export default class EspApp extends LitElement {
           <table><tbody>
             <tr>
               <td>Hostname</td>
-              <td>${this.config.title}</td>
+              <td>${this.config.hostname}</td>
             </tr>
             <tr>
               <td>MAC Address</td>

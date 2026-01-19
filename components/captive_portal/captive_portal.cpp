@@ -54,6 +54,7 @@ void CaptivePortal::handle_config(AsyncWebServerRequest *request) {
   stream->printf(R"("hard_ssid":"%s",)", wifi::global_wifi_component->hard_ssid.c_str());
   stream->printf(R"("free_sp":"%d",)", ESP.getFreeSketchSpace());
   stream->printf(R"("mac_addr":"%s",)", get_mac_address_pretty().c_str());
+  stream->printf(R"("hostname":"%s",)", App.get_name().c_str());
 
 #ifdef ESPHOME_PROJECT_NAME
   stream->printf("\"proj_n\":\"%s\",", ESPHOME_PROJECT_NAME );
