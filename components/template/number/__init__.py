@@ -42,7 +42,6 @@ def validate(config):
         raise cv.Invalid(
             "Either optimistic mode must be enabled, or set_action must be set, to handle the number being set."
         )
-
     return config
 
 
@@ -98,11 +97,8 @@ async def to_code(config):
             var.get_set_trigger(), [(float, "x")], config[CONF_SET_ACTION]
         )
 
-    # KAUF: set up forced hash/addr if present
+    # KAUF: forced addr/hash
     if "forced_hash" in config:
-        cg.add_define("KAUF_USE_FORCED_HASH")
         cg.add(var.set_forced_hash(config["forced_hash"]))
-
     if "forced_addr" in config:
-        cg.add_define("KAUF_USE_FORCED_ADDR")
         cg.add(var.set_forced_addr(config["forced_addr"]))

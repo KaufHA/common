@@ -1,9 +1,6 @@
 #include "template_number.h"
 #include "esphome/core/log.h"
-
-#ifdef KAUF_USE_FORCED_ADDR
-#include "esphome/components/esp8266/preferences.h"
-#endif
+#include "esphome/components/esp8266/preferences.h"  // KAUF: included for set_next_forced_addr
 
 namespace esphome::template_ {
 
@@ -18,15 +15,10 @@ void TemplateNumber::setup() {
     value = this->initial_value_;
   } else {
 
-    // KAUF: implement forced addr/hash
-#ifdef KAUF_USE_FORCED_ADDR
-    esp8266::set_next_forced_addr(this->forced_addr);
-#endif
-#ifdef KAUF_USE_FORCED_HASH
-    this->pref_ = global_preferences->make_preference<float>(this->forced_hash);
-#else
-    this->pref_ = global_preferences->make_preference<float>(this->get_preference_hash());
-#endif
+    // KAUF: forced addr/hash support
+    if (this->forced_addr != 12345) esp8266::set_next_forced_addr(this->forced_addr);
+    uint32_t key = (this->forced_hash != 0) ? this->forced_hash : this->get_preference_hash();
+    this->pref_ = global_preferences->make_preference<float>(key);
 
     if (!this->pref_.load(&value)) {
       if (!std::isnan(this->initial_value_)) {

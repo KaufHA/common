@@ -17,9 +17,7 @@
 #endif
 #ifdef USE_ESP8266
 #include <user_interface.h>
-#endif
-#ifdef KAUF_USE_FORCED_ADDR
-#include "esphome/components/esp8266/preferences.h"
+#include "esphome/components/esp8266/preferences.h"  // KAUF: included for set_next_forced_addr
 #endif
 
 #include <algorithm>
@@ -478,16 +476,10 @@ void WiFiComponent::start() {
   ESP_LOGCONFIG(TAG, "Starting");
   this->last_connected_ = millis();
 
-  // KAUF: implement forced addr and hash
-#ifdef KAUF_USE_FORCED_ADDR
-  esp8266::set_next_forced_addr(this->forced_addr);
-#endif
-
-#ifdef KAUF_USE_FORCED_HASH
-  uint32_t hash = forced_hash;
-#else
-  uint32_t hash = this->has_sta() ? App.get_config_version_hash() : 88491487UL;
-#endif
+  // KAUF: forced addr/hash support
+  if (this->forced_addr != 12345) esp8266::set_next_forced_addr(this->forced_addr);
+  uint32_t hash = (this->forced_hash != 0) ? this->forced_hash
+                                           : (this->has_sta() ? App.get_config_version_hash() : 88491487UL);
 
 
   this->pref_ = global_preferences->make_preference<wifi::SavedWifiSettings>(hash, true);

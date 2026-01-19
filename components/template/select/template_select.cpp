@@ -1,9 +1,6 @@
 #include "template_select.h"
 #include "esphome/core/log.h"
-
-#ifdef KAUF_USE_FORCED_ADDR
-#include "esphome/components/esp8266/preferences.h"
-#endif
+#include "esphome/components/esp8266/preferences.h"  // KAUF: included for set_next_forced_addr
 
 namespace esphome::template_ {
 
@@ -16,15 +13,12 @@ void TemplateSelect::setup() {
   size_t index = this->initial_option_index_;
   if (this->restore_value_) {
 
-    // KAUF: implement forced addr and hash
-#ifdef KAUF_USE_FORCED_ADDR
-    esp8266::set_next_forced_addr(this->forced_addr);
-#endif
-#ifdef KAUF_USE_FORCED_HASH
-    this->pref_ = global_preferences->make_preference<size_t>(this->forced_hash);
-#else
-    this->pref_ = global_preferences->make_preference<size_t>(this->get_preference_hash());
-#endif
+    // KAUF: forced addr/hash support
+    if (this->forced_addr != 12345) {
+      esp8266::set_next_forced_addr(this->forced_addr);
+    }
+    uint32_t key = (this->forced_hash != 0) ? this->forced_hash : this->get_preference_hash();
+    this->pref_ = global_preferences->make_preference<size_t>(key);
     size_t restored_index;
     if (this->pref_.load(&restored_index) && this->has_index(restored_index)) {
       index = restored_index;

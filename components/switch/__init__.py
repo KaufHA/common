@@ -172,13 +172,10 @@ async def setup_switch_core_(var, config):
     cg.add(var.set_restore_mode(config[CONF_RESTORE_MODE]))
     await zigbee.setup_switch(var, config)
 
-    # KAUF: set up forced addr/hash
+    # KAUF: forced addr/hash
     if "forced_hash" in config:
-        cg.add_define("KAUF_USE_FORCED_HASH")
         cg.add(var.set_forced_hash(config["forced_hash"]))
-
     if "forced_addr" in config:
-        cg.add_define("KAUF_USE_FORCED_ADDR")
         cg.add(var.set_forced_addr(config["forced_addr"]))
 
 async def register_switch(var, config):

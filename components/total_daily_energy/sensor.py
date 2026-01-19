@@ -63,7 +63,6 @@ CONFIG_SCHEMA = (
     .extend(cv.COMPONENT_SCHEMA)
 )
 
-
 FINAL_VALIDATE_SCHEMA = cv.All(
     cv.Schema(
         {
@@ -96,11 +95,8 @@ async def to_code(config):
     cg.add(var.set_restore(config[CONF_RESTORE]))
     cg.add(var.set_method(config[CONF_METHOD]))
 
-    # KAUF: set up forced addr/hash
+    # KAUF: forced addr/hash
     if "forced_hash" in config:
-        cg.add_define("KAUF_USE_FORCED_HASH")
         cg.add(var.set_forced_hash(config["forced_hash"]))
-
     if "forced_addr" in config:
-        cg.add_define("KAUF_USE_FORCED_ADDR")
         cg.add(var.set_forced_addr(config["forced_addr"]))

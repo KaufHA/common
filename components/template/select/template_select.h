@@ -22,16 +22,11 @@ class TemplateSelect final : public select::Select, public PollingComponent {
   void set_initial_option_index(size_t initial_option_index) { this->initial_option_index_ = initial_option_index; }
   void set_restore_value(bool restore_value) { this->restore_value_ = restore_value; }
 
-  // KAUF: forced addr/hash stuff
-#ifdef KAUF_USE_FORCED_HASH
+  // KAUF: forced addr/hash stuff (sentinel: 0 = use default hash, 12345 = don't force addr)
   uint32_t forced_hash = 0;
-  void set_forced_hash(uint32_t hash_value) { this->forced_hash = hash_value; }
-#endif
-
-#ifdef KAUF_USE_FORCED_ADDR
   uint32_t forced_addr = 12345;
+  void set_forced_hash(uint32_t hash_value) { this->forced_hash = hash_value; }
   void set_forced_addr(uint32_t addr_value) { this->forced_addr = addr_value; }
-#endif
 
  protected:
   void control(size_t index) override;

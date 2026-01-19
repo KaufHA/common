@@ -122,15 +122,10 @@ class Switch : public EntityBase, public EntityBase_DeviceClass {
   void set_restore_mode(SwitchRestoreMode restore_mode) { this->restore_mode = restore_mode; }
 
   // KAUF: forced addr/hash stuff
-#ifdef KAUF_USE_FORCED_HASH
   uint32_t forced_hash = 0;
-  void set_forced_hash(uint32_t hash_value) { this->forced_hash = hash_value; }
-#endif
-
-#ifdef KAUF_USE_FORCED_ADDR
   uint32_t forced_addr = 12345;
+  void set_forced_hash(uint32_t hash_value) { this->forced_hash = hash_value; }
   void set_forced_addr(uint32_t addr_value) { this->forced_addr = addr_value; }
-#endif
 
  protected:
   /** Write the given state to hardware. You should implement this

@@ -2,10 +2,7 @@
 #include "esphome/core/defines.h"
 #include "esphome/core/controller_registry.h"
 #include "esphome/core/log.h"
-
-#ifdef KAUF_USE_FORCED_ADDR
-#include "esphome/components/esp8266/preferences.h"
-#endif
+#include "esphome/components/esp8266/preferences.h"  // KAUF: included for set_next_forced_addr
 
 namespace esphome {
 namespace switch_ {
@@ -36,14 +33,10 @@ void Switch::toggle() {
 }
 optional<bool> Switch::get_initial_state() {
   // KAUF: always set up rtc_ in case mode changes later to one that saves
-#ifdef KAUF_USE_FORCED_ADDR
-  esp8266::set_next_forced_addr(this->forced_addr);
-#endif
-#ifdef KAUF_USE_FORCED_HASH
-  this->rtc_ = global_preferences->make_preference<bool>(this->forced_hash);
-#else
-  this->rtc_ = global_preferences->make_preference<bool>(this->get_preference_hash());
-#endif
+  // KAUF: forced addr/hash support
+  if (this->forced_addr != 12345) esp8266::set_next_forced_addr(this->forced_addr);
+  uint32_t key = (this->forced_hash != 0) ? this->forced_hash : this->get_preference_hash();
+  this->rtc_ = global_preferences->make_preference<bool>(key);
 
   // don't actually try to load if not in a restoring mode
   if (!(restore_mode & RESTORE_MODE_PERSISTENT_MASK))
