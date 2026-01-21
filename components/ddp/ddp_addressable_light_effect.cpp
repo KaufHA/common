@@ -14,7 +14,7 @@ static const char *const TAG = "ddp_addressable_light_effect";
 
 DDPAddressableLightEffect::DDPAddressableLightEffect(const char *name) : AddressableLightEffect(name) {}
 
-const char *DDPAddressableLightEffect::get_name() { return AddressableLightEffect::get_name(); }
+esphome::StringRef DDPAddressableLightEffect::get_name() const { return AddressableLightEffect::get_name(); }
 
 #ifdef USE_BINARY_SENSOR
 void DDPAddressableLightEffect::set_effect_active_sensor(binary_sensor::BinarySensor *sensor) {

@@ -19,7 +19,7 @@ class DDPAddressableLightEffect : public DDPLightEffectBase, public light::Addre
  public:
   DDPAddressableLightEffect(const char *name);
 
-  const char *get_name() override;
+  virtual esphome::StringRef get_name() const;  
 
   void start() override;
   void stop() override;

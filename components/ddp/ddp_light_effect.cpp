@@ -11,7 +11,7 @@ static const char *const TAG = "ddp_light_effect";
 
 DDPLightEffect::DDPLightEffect(const char *name) : LightEffect(name) {}
 
-const char *DDPLightEffect::get_name() { return LightEffect::get_name(); }
+esphome::StringRef DDPLightEffect::get_name() const { return LightEffect::get_name(); }
 
 void DDPLightEffect::start() {
 

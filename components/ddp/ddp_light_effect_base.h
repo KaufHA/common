@@ -21,7 +21,7 @@ class DDPLightEffectBase {
  public:
   DDPLightEffectBase();
 
-  virtual const char *get_name() = 0;
+  virtual esphome::StringRef get_name() const = 0;
 
   virtual void start();
   virtual void stop();
