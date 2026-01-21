@@ -14,7 +14,7 @@ class DDPLightEffect : public DDPLightEffectBase, public light::LightEffect {
  public:
   DDPLightEffect(const char *name);
 
-  const char *get_name() override;
+  virtual esphome::StringRef get_name() const;
 
   void start() override;
   void stop() override;
