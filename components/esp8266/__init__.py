@@ -333,6 +333,7 @@ async def to_code(config):
     CORE.add_job(finalize_waveform_config)
     CORE.add_job(finalize_serial_config)
 
+
 @coroutine_with_priority(CoroPriority.WORKAROUNDS)
 async def finalize_waveform_config() -> None:
     """Add waveform stubs define if waveform is not required.
