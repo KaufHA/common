@@ -12,7 +12,6 @@
 #include <string>
 #include <vector>
 
-
 #ifdef USE_LIBRETINY
 #include <WiFi.h>
 #endif

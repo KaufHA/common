@@ -99,6 +99,17 @@ def validate_sorting_groups(config: ConfigType) -> ConfigType:
     return config
 
 
+# KAUF: error if disable is set to true
+# TODO: remove validate_disable function completely on 1/23/27
+def validate_disable(config: ConfigType) -> ConfigType:
+    if config.get("disable") is True:
+        raise cv.Invalid(
+            "The 'disable' option has been removed. "
+            "To disable the web server, add 'web_server: !remove' to your configuration."
+        )
+    return config
+
+
 def _validate_no_sorting_component(
     sorting_component: str,
     webserver_version: int,
@@ -204,6 +215,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_LOG, default=True): cv.boolean,
             
             # KAUF: add a couple options
+            # TODO: remove disable option completely on 1/23/27
             cv.Optional("disable", default=False): cv.boolean,
             cv.Optional("sensor_4m"): cv.boolean,
 
@@ -225,6 +237,7 @@ CONFIG_SCHEMA = cv.All(
     validate_local,
     validate_sorting_groups,
     validate_ota,
+    validate_disable,  # TODO: remove on 1/23/27
     _consume_web_server_sockets,
 )
 
@@ -347,9 +360,7 @@ async def to_code(config):
         cg.add_define("USE_WEBSERVER_SORTING")
         add_sorting_groups(var, sorting_group_config)
 
-    # KAUF: implement options
-    if config["disable"]:
-        cg.add_define("DISABLE_WEBSERVER")
+    # KAUF: implement sensor_4m option
     if "sensor_4m" in config:
         cg.add_define("SENSOR_4M", config["sensor_4m"])
 

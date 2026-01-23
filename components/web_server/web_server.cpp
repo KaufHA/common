@@ -420,12 +420,6 @@ void WebServer::setup() {
   ControllerRegistry::register_controller(this);
   this->base_->init();
 
-// KAUF: allow disabling of web server
-#ifdef DISABLE_WEBSERVER
-  ESP_LOGCONFIG(TAG,"Sike! Web server disabled.");
-  return;
-#endif
-
 #ifdef USE_LOGGER
   if (logger::global_logger != nullptr && this->expose_log_) {
     logger::global_logger->add_log_listener(this);
