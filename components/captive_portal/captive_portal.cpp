@@ -16,14 +16,45 @@ void CaptivePortal::handle_config(AsyncWebServerRequest *request) {
   stream->addHeader(ESPHOME_F("cache-control"), ESPHOME_F("public, max-age=0, must-revalidate"));
   char mac_s[18];
   const char *mac_str = get_mac_address_pretty_into_buffer(mac_s);
+  // KAUF: added kauf fields to stock prints
 #ifdef USE_ESP8266
   stream->print(ESPHOME_F("{\"mac\":\""));
   stream->print(mac_str);
   stream->print(ESPHOME_F("\",\"name\":\""));
   stream->print(App.get_name().c_str());
+  stream->print(ESPHOME_F("\",\"esph_v\":\""));
+  stream->print(ESPHOME_VERSION);
+  stream->print(ESPHOME_F("\",\"soft_ssid\":\""));
+  stream->print(wifi::global_wifi_component->soft_ssid.c_str());
+  stream->print(ESPHOME_F("\",\"hard_ssid\":\""));
+  stream->print(wifi::global_wifi_component->hard_ssid.c_str());
+  stream->print(ESPHOME_F("\",\"free_sp\":\""));
+  stream->print(ESP.getFreeSketchSpace());
+  stream->print(ESPHOME_F("\",\"mac_addr\":\""));
+  stream->print(get_mac_address_pretty().c_str());
+#ifdef ESPHOME_PROJECT_NAME
+  stream->print(ESPHOME_F("\",\"proj_n\":\""));
+  stream->print(ESPHOME_PROJECT_NAME);
+  stream->print(ESPHOME_F("\",\"proj_v\":\""));
+  stream->print(ESPHOME_PROJECT_VERSION);
+#else
+  stream->print(ESPHOME_F("\",\"proj_n\":\"Kauf.unknown\",\"proj_v\":\"unknown"));
+#endif
   stream->print(ESPHOME_F("\",\"aps\":[{}"));
 #else
-  stream->printf(R"({"mac":"%s","name":"%s","aps":[{})", mac_str, App.get_name().c_str());
+  stream->printf(R"({"mac":"%s","name":"%s",)", mac_str, App.get_name().c_str());
+  stream->printf(R"("esph_v":"%s",)", ESPHOME_VERSION);
+  stream->printf(R"("soft_ssid":"%s",)", wifi::global_wifi_component->soft_ssid.c_str());
+  stream->printf(R"("hard_ssid":"%s",)", wifi::global_wifi_component->hard_ssid.c_str());
+  stream->printf(R"("free_sp":"%d",)", ESP.getFreeSketchSpace());
+  stream->printf(R"("mac_addr":"%s",)", get_mac_address_pretty().c_str());
+#ifdef ESPHOME_PROJECT_NAME
+  stream->printf(R"("proj_n":"%s",)", ESPHOME_PROJECT_NAME);
+  stream->printf(R"("proj_v":"%s",)", ESPHOME_PROJECT_VERSION);
+#else
+  stream->printf(R"("proj_n":"Kauf.unknown","proj_v":"unknown",)");
+#endif
+  stream->printf(R"("aps":[{})");
 #endif
 
   for (auto &scan : wifi::global_wifi_component->get_scan_result()) {
@@ -44,32 +75,7 @@ void CaptivePortal::handle_config(AsyncWebServerRequest *request) {
                    scan.get_with_auth());
 #endif
   }
-
-  // close AP list
-  stream->print(ESPHOME_F("],"));
-
-  // KAUF: print out kauf added stuff
-  stream->printf("\"esph_v\":\"%s\",", ESPHOME_VERSION );
-  stream->printf(R"("soft_ssid":"%s",)", wifi::global_wifi_component->soft_ssid.c_str());
-  stream->printf(R"("hard_ssid":"%s",)", wifi::global_wifi_component->hard_ssid.c_str());
-  stream->printf(R"("free_sp":"%d",)", ESP.getFreeSketchSpace());
-  stream->printf(R"("mac_addr":"%s",)", get_mac_address_pretty().c_str());
-  stream->printf(R"("hostname":"%s",)", App.get_name().c_str());
-
-#ifdef ESPHOME_PROJECT_NAME
-  stream->printf("\"proj_n\":\"%s\",", ESPHOME_PROJECT_NAME );
-#else
-  stream->printf(R"("proj_n":"Kauf.unknown",)");
-#endif
-
-#ifdef ESPHOME_PROJECT_NAME
-  stream->printf("\"proj_v\":\"%s\"", ESPHOME_PROJECT_VERSION );
-#else
-  stream->printf(R"("proj_v":"unknown")");
-#endif
-
-  // close json
-  stream->print(ESPHOME_F("}"));
+  stream->print(ESPHOME_F("]}"));
   request->send(stream);
 }
 void CaptivePortal::handle_wifisave(AsyncWebServerRequest *request) {
