@@ -2442,14 +2442,14 @@ void WebServer::reset_flash(AsyncWebServerRequest *request) {
 
   global_preferences->reset();
 
-  AsyncResponseStream *stream = request->beginResponseStream("text/html");
-  stream->addHeader("Access-Control-Allow-Origin", "*");
-  stream->print(F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
-  stream->print(F("Flash memory erased.  After the device restarts, look for its Wi-Fi AP to reconfigure Wi-Fi credentials.<br><br>"));
-  stream->print(F("If you compiled the firmware yourself with embedded Wi-Fi credentials, those have not been cleared.  Your device will reconnect to the same Wi-Fi network.<br><br>"));
+  AsyncResponseStream *stream = request->beginResponseStream(ESPHOME_F("text/html"));
+  stream->addHeader(ESPHOME_F("Access-Control-Allow-Origin"), ESPHOME_F("*"));
+  stream->print(ESPHOME_F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
+  stream->print(ESPHOME_F("Flash memory erased.  After the device restarts, look for its Wi-Fi AP to reconfigure Wi-Fi credentials.<br><br>"));
+  stream->print(ESPHOME_F("If you compiled the firmware yourself with embedded Wi-Fi credentials, those have not been cleared.  Your device will reconnect to the same Wi-Fi network.<br><br>"));
 
-  stream->print(F("This device is now restarting itself automatically."));
-  stream->print(F("</body></html>"));
+  stream->print(ESPHOME_F("This device is now restarting itself automatically."));
+  stream->print(ESPHOME_F("</body></html>"));
   request->send(stream);
 
   this->set_timeout(100, []() { App.safe_reboot(); });
@@ -2459,53 +2459,60 @@ void WebServer::reset_flash(AsyncWebServerRequest *request) {
 // KAUF: function to clear wifi credentials
 void WebServer::clear_wifi(AsyncWebServerRequest *request) {
 
-  AsyncResponseStream *stream = request->beginResponseStream("text/html");
-  stream->addHeader("Access-Control-Allow-Origin", "*");
-  stream->print(F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
+  AsyncResponseStream *stream = request->beginResponseStream(ESPHOME_F("text/html"));
+  stream->addHeader(ESPHOME_F("Access-Control-Allow-Origin"), ESPHOME_F("*"));
+  stream->print(ESPHOME_F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
 
   if ( wifi::global_wifi_component->has_ap() ) {
 
     // store default credentials in flash, overwrites both soft and hard-coded credentials to ensure that Wi-Fi AP comes up.
-    stream->print(F("The following Wi-Fi credentials are being saved into flash memory:<br>"));
-    stream->print(F("SSID: <b>initial_ap</b><br>"));
-    stream->print(F("Password: <b>asdfasdfasdfasdf</b><br><br>"));
+    stream->print(ESPHOME_F("The following Wi-Fi credentials are being saved into flash memory:<br>"));
+    stream->print(ESPHOME_F("SSID: <b>initial_ap</b><br>"));
+    stream->print(ESPHOME_F("Password: <b>asdfasdfasdfasdf</b><br><br>"));
 
-    stream->print(F("This will overwrite any previous credentials that were stored in flash memory via the captive portal.  "));
-    stream->print(F("This will also take precedence over any credentials that were hard-coded in yaml.  "));
-    stream->print(F("This device will now reboot and put up it's Wi-Fi AP to allow setting of new credentials.  However, if a network with the above credentials exists, this device will connect to that network instead of putting up its Wi-Fi AP."));
-    stream->print(F("</body></html>"));
+    stream->print(ESPHOME_F("This will overwrite any previous credentials that were stored in flash memory via the captive portal.  "));
+    stream->print(ESPHOME_F("This will also take precedence over any credentials that were hard-coded in yaml.  "));
+    stream->print(ESPHOME_F("This device will now reboot and put up it's Wi-Fi AP to allow setting of new credentials.  However, if a network with the above credentials exists, this device will connect to that network instead of putting up its Wi-Fi AP."));
+    stream->print(ESPHOME_F("</body></html>"));
     request->send(stream);
 
-    wifi::global_wifi_component->save_wifi_sta("initial_ap","asdfasdfasdfasdf");
+#ifdef USE_ESP8266
+    wifi::global_wifi_component->save_wifi_sta("initial_ap", "asdfasdfasdfasdf");
+#else
+    this->defer([]() { wifi::global_wifi_component->save_wifi_sta("initial_ap", "asdfasdfasdfasdf"); });
+#endif
 
     this->set_timeout(100, []() { App.safe_reboot(); });
 
-  }
-
-  else {
-    stream->print(F("This function is only available for devices that have the Wi-Fi AP enabled."));
-    stream->print(F("</body></html>"));
+  } else {
+    stream->print(ESPHOME_F("This function is only available for devices that have the Wi-Fi AP enabled."));
+    stream->print(ESPHOME_F("</body></html>"));
     request->send(stream);
   }
-
-  return;
 }
 
 // KAUF: function to save new wifi credentials
-void WebServer::save_wifi(AsyncWebServerRequest *request){
+void WebServer::save_wifi(AsyncWebServerRequest *request) {
   std::string ssid = request->arg("ssid").c_str();
   std::string psk = request->arg("psk").c_str();
   ESP_LOGI(TAG, "Captive Portal Requested WiFi Settings Change:");
   ESP_LOGI(TAG, "  SSID='%s'", ssid.c_str());
   ESP_LOGI(TAG, "  Password=" LOG_SECRET("'%s'"), psk.c_str());
-  wifi::global_wifi_component->save_wifi_sta(ssid, psk);
 
-  AsyncResponseStream *stream = request->beginResponseStream("text/html");
-  stream->addHeader("Access-Control-Allow-Origin", "*");
-  stream->print(F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
-  stream->print(F("Saving new wifi credentials.<br><br>"));
-  stream->print(F("</body></html>"));
+#ifdef USE_ESP8266
+  wifi::global_wifi_component->save_wifi_sta(ssid, psk);
+#else
+  this->defer([ssid, psk]() { wifi::global_wifi_component->save_wifi_sta(ssid, psk); });
+#endif
+
+  AsyncResponseStream *stream = request->beginResponseStream(ESPHOME_F("text/html"));
+  stream->addHeader(ESPHOME_F("Access-Control-Allow-Origin"), ESPHOME_F("*"));
+  stream->print(ESPHOME_F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
+  stream->print(ESPHOME_F("Saving new wifi credentials.<br><br>"));
+  stream->print(ESPHOME_F("</body></html>"));
   request->send(stream);
+
+  this->set_timeout(100, []() { App.safe_reboot(); });
 }
 
 }  // namespace esphome::web_server
