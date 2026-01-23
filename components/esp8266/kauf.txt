@@ -1,0 +1,10 @@
+__init__.py
+  - adds start_free option
+  - adds validation for all the other components' forced_addr settings
+
+preferences.cpp
+  - implements forced_addr and forced_hash scheme
+  
+preferences.h
+  - add declaration for set_next_forced_addr()
+  - add start_free option to declaration for setup_preferences()

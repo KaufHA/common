@@ -1,0 +1,6 @@
+captive_index.h
+  - different file generated from our repo
+
+captive_portal.cpp
+  - adds a bunch of extra info output to the UI
+  

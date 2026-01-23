@@ -1,0 +1,12 @@
+__init__.py:
+  - adds configuration for forced_addr and forced_hash
+
+base_light_effects.h:
+  - adds assignment for color temperature in FlickerLightEffect
+
+light_state.cpp
+  - implements forced_addr and forced_hash in preferences setup
+  - always saves on/off value
+
+light_state.h
+  - adds declarations for forced_addr and forced_hash

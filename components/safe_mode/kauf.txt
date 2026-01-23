@@ -1,0 +1,2 @@
+safe_mode.cpp
+  - sets wifi ap timeout to 15s in safe mode.

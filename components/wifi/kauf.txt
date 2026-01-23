@@ -1,0 +1,20 @@
+__init__.py:
+  - add configuration for forced_addr and forced_hash
+  - add configuration options for:
+    - phy mode
+    - combine networks with base wifi network
+    - disable scanning
+  - reduce default power to 17.0 from 20.0
+
+wifi_component.cpp:
+  - implements forced_addr and forced_hash
+  - saves hard-coded and soft-configured ssid configurations for later reference
+  - adds externally accessible flags for whether credentials were loaded and if the component tried to load them
+  - adds a function to get whether the default credentials are being used
+  - hard-codes the AP timeout to 15s if the default credentials are being used
+  - adds project version to the wifi AP name
+  - allow disabling of scanning for wifi networks
+
+
+wifi_component.h:
+  - adds declarations for the above-mentioned functionality

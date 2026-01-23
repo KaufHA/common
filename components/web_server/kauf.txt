@@ -1,0 +1,16 @@
+__init__.py
+  - adds sensor_4m option to indicate whether the device is a 1m or 4m device
+
+server_index_v2.h
+  - different file generated from our repo
+
+web_server.cpp
+  - outputs more device details to UI
+  - adds endpoints for "/reset", "/clear", "/wifisave",
+
+
+web_server.h
+  - declarations for functions implementing new endpoints
+
+ota/ota_web_server.cpp
+  - additional error checking
