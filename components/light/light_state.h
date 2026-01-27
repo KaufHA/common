@@ -53,6 +53,25 @@ enum LightRestoreMode : uint8_t {
   LIGHT_RESTORE_AND_ON,
 };
 
+#ifdef USE_KAUF_LIGHT_DATA_MIGRATION
+// KAUF: Old struct layout for migration from pre-2025.7.0 firmware
+// This struct had color_mode and state at the beginning, causing different binary layout
+struct LightStateRTCStateOld {
+  ColorMode color_mode{ColorMode::UNKNOWN};
+  bool state{false};
+  float brightness{1.0f};
+  float color_brightness{1.0f};
+  float red{1.0f};
+  float green{1.0f};
+  float blue{1.0f};
+  float white{1.0f};
+  float color_temp{1.0f};
+  float cold_white{1.0f};
+  float warm_white{1.0f};
+  uint32_t effect{0};
+};
+#endif
+
 struct LightStateRTCState {
   LightStateRTCState(ColorMode color_mode, bool state, float brightness, float color_brightness, float red, float green,
                      float blue, float white, float color_temp, float cold_white, float warm_white)

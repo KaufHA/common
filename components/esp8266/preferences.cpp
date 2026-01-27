@@ -252,7 +252,7 @@ class ESP8266Preferences : public ESPPreferences {
         s_next_forced_addr = 12345;  // KAUF: served its purpose, reset to default
       }
       
-      ESP_LOGV(TAG, "Making Pref - st: %u: len: %zu, wds:%u tp: %u", offset, length, static_cast<unsigned int>(length_words), type);
+      ESP_LOGCONFIG(TAG, "Making Pref - st: %u: len: %zu, wds:%u tp: %u", offset, length, static_cast<unsigned int>(length_words), type);
     } else {
       uint32_t start = this->current_offset;
       bool in_normal = start < RTC_NORMAL_REGION_WORDS;

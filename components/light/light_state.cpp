@@ -40,21 +40,80 @@ void LightState::setup() {
   if (this->initial_state_.has_value()) {
     recovered = *this->initial_state_;
   }
+
+  // KAUF: The following was added specifically to migrate between old and new light data formats.
+  // The format was changed in https://github.com/esphome/esphome/pull/9260.  The result of that PR
+  // is that light values stored before that update won't load after the update.  This happened long
+  // enough ago that I don't care that much for most things, but for the RGB Switch binary update
+  // files there are six lights that are losing their configuration and I would be pretty annoyed 
+  // at that myself.  So this code will convert the data format of all the lights on the RGB Switch.
+  // For dashboard updaters, this update happened 6 months ago so I assume everyone already had to
+  // deal with this.  Sorry.  I still have to increment the hashes for those people on the dashboard.
+  // For the plugs, I don't think there are any lights so this shouldn't run.  For the lights, they
+  // have their own separate external light component in that repo.
+
+  uint32_t key = (this->forced_hash != 0) ? this->forced_hash : this->get_preference_hash();
+  bool loaded = false;
+
+#ifdef USE_KAUF_LIGHT_HASH_MIGRATION
+  // KAUF: Try old hash (hash-1) first for migration
+  if (this->forced_hash != 0 && this->forced_addr != 12345) {
+    uint32_t old_key = this->forced_hash - 1;
+    esp8266::set_next_forced_addr(this->forced_addr);
+    ESPPreferenceObject old_rtc = global_preferences->make_preference<LightStateRTCState>(old_key);
+
+#ifdef USE_KAUF_LIGHT_DATA_MIGRATION
+    // Binary update: load into struct then reinterpret as old format
+    LightStateRTCState raw_struct;
+    if (old_rtc.load(&raw_struct)) {
+      ESP_LOGI(TAG, "'%s': migrating from old hash, converting format", this->get_name().c_str());
+      const auto *old = reinterpret_cast<const LightStateRTCStateOld *>(&raw_struct);
+      recovered.brightness = old->brightness;
+      recovered.color_brightness = old->color_brightness;
+      recovered.red = old->red;
+      recovered.green = old->green;
+      recovered.blue = old->blue;
+      recovered.white = old->white;
+      recovered.color_temp = old->color_temp;
+      recovered.cold_white = old->cold_white;
+      recovered.warm_white = old->warm_white;
+      recovered.effect = old->effect;
+      recovered.color_mode = old->color_mode;
+      recovered.state = old->state;
+      loaded = true;
+    }
+#else
+    // Dashboard: load directly
+    if (old_rtc.load(&recovered)) {
+      ESP_LOGI(TAG, "'%s': migrating from old hash", this->get_name().c_str());
+      loaded = true;
+    }
+#endif  // USE_KAUF_LIGHT_DATA_MIGRATION
+
+    // Save with new hash
+    if (loaded) {
+      esp8266::set_next_forced_addr(this->forced_addr);
+      this->rtc_ = global_preferences->make_preference<LightStateRTCState>(key);
+      this->rtc_.save(&recovered);
+    }
+  }
+#endif  // USE_KAUF_LIGHT_HASH_MIGRATION
+
   switch (this->restore_mode_) {
     case LIGHT_RESTORE_DEFAULT_OFF:
     case LIGHT_RESTORE_DEFAULT_ON:
     case LIGHT_RESTORE_INVERTED_DEFAULT_OFF:
     case LIGHT_RESTORE_INVERTED_DEFAULT_ON:
 
-      // KAUF: forced addr/hash support
-      if (this->forced_addr != 12345) esp8266::set_next_forced_addr(this->forced_addr);
-      {
-        uint32_t key = (this->forced_hash != 0) ? this->forced_hash : this->get_preference_hash();
+    // KAUF: forced addr/hash support
+      if (!loaded) {
+        if (this->forced_addr != 12345) esp8266::set_next_forced_addr(this->forced_addr);
         this->rtc_ = global_preferences->make_preference<LightStateRTCState>(key);
+        loaded = this->rtc_.load(&recovered);
       }
 
       // Attempt to load from preferences, else fall back to default values
-      if (!this->rtc_.load(&recovered)) {
+      if (!loaded) {
         recovered.state = (this->restore_mode_ == LIGHT_RESTORE_DEFAULT_ON ||
                            this->restore_mode_ == LIGHT_RESTORE_INVERTED_DEFAULT_ON);
       } else if (this->restore_mode_ == LIGHT_RESTORE_INVERTED_DEFAULT_OFF ||
@@ -66,14 +125,13 @@ void LightState::setup() {
     case LIGHT_RESTORE_AND_OFF:
     case LIGHT_RESTORE_AND_ON:
 
-      // KAUF: forced addr/hash support
-      if (this->forced_addr != 12345) esp8266::set_next_forced_addr(this->forced_addr);
-      {
-        uint32_t key = (this->forced_hash != 0) ? this->forced_hash : this->get_preference_hash();
+    // KAUF: forced addr/hash support
+      if (!loaded) {
+        if (this->forced_addr != 12345) esp8266::set_next_forced_addr(this->forced_addr);
         this->rtc_ = global_preferences->make_preference<LightStateRTCState>(key);
+        this->rtc_.load(&recovered);
       }
 
-      this->rtc_.load(&recovered);
       recovered.state = (this->restore_mode_ == LIGHT_RESTORE_AND_ON);
       break;
     case LIGHT_ALWAYS_OFF:
