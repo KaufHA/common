@@ -158,6 +158,35 @@ void LightState::setup() {
   } else {
     call.set_transition_length_if_supported(0);
   }
+  call.set_save(false);  // Don't re-save, we're restoring saved values
+  call.perform();
+}
+
+// KAUF: Restore light state from saved preferences
+void LightState::restore_from_preferences() {
+  LightStateRTCState recovered{};
+  if (!this->rtc_.load(&recovered)) {
+    return;  // No saved state to restore
+  }
+
+  auto call = this->make_call();
+  call.set_color_mode_if_supported(recovered.color_mode);
+  call.set_state(recovered.state);
+  call.set_brightness_if_supported(recovered.brightness);
+  call.set_color_brightness_if_supported(recovered.color_brightness);
+  call.set_red_if_supported(recovered.red);
+  call.set_green_if_supported(recovered.green);
+  call.set_blue_if_supported(recovered.blue);
+  call.set_white_if_supported(recovered.white);
+  call.set_color_temperature_if_supported(recovered.color_temp);
+  call.set_cold_white_if_supported(recovered.cold_white);
+  call.set_warm_white_if_supported(recovered.warm_white);
+  if (recovered.effect != 0) {
+    call.set_effect(recovered.effect);
+  } else {
+    call.set_transition_length_if_supported(0);
+  }
+  call.set_save(false);  // Don't re-save, we're restoring saved values
   call.perform();
 }
 void LightState::dump_config() {
