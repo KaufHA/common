@@ -82,11 +82,13 @@ uint16_t DDPLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_
   this->next_packet_will_be_first_ = false;
   this->last_ddp_time_ms_ = millis();
 
-  ESP_LOGV(TAG, "Applying DDP data for '%s->%s': (%02x,%02x,%02x) size = %d, used = %d", this->state_->get_name().c_str(), this->get_name(), payload[used], payload[used+1], payload[used+2], size, used);
+  ESP_LOGV(TAG, "Applying DDP data for '%s->%s': (%02x,%02x,%02x) size = %d, used = %d",
+           this->state_->get_name().c_str(), this->get_name(),
+           payload[used], payload[used + 1], payload[used + 2], size, used);
 
-  float red   = (float)payload[used]/255.0f;
-  float green = (float)payload[used+1]/255.0f;
-  float blue  = (float)payload[used+2]/255.0f;
+  float red   = static_cast<float>(payload[used]) / 255.0f;
+  float green = static_cast<float>(payload[used + 1]) / 255.0f;
+  float blue  = static_cast<float>(payload[used + 2]) / 255.0f;
 
   float multiplier = this->state_->remote_values.get_brightness();
   float max_val = 0;
@@ -98,7 +100,7 @@ uint16_t DDPLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_
     for ( int i = 10; i < size; i++ ) {
       if ( payload[i] > packet_max ) { packet_max = payload[i]; }
     }
-    max_val = (float)packet_max / 255.0f;
+    max_val = static_cast<float>(packet_max) / 255.0f;
   }
 
   // DDP_PIXEL and DDP_STRIP are the same with bulbs since a "strip" is one pixel.

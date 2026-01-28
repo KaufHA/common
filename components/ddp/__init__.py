@@ -22,7 +22,7 @@ from esphome.core import CORE
 
 def AUTO_LOAD() -> list[str]:
     auto_load = []
-    if CORE.using_esp_idf:
+    if CORE.is_esp32 and not CORE.using_arduino:
         auto_load.append("socket")
     return auto_load
 
@@ -31,7 +31,7 @@ DEPENDENCIES = ["network"]
 
 
 def _consume_ddp_sockets(config):
-    if CORE.using_esp_idf:
+    if CORE.is_esp32 and not CORE.using_arduino:
         from esphome.components import socket
 
         socket.consume_sockets(1, "ddp")(config)

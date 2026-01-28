@@ -40,7 +40,7 @@ void DDPComponent::loop() {
 
 void DDPComponent::add_effect(DDPLightEffectBase *light_effect) {
 
-  if (light_effects_.count(light_effect)) {
+  if (this->light_effects_.count(light_effect)) {
     return;
   }
 
@@ -52,7 +52,7 @@ void DDPComponent::add_effect(DDPLightEffectBase *light_effect) {
     ESP_LOGD(TAG, "Starting UDP listening for DDP.");
     if (!this->udp_->begin(PORT)) {
       ESP_LOGE(TAG, "Cannot bind DDP to port %d.", PORT);
-      mark_failed();
+      this->mark_failed();
       return;
     }
   }

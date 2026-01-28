@@ -39,7 +39,7 @@ class DDPLightEffectBase {
   uint32_t last_ddp_time_ms_{0};
 
   bool disable_gamma_{true};
-  float gamma_backup_{0.0};
+  float gamma_backup_{0.0f};
   bool next_packet_will_be_first_{true};
 
   DDPScalingMode scaling_mode_{DDP_NO_SCALING};

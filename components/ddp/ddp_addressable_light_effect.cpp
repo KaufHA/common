@@ -109,11 +109,7 @@ uint16_t DDPAddressableLightEffect::process_(const uint8_t *payload, uint16_t si
   this->set_effect_active_(it, true);
 
 
-#ifdef USE_ESP32
-  uint16_t num_pixels = std::min((int)it->size(), ((size-used)/3));
-#else
-  uint16_t num_pixels = min(it->size(), ((size-used)/3));
-#endif
+  uint16_t num_pixels = std::min<int>(it->size(), (size - used) / 3);
 
   if ( num_pixels < 1 ) { return 0; }
 
@@ -169,9 +165,9 @@ uint16_t DDPAddressableLightEffect::process_(const uint8_t *payload, uint16_t si
       case DDP_SCALE_STRIP:
       case DDP_SCALE_PIXEL:
         if ( multiplier != 1.0f ) {
-          red   = (float)red   * multiplier;
-          green = (float)green * multiplier;
-          blue  = (float)blue  * multiplier;
+          red   = static_cast<uint8_t>(static_cast<float>(red) * multiplier);
+          green = static_cast<uint8_t>(static_cast<float>(green) * multiplier);
+          blue  = static_cast<uint8_t>(static_cast<float>(blue) * multiplier);
         }
       default:
         break;
@@ -205,7 +201,7 @@ float DDPAddressableLightEffect::scan_packet_and_return_multiplier_(const uint8_
 
 float DDPAddressableLightEffect::multiplier_from_max_val_(uint8_t max_val) {
   if ( max_val == 0 ) { return 1.0f; }
-  else { return this->state_->remote_values.get_brightness()*255.0f/(float)max_val; }
+  return this->state_->remote_values.get_brightness() * 255.0f / static_cast<float>(max_val);
 }
 
 void DDPAddressableLightEffect::set_max_brightness_() {
