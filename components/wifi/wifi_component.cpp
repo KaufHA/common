@@ -2052,8 +2052,23 @@ void WiFiComponent::save_fast_connect_settings_() {
 
 // KAUF: little function to return whether this device is trying to connect to the default credentials
 bool WiFiComponent::get_initial_ap() {
-  return (str_startswith(this->soft_ssid,"initial_ap") ||
-         (str_startswith(this->hard_ssid,"initial_ap") && this->tried_loading_creds && !this->loaded_creds ) );
+  // if connected to a network, check that directly
+  if (this->is_connected()) {
+    return str_startswith(this->wifi_ssid(), "initial_ap");
+  }
+
+  // not connected - check saved and hard-coded SSIDs
+  if (str_startswith(this->soft_ssid, "initial_ap")) {
+    return true;
+  }
+  if (this->tried_loading_creds && !this->loaded_creds) {
+    for (auto &sta : this->sta_) {
+      if (str_startswith(sta.get_ssid(), "initial_ap")) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 void WiFiAP::set_ssid(const std::string &ssid) { this->ssid_ = ssid; }

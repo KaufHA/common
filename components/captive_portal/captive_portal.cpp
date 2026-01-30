@@ -94,6 +94,7 @@ void CaptivePortal::handle_wifisave(AsyncWebServerRequest *request) {
   this->defer([ssid, psk]() { wifi::global_wifi_component->save_wifi_sta(ssid, psk); });
 #endif
   request->redirect(ESPHOME_F("/?save"));
+  this->set_timeout(100, []() { App.safe_reboot(); });
 }
 
 void CaptivePortal::setup() {

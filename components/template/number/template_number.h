@@ -15,7 +15,7 @@ class TemplateNumber final : public number::Number, public PollingComponent {
   void setup() override;
   void update() override;
   void dump_config() override;
-  float get_setup_priority() const override { return setup_priority::HARDWARE; }
+  float get_setup_priority() const override { return setup_priority::HARDWARE + 1.0f; }
 
   Trigger<float> *get_set_trigger() const { return set_trigger_; }
   void set_optimistic(bool optimistic) { optimistic_ = optimistic; }
