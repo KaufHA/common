@@ -33,7 +33,7 @@ fetch("/config.json").then(function (response) {
     document.querySelector("link[rel~='icon']").href = `data:image/svg+xml,${wifi(-65)}`;
 
     // fill in kauf-added params
-    document.querySelector("#t_hostname").innerHTML = config.name
+    document.querySelector("#t_host").innerHTML = config.name
     document.querySelector("#t_mac").innerHTML = config.mac_addr
     document.querySelector("#t_hard").innerHTML = config.hard_ssid
     document.querySelector("#t_soft").innerHTML = config.soft_ssid
