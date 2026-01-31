@@ -86,15 +86,14 @@ void CaptivePortal::handle_wifisave(AsyncWebServerRequest *request) {
            "  SSID='%s'\n"
            "  Password=" LOG_SECRET("'%s'"),
            ssid.c_str(), psk.c_str());
+  request->redirect(ESPHOME_F("/?save"));
 #ifdef USE_ESP8266
-  // ESP8266 is single-threaded, call directly
-  wifi::global_wifi_component->save_wifi_sta(ssid, psk);
+  // ESP8266 is single-threaded, save and reboot directly
+  wifi::global_wifi_component->save_wifi_sta_and_reboot(ssid, psk);
 #else
   // Defer save to main loop thread to avoid NVS operations from HTTP thread
-  this->defer([ssid, psk]() { wifi::global_wifi_component->save_wifi_sta(ssid, psk); });
+  this->defer([ssid, psk]() { wifi::global_wifi_component->save_wifi_sta_and_reboot(ssid, psk); });
 #endif
-  request->redirect(ESPHOME_F("/?save"));
-  this->set_timeout(100, []() { App.safe_reboot(); });
 }
 
 void CaptivePortal::setup() {

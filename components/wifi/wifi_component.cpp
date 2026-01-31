@@ -937,6 +937,16 @@ void WiFiComponent::save_wifi_sta(const std::string &ssid, const std::string &pa
   this->connect_soon_();
 }
 
+// KAUF: Save wifi credentials and reboot immediately without reconfiguring wifi
+void WiFiComponent::save_wifi_sta_and_reboot(const std::string &ssid, const std::string &password) {
+  SavedWifiSettings save{};
+  strncpy(save.ssid, ssid.c_str(), sizeof(save.ssid) - 1);
+  strncpy(save.password, password.c_str(), sizeof(save.password) - 1);
+  this->pref_.save(&save);
+  global_preferences->sync();
+  App.safe_reboot();
+}
+
 void WiFiComponent::connect_soon_() {
   // Only trigger retry if we're in cooldown - if already connecting/connected, do nothing
   if (this->state_ == WIFI_COMPONENT_STATE_COOLDOWN) {

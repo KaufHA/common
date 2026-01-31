@@ -2489,12 +2489,10 @@ void WebServer::clear_wifi(AsyncWebServerRequest *request) {
     request->send(stream);
 
 #ifdef USE_ESP8266
-    wifi::global_wifi_component->save_wifi_sta("initial_ap", "asdfasdfasdfasdf");
+    wifi::global_wifi_component->save_wifi_sta_and_reboot("initial_ap", "asdfasdfasdfasdf");
 #else
-    this->defer([]() { wifi::global_wifi_component->save_wifi_sta("initial_ap", "asdfasdfasdfasdf"); });
+    this->defer([]() { wifi::global_wifi_component->save_wifi_sta_and_reboot("initial_ap", "asdfasdfasdfasdf"); });
 #endif
-
-    this->set_timeout(100, []() { App.safe_reboot(); });
 
   } else {
     stream->print(ESPHOME_F("This function is only available for devices that have the Wi-Fi AP enabled."));
@@ -2511,12 +2509,6 @@ void WebServer::save_wifi(AsyncWebServerRequest *request) {
   ESP_LOGI(TAG, "  SSID='%s'", ssid.c_str());
   ESP_LOGI(TAG, "  Password=" LOG_SECRET("'%s'"), psk.c_str());
 
-#ifdef USE_ESP8266
-  wifi::global_wifi_component->save_wifi_sta(ssid, psk);
-#else
-  this->defer([ssid, psk]() { wifi::global_wifi_component->save_wifi_sta(ssid, psk); });
-#endif
-
   AsyncResponseStream *stream = request->beginResponseStream(ESPHOME_F("text/html"));
   stream->addHeader(ESPHOME_F("Access-Control-Allow-Origin"), ESPHOME_F("*"));
   stream->print(ESPHOME_F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
@@ -2524,7 +2516,11 @@ void WebServer::save_wifi(AsyncWebServerRequest *request) {
   stream->print(ESPHOME_F("</body></html>"));
   request->send(stream);
 
-  this->set_timeout(100, []() { App.safe_reboot(); });
+#ifdef USE_ESP8266
+  wifi::global_wifi_component->save_wifi_sta_and_reboot(ssid, psk);
+#else
+  this->defer([ssid, psk]() { wifi::global_wifi_component->save_wifi_sta_and_reboot(ssid, psk); });
+#endif
 }
 
 }  // namespace esphome::web_server
