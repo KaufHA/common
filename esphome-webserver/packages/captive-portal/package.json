@@ -6,7 +6,7 @@
   "scripts": {
     "start": "npm run dev",
     "dev": "vite",
-    "build": "vite build && npm run deploy",
+    "build": "vite build --emptyOutDir && npm run deploy",
     "serve": "vite preview",
     "deploy": "bash -c '../../scripts/make_header.sh ../../_static/captive_portal captive_index.h captive_portal'"
   },
