@@ -9,12 +9,69 @@ import cssReset from "./css/reset";
 import cssButton from "./css/button";
 
 window.source = new EventSource(getBasePath() + "/events");
+const ENABLE_LEGACY_FALLBACK = import.meta.env.VITE_LEGACY_FALLBACK === "true";
+
+type ProductUi = {
+  display_name: string;
+  product_url: string;
+  update_url: string;
+  ota_warning: string;
+};
+
+const LEGACY_PRODUCT_UI_BY_PROJECT: Record<string, ProductUi> =
+  ENABLE_LEGACY_FALLBACK
+    ? {
+        "Kauf.PLF10": {
+          display_name: "Plug (PLF10)",
+          product_url: "https://kaufha.com/plf10",
+          update_url: "https://github.com/KaufHA/PLF10/releases",
+          ota_warning: "",
+        },
+        "Kauf.PLF12": {
+          display_name: "Plug (PLF12)",
+          product_url: "https://kaufha.com/plf12",
+          update_url: "https://github.com/KaufHA/PLF12/releases",
+          ota_warning: "",
+        },
+        "Kauf.RGBWW": {
+          display_name: "RGBWW Bulb",
+          product_url: "https://kaufha.com/blf10",
+          update_url: "https://github.com/KaufHA/kauf-rgbww-bulbs/releases",
+          ota_warning:
+            "DO NOT USE ANY WLED BIN FILE. WLED is not going to work properly on this bulb. Use the included DDP functionality to control this bulb from another WLED instance or xLights.",
+        },
+        "Kauf.RGBSw": {
+          display_name: "RGB Switch",
+          product_url: "https://kaufha.com/srf10",
+          update_url: "https://github.com/KaufHA/kauf-rgb-switch/releases",
+          ota_warning: "",
+        },
+      }
+    : {};
 
 interface Config {
   ota: boolean;
   log: boolean;
   title: string;
   comment: string;
+  lang?: string;
+  proj_n?: string;
+  proj_v?: string;
+  esph_v?: string;
+  free_sp?: number;
+  build_ts?: string;
+  hostname?: string;
+  mac_addr?: string;
+  hard_ssid?: string;
+  soft_ssid?: string;
+  has_ap?: boolean;
+  kauf_ui?: {
+    display_name?: string;
+    product_url?: string;
+    update_url?: string;
+    ota_warning?: string;
+    factory_warning?: string;
+  };
 }
 
 @customElement("esp-app")
@@ -24,7 +81,7 @@ export default class EspApp extends LitElement {
   @query("#beat")
   beat!: HTMLSpanElement;
 
-  version: String = import.meta.env.PACKAGE_VERSION;
+  version: string = import.meta.env.PACKAGE_VERSION;
   config: Config = { ota: false, log: true, title: "", comment: "" };
 
   darkQuery: MediaQueryList = window.matchMedia("(prefers-color-scheme: dark)");
@@ -48,7 +105,7 @@ export default class EspApp extends LitElement {
     this.config = config;
 
     document.title = config.title;
-    document.documentElement.lang = config.lang;
+    document.documentElement.lang = config.lang || "en";
   }
 
   firstUpdated(changedProperties: PropertyValues) {
@@ -64,7 +121,7 @@ export default class EspApp extends LitElement {
     this.scheme = this.isDark();
     window.source.addEventListener("ping", (e: Event) => {
       const messageEvent = e as MessageEvent;
-      const d: String = messageEvent.data;
+      const d: string = messageEvent.data;
       if (d.length) {
         this.setConfig(JSON.parse(messageEvent.data));
       }
@@ -91,59 +148,56 @@ export default class EspApp extends LitElement {
     }
   }
 
-  kauf_p_name() {
-    if ( this.config.proj_n == "Kauf.PLF10")
-      return "Plug";
-    else if ( this.config.proj_n == "Kauf.PLF12")
-      return "Plug";
-    else if ( this.config.proj_n == "Kauf.RGBWW")
-      return "RGBWW Bulb";
-    else if ( this.config.proj_n == "Kauf.RGBSw")
-      return "RGB Switch";
-    else
-      return "";
+  private getFallbackMetadata(): ProductUi {
+    if (!this.config.proj_n) {
+      return { display_name: "", product_url: "", update_url: "", ota_warning: "" };
+    }
+    return (
+      LEGACY_PRODUCT_UI_BY_PROJECT[this.config.proj_n] || {
+        display_name: "",
+        product_url: "",
+        update_url: "",
+        ota_warning: "",
+      }
+    );
   }
 
-  kauf_p_url() {
-    if ( this.config.proj_n == "Kauf.PLF10")
-      return "plf10";
-    else if ( this.config.proj_n == "Kauf.PLF12")
-      return "plf12";
-    else if ( this.config.proj_n == "Kauf.RGBWW")
-      return "blf10";
-    else if ( this.config.proj_n == "Kauf.RGBSw")
-      return "srf10";
-    else
-      return "";
+  private getProductUi() {
+    const fallback = this.getFallbackMetadata();
+    const fw = this.config.kauf_ui || {};
+    return {
+      display_name: fw.display_name || fallback.display_name,
+      product_url: fw.product_url || fallback.product_url,
+      update_url: fw.update_url || fallback.update_url,
+      ota_warning: fw.ota_warning || fallback.ota_warning,
+      factory_warning: fw.factory_warning || "",
+    };
   }
 
-  kauf_p_up() {
-    if ( this.config.proj_n == "Kauf.PLF10")
-      return html`<br><a href="https://github.com/KaufHA/PLF10/releases" target="_blank" rel="noopener noreferrer">Check for Updates</a>`;
-    else if ( this.config.proj_n == "Kauf.PLF12")
-      return html`<br><a href="https://github.com/KaufHA/PLF12/releases" target="_blank" rel="noopener noreferrer">Check for Updates</a>`;
-    else if ( this.config.proj_n == "Kauf.RGBWW")
-      return html`<br><a href="https://github.com/KaufHA/kauf-rgbww-bulbs/releases" target="_blank" rel="noopener noreferrer">Check for Updates</a>`;
-    else if ( this.config.proj_n == "Kauf.RGBSw")
-      return html`<br><a href="https://github.com/KaufHA/kauf-rgb-switch/releases" target="_blank" rel="noopener noreferrer">Check for Updates</a>`;
-    else
-      return html`<br>Project Name: ${this.config.proj_n}`;
+  renderUpdateLink() {
+    const product = this.getProductUi();
+    if (product.update_url) {
+      return html`<br><a href="${product.update_url}" target="_blank" rel="noopener noreferrer">Check for Updates</a>`;
+    }
+    return html`<br>Project Name: ${this.config.proj_n || "unknown"}`;
   }
 
-  kauf_ota_extra() {
-    if ( this.config.proj_n == "Kauf.RGBWW")
-      return html`<p>**** DO NOT USE ANY <b>WLED</b> BIN file.<br>**** WLED is not going to work properly on this bulb.<br>**** Use the included DDP functionality to control this bulb from another WLED instance or xLights.</p>`;
-    else
-      return "";
+  renderOtaWarning() {
+    const warning = this.getProductUi().ota_warning;
+    return warning ? html`<p>**** ${warning}</p>` : nothing;
+  }
+
+  formatBytes(value?: number) {
+    return Number(value || 0).toLocaleString("en-US");
   }
 
   ota() {
     if (this.config.ota) {
       let basePath = getBasePath();
       return html`<h2>OTA Update</h2>
-        <p>Either .bin or .bin.gz files will work, but the file size needs to be under ${this.config.free_sp} bytes.  For KAUF update files, the .bin.gz file is recommended, and the .bin files are typically too large to work anyway.</p>
+        <p>Either .bin or .bin.gz files will work, but the file size needs to be under ${this.formatBytes(this.config.free_sp)} bytes.  For KAUF update files, the .bin.gz file is recommended, and the .bin files are typically too large to work anyway.</p>
         <p>**** DO NOT USE <b>TASMOTA-MINIMAL</b>.BIN or .BIN.GZ<br>**** Use tasmota.bin.gz or tasmota-lite.bin.gz</p>
-        ${this.kauf_ota_extra()}
+        ${this.renderOtaWarning()}
         <form
           method="POST"
           action="${basePath}/update"
@@ -168,8 +222,8 @@ export default class EspApp extends LitElement {
   }
 
   factory_reset() {
-    if ( this.config.proj_l == "f" )
-      return html `<p><b> For factory images, with version suffix (f)</b>, /reset will place the firmware into factory test mode.  Factory test mode can typically be cleared easily by pressing a button on the device after a few seconds.  For bulbs, factory test mode will automatically stop after 10 minutes or can be cleared through the web interface by pressing the "Stop Factory Routine" button once you get the bulb connected back to Wi-Fi.  You may need to refresh the page to see this button.</p>`
+    const warning = this.getProductUi().factory_warning;
+    return warning ? html`<p><b>${warning}</b></p>` : nothing;
   }
 
   clear() {
@@ -178,6 +232,10 @@ export default class EspApp extends LitElement {
   }
 
   render() {
+    const product = this.getProductUi();
+    const displayName = product.display_name ? ` ${product.display_name}` : "";
+    const productUrl = product.product_url || "https://kaufha.com";
+
     return html`
       <main class="flex-grid-half">
         <section class="col">
@@ -185,8 +243,8 @@ export default class EspApp extends LitElement {
             ${this.config.title}
             <span id="beat" title="${this.version}">❤</span>
           </h1>
-          <p><b>KAUF ${this.kauf_p_name()}</b> by <a href="https://kaufha.com/${this.kauf_p_url()}" target="_blank" rel="noopener noreferrer">Kaufman Home Automation</a>
-          <br>Firmware version ${this.config.proj_v} made using <a href="https://esphome.io" target="_blank" rel="noopener noreferrer">ESPHome</a> version ${this.config.esph_v}. ${this.kauf_p_up()}</p>
+          <p><b>KAUF${displayName}</b> by <a href="${productUrl}" target="_blank" rel="noopener noreferrer">Kaufman Home Automation</a>
+          <br>Firmware version ${this.config.proj_v} made using <a href="https://esphome.io" target="_blank" rel="noopener noreferrer">ESPHome</a> version ${this.config.esph_v}. ${this.renderUpdateLink()}</p>
           <p>See <a href="https://esphome.io/web-api/" target="_blank" rel="noopener noreferrer">ESPHome Web Server API</a> for REST API documentation.</p>
           ${this.renderComment()}
           <h2>Entity Table</h2>
@@ -235,8 +293,14 @@ export default class EspApp extends LitElement {
             </tr>
             <tr>
               <td>Free Space for OTA</td>
-              <td>${this.config.free_sp} bytes</td>
+              <td>${this.formatBytes(this.config.free_sp)} bytes</td>
             </tr>
+            ${this.config.build_ts
+              ? html`<tr>
+                  <td>Build Timestamp</td>
+                  <td>${this.config.build_ts}</td>
+                </tr>`
+              : nothing}
           </tbody></table>
         </section>
         ${this.renderLog()}

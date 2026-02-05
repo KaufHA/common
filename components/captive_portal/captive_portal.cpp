@@ -3,6 +3,7 @@
 #include "esphome/core/log.h"
 #include "esphome/core/application.h"
 #include "esphome/components/wifi/wifi_component.h"
+#include "esphome/components/json/json_util.h"
 #include "captive_index.h"
 #include "esphome/core/version.h"
 
@@ -11,71 +12,85 @@ namespace captive_portal {
 
 static const char *const TAG = "captive_portal";
 
+struct ProductUiMetadata {
+  const char *display_name;
+  const char *product_url;
+  const char *update_url;
+  const char *ota_warning;
+};
+
+static ProductUiMetadata get_product_ui_metadata() {
+#if defined(KAUF_PRODUCT_PLF12)
+  return ProductUiMetadata{"Plug (PLF12)", "https://kaufha.com/plf12", "https://github.com/KaufHA/PLF12/releases", ""};
+#elif defined(KAUF_PRODUCT_PLF10)
+  return ProductUiMetadata{"Plug (PLF10)", "https://kaufha.com/plf10", "https://github.com/KaufHA/PLF10/releases", ""};
+#elif defined(KAUF_PRODUCT_RGBWW)
+  return ProductUiMetadata{
+      "RGBWW Bulb",
+      "https://kaufha.com/blf10",
+      "https://github.com/KaufHA/kauf-rgbww-bulbs/releases",
+      "DO NOT USE ANY WLED BIN FILE. WLED is not going to work properly on this bulb. "
+      "Use the included DDP functionality to control this bulb from another WLED instance "
+      "or xLights."};
+#elif defined(KAUF_PRODUCT_RGBSW)
+  return ProductUiMetadata{
+      "RGB Switch", "https://kaufha.com/srf10", "https://github.com/KaufHA/kauf-rgb-switch/releases", ""};
+#else
+  return ProductUiMetadata{"Unknown Product", "https://kaufha.com", "https://github.com/KaufHA", ""};
+#endif
+}
+
 void CaptivePortal::handle_config(AsyncWebServerRequest *request) {
-  AsyncResponseStream *stream = request->beginResponseStream(ESPHOME_F("application/json"));
-  stream->addHeader(ESPHOME_F("cache-control"), ESPHOME_F("public, max-age=0, must-revalidate"));
+  json::JsonBuilder builder;
+  JsonObject root = builder.root();
+#ifdef ESPHOME_PROJECT_NAME
+  const char *project_name = ESPHOME_PROJECT_NAME;
+#else
+  const char *project_name = "Kauf.unknown";
+#endif
+  ProductUiMetadata product_ui = get_product_ui_metadata();
+
   char mac_s[18];
   const char *mac_str = get_mac_address_pretty_into_buffer(mac_s);
-  // KAUF: added kauf fields to stock prints
-#ifdef USE_ESP8266
-  stream->print(ESPHOME_F("{\"mac\":\""));
-  stream->print(mac_str);
-  stream->print(ESPHOME_F("\",\"name\":\""));
-  stream->print(App.get_name().c_str());
-  stream->print(ESPHOME_F("\",\"esph_v\":\""));
-  stream->print(ESPHOME_VERSION);
-  stream->print(ESPHOME_F("\",\"soft_ssid\":\""));
-  stream->print(wifi::global_wifi_component->soft_ssid.c_str());
-  stream->print(ESPHOME_F("\",\"hard_ssid\":\""));
-  stream->print(wifi::global_wifi_component->hard_ssid.c_str());
-  stream->print(ESPHOME_F("\",\"free_sp\":\""));
-  stream->print(ESP.getFreeSketchSpace());
-  stream->print(ESPHOME_F("\",\"mac_addr\":\""));
-  stream->print(get_mac_address_pretty().c_str());
-#ifdef ESPHOME_PROJECT_NAME
-  stream->print(ESPHOME_F("\",\"proj_n\":\""));
-  stream->print(ESPHOME_PROJECT_NAME);
-  stream->print(ESPHOME_F("\",\"proj_v\":\""));
-  stream->print(ESPHOME_PROJECT_VERSION);
+
+  root[ESPHOME_F("mac")] = mac_str;
+  root[ESPHOME_F("name")] = App.get_name();
+  root[ESPHOME_F("esph_v")] = ESPHOME_VERSION;
+  root[ESPHOME_F("soft_ssid")] = wifi::global_wifi_component->soft_ssid;
+  root[ESPHOME_F("hard_ssid")] = wifi::global_wifi_component->hard_ssid;
+  root[ESPHOME_F("free_sp")] = ESP.getFreeSketchSpace();
+  char build_time_buffer[Application::BUILD_TIME_STR_SIZE];
+  App.get_build_time_string(build_time_buffer);
+  root[ESPHOME_F("build_ts")] = build_time_buffer;
+  root[ESPHOME_F("proj_n")] = project_name;
+#ifdef ESPHOME_PROJECT_VERSION
+  root[ESPHOME_F("proj_v")] = ESPHOME_PROJECT_VERSION;
 #else
-  stream->print(ESPHOME_F("\",\"proj_n\":\"Kauf.unknown\",\"proj_v\":\"unknown"));
-#endif
-  stream->print(ESPHOME_F("\",\"aps\":[{}"));
-#else
-  stream->printf(R"({"mac":"%s","name":"%s",)", mac_str, App.get_name().c_str());
-  stream->printf(R"("esph_v":"%s",)", ESPHOME_VERSION);
-  stream->printf(R"("soft_ssid":"%s",)", wifi::global_wifi_component->soft_ssid.c_str());
-  stream->printf(R"("hard_ssid":"%s",)", wifi::global_wifi_component->hard_ssid.c_str());
-  stream->printf(R"("free_sp":"%d",)", ESP.getFreeSketchSpace());
-  stream->printf(R"("mac_addr":"%s",)", get_mac_address_pretty().c_str());
-#ifdef ESPHOME_PROJECT_NAME
-  stream->printf(R"("proj_n":"%s",)", ESPHOME_PROJECT_NAME);
-  stream->printf(R"("proj_v":"%s",)", ESPHOME_PROJECT_VERSION);
-#else
-  stream->printf(R"("proj_n":"Kauf.unknown","proj_v":"unknown",)");
-#endif
-  stream->printf(R"("aps":[{})");
+  root[ESPHOME_F("proj_v")] = "unknown";
 #endif
 
+  JsonObject kauf_ui = root[ESPHOME_F("kauf_ui")].to<JsonObject>();
+  kauf_ui[ESPHOME_F("display_name")] = product_ui.display_name;
+  kauf_ui[ESPHOME_F("product_url")] = product_ui.product_url;
+  kauf_ui[ESPHOME_F("update_url")] = product_ui.update_url;
+  kauf_ui[ESPHOME_F("ota_warning")] = product_ui.ota_warning;
+
+  JsonArray aps = root[ESPHOME_F("aps")].to<JsonArray>();
   for (auto &scan : wifi::global_wifi_component->get_scan_result()) {
-    if (scan.get_is_hidden())
+    if (scan.get_is_hidden()) {
       continue;
+    }
 
-      // Assumes no " in ssid, possible unicode isses?
-#ifdef USE_ESP8266
-    stream->print(ESPHOME_F(",{\"ssid\":\""));
-    stream->print(scan.get_ssid().c_str());
-    stream->print(ESPHOME_F("\",\"rssi\":"));
-    stream->print(scan.get_rssi());
-    stream->print(ESPHOME_F(",\"lock\":"));
-    stream->print(scan.get_with_auth());
-    stream->print(ESPHOME_F("}"));
-#else
-    stream->printf(R"(,{"ssid":"%s","rssi":%d,"lock":%d})", scan.get_ssid().c_str(), scan.get_rssi(),
-                   scan.get_with_auth());
-#endif
+    JsonObject ap = aps.add<JsonObject>();
+    ap[ESPHOME_F("ssid")] = scan.get_ssid();
+    ap[ESPHOME_F("rssi")] = scan.get_rssi();
+    ap[ESPHOME_F("lock")] = scan.get_with_auth();
   }
-  stream->print(ESPHOME_F("]}"));
+
+  std::string payload = builder.serialize();
+  AsyncResponseStream *stream = request->beginResponseStream(ESPHOME_F("application/json"));
+  stream->addHeader(ESPHOME_F("cache-control"), ESPHOME_F("public, max-age=0, must-revalidate"));
+  stream->print(payload.c_str());
   request->send(stream);
 }
 void CaptivePortal::handle_wifisave(AsyncWebServerRequest *request) {
@@ -88,11 +103,11 @@ void CaptivePortal::handle_wifisave(AsyncWebServerRequest *request) {
            ssid.c_str(), psk.c_str());
   request->redirect(ESPHOME_F("/?save"));
 #ifdef USE_ESP8266
-  // ESP8266 is single-threaded, save and reboot directly
-  wifi::global_wifi_component->save_wifi_sta_and_reboot(ssid, psk);
+  // Delay reboot briefly so HTTP response/redirect can flush to the client.
+  this->set_timeout(250, [ssid, psk]() { wifi::global_wifi_component->save_wifi_sta(ssid, psk); });
 #else
   // Defer save to main loop thread to avoid NVS operations from HTTP thread
-  this->defer([ssid, psk]() { wifi::global_wifi_component->save_wifi_sta_and_reboot(ssid, psk); });
+  this->defer([ssid, psk]() { wifi::global_wifi_component->save_wifi_sta(ssid, psk); });
 #endif
 }
 

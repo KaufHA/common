@@ -57,6 +57,81 @@ static const char *const TAG = "web_server";
 static constexpr size_t PSTR_LOCAL_SIZE = 18;
 #define PSTR_LOCAL(mode_s) ESPHOME_strncpy_P(buf, (ESPHOME_PGM_P) ((mode_s)), PSTR_LOCAL_SIZE - 1)
 
+struct ProductUiMetadata {
+  const char *display_name;
+  const char *product_url;
+  const char *update_url;
+  const char *ota_warning;
+  const char *factory_warning;
+};
+
+static ProductUiMetadata get_product_ui_metadata() {
+#if defined(KAUF_PRODUCT_PLF12)
+  return ProductUiMetadata{
+      "Plug (PLF12)",
+      "https://kaufha.com/plf12",
+      "https://github.com/KaufHA/PLF12/releases",
+      "",
+#if defined(KAUF_FACTORY_FIRMWARE)
+      "For factory images, with version suffix (f), /reset will place the firmware into factory test mode. "
+      "Factory test mode can be cleared easily by pressing the button on the device after a few seconds. "
+      "Flash one of our precompiled binaries from the github releases page to instantly stop and completely remove the factory routine. "
+#else
+      ""
+#endif
+  };
+#elif defined(KAUF_PRODUCT_PLF10)
+  return ProductUiMetadata{
+      "Plug (PLF10)",
+      "https://kaufha.com/plf10",
+      "https://github.com/KaufHA/PLF10/releases",
+      "",
+#if defined(KAUF_FACTORY_FIRMWARE)
+      "For factory images, with version suffix (f), /reset will place the firmware into factory test mode. "
+      "Factory test mode can be cleared easily by pressing the button on the device after a few seconds. "
+      "Flash one of our precompiled binaries from the github releases page to instantly stop and completely remove the factory routine. "
+#else
+      ""
+#endif
+  };
+#elif defined(KAUF_PRODUCT_RGBWW)
+  return ProductUiMetadata{
+      "RGBWW Bulb",
+      "https://kaufha.com/blf10",
+      "https://github.com/KaufHA/kauf-rgbww-bulbs/releases",
+      "DO NOT USE ANY WLED BIN FILE. WLED is not going to work properly on this bulb. "
+      "Use the included DDP functionality to control this bulb from another WLED instance "
+      "or xLights. ",
+#if defined(KAUF_FACTORY_FIRMWARE)
+      "For factory images, with version suffix (f), /reset will place the firmware into factory test mode. "
+      "Factory test mode will automatically stop after 10 minutes or can be cleared through the web "
+      "interface by pressing the \"Stop Factory Routine\" button once you get the bulb connected back to Wi-Fi. "
+      "You may need to refresh the page to see this button. "
+      "Flash one of our precompiled binaries from the github releases page to instantly stop and completely remove the factory routine. "
+#else
+      ""
+#endif
+  };
+#elif defined(KAUF_PRODUCT_RGBSW)
+  return ProductUiMetadata{
+      "RGB Switch",
+      "https://kaufha.com/srf10",
+      "https://github.com/KaufHA/kauf-rgb-switch/releases",
+      "",
+#if defined(KAUF_FACTORY_FIRMWARE)
+      "For factory images, with version suffix (f), /reset will place the firmware into factory test mode. "
+      "Factory test mode can be cleared easily by pressing the button on the device after a few seconds. "
+      "Flash one of our precompiled binaries from the github releases page to instantly stop and completely remove the factory routine. "
+#else
+      ""
+#endif
+  };
+#else
+  return ProductUiMetadata{
+      "Unknown Product", "https://kaufha.com", "https://github.com/KaufHA", "", ""};
+#endif
+}
+
 // Parse URL and return match info
 // URL formats (disambiguated by HTTP method for 3-segment case):
 //   GET  /{domain}/{entity_name} - main device state
@@ -373,6 +448,13 @@ std::string WebServer::get_config_json() {
   json::JsonBuilder builder;
   JsonObject root = builder.root();
 
+#ifdef ESPHOME_PROJECT_NAME
+  const char *project_name = ESPHOME_PROJECT_NAME;
+#else
+  const char *project_name = "Kauf.unknown";
+#endif
+  ProductUiMetadata product_ui = get_product_ui_metadata();
+
   root[ESPHOME_F("title")] = App.get_friendly_name().empty() ? App.get_name() : App.get_friendly_name();
   char comment_buffer[ESPHOME_COMMENT_SIZE];
   App.get_comment_string(comment_buffer);
@@ -388,22 +470,12 @@ std::string WebServer::get_config_json() {
   // KAUF: print out additional information
   root[ESPHOME_F("esph_v")] = ESPHOME_VERSION;
 
-#ifdef ESPHOME_PROJECT_NAME
-  root[ESPHOME_F("proj_n")] = ESPHOME_PROJECT_NAME;
-#else
-  root[ESPHOME_F("proj_n")] = "Kauf.unknown";
-#endif
+  root[ESPHOME_F("proj_n")] = project_name;
 
 #ifdef ESPHOME_PROJECT_VERSION
   root[ESPHOME_F("proj_v")] = ESPHOME_PROJECT_VERSION;
-  std::string project_version = ESPHOME_PROJECT_VERSION;
-  if ( project_version.find("(f)") != std::string::npos ) {
-         root[ESPHOME_F("proj_l")] = "f"; }
-  else { root[ESPHOME_F("proj_l")] = ""; }
-
 #else
   root[ESPHOME_F("proj_v")] = "unknown";
-  root[ESPHOME_F("proj_l")] = "";
 #endif
 
   root[ESPHOME_F("soft_ssid")] = wifi::global_wifi_component->soft_ssid;
@@ -412,6 +484,16 @@ std::string WebServer::get_config_json() {
   root[ESPHOME_F("free_sp")]   = ESP.getFreeSketchSpace();
   root[ESPHOME_F("mac_addr")]  = get_mac_address_pretty();
   root[ESPHOME_F("hostname")]  = App.get_name();
+  char build_time_buffer[Application::BUILD_TIME_STR_SIZE];
+  App.get_build_time_string(build_time_buffer);
+  root[ESPHOME_F("build_ts")]  = build_time_buffer;
+
+  JsonObject kauf_ui = root[ESPHOME_F("kauf_ui")].to<JsonObject>();
+  kauf_ui[ESPHOME_F("display_name")] = product_ui.display_name;
+  kauf_ui[ESPHOME_F("product_url")] = product_ui.product_url;
+  kauf_ui[ESPHOME_F("update_url")] = product_ui.update_url;
+  kauf_ui[ESPHOME_F("ota_warning")] = product_ui.ota_warning;
+  kauf_ui[ESPHOME_F("factory_warning")] = product_ui.factory_warning;
 
   return builder.serialize();
 }
@@ -2489,9 +2571,10 @@ void WebServer::clear_wifi(AsyncWebServerRequest *request) {
     request->send(stream);
 
 #ifdef USE_ESP8266
-    wifi::global_wifi_component->save_wifi_sta_and_reboot("initial_ap", "asdfasdfasdfasdf");
+    // Delay reboot briefly so HTTP response can flush to the client.
+    this->set_timeout(250, []() { wifi::global_wifi_component->save_wifi_sta("initial_ap", "asdfasdfasdfasdf"); });
 #else
-    this->defer([]() { wifi::global_wifi_component->save_wifi_sta_and_reboot("initial_ap", "asdfasdfasdfasdf"); });
+    this->defer([]() { wifi::global_wifi_component->save_wifi_sta("initial_ap", "asdfasdfasdfasdf"); });
 #endif
 
   } else {
@@ -2517,9 +2600,10 @@ void WebServer::save_wifi(AsyncWebServerRequest *request) {
   request->send(stream);
 
 #ifdef USE_ESP8266
-  wifi::global_wifi_component->save_wifi_sta_and_reboot(ssid, psk);
+  // Delay reboot briefly so HTTP response can flush to the client.
+  this->set_timeout(250, [ssid, psk]() { wifi::global_wifi_component->save_wifi_sta(ssid, psk); });
 #else
-  this->defer([ssid, psk]() { wifi::global_wifi_component->save_wifi_sta_and_reboot(ssid, psk); });
+  this->defer([ssid, psk]() { wifi::global_wifi_component->save_wifi_sta(ssid, psk); });
 #endif
 }
 

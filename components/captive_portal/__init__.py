@@ -22,6 +22,14 @@ import esphome.final_validate as fv
 from esphome.types import ConfigType
 
 _LOGGER = logging.getLogger(__name__)
+CONF_PRODUCT = "product"
+
+PRODUCT_DEFINE_MAP = {
+    "plf10": "KAUF_PRODUCT_PLF10",
+    "plf12": "KAUF_PRODUCT_PLF12",
+    "rgbww": "KAUF_PRODUCT_RGBWW",
+    "rgbsw": "KAUF_PRODUCT_RGBSW",
+}
 
 
 def AUTO_LOAD() -> list[str]:
@@ -45,6 +53,7 @@ CONFIG_SCHEMA = cv.All(
                 web_server_base.WebServerBase
             ),
             cv.Optional(CONF_COMPRESSION, default="gzip"): cv.one_of("gzip", "br"),
+            cv.Optional(CONF_PRODUCT): cv.one_of(*PRODUCT_DEFINE_MAP, lower=True),
         }
     ).extend(cv.COMPONENT_SCHEMA),
     cv.only_on(
@@ -62,6 +71,9 @@ CONFIG_SCHEMA = cv.All(
 def _final_validate(config: ConfigType) -> ConfigType:
     full_config = fv.full_config.get()
     wifi_conf = full_config.get("wifi")
+    web_server_conf = full_config.get("web_server") or {}
+    ws_product = web_server_conf.get(CONF_PRODUCT)
+    cp_product = config.get(CONF_PRODUCT)
 
     if wifi_conf is None:
         # This shouldn't happen due to DEPENDENCIES = ["wifi"], but check anyway
@@ -84,6 +96,11 @@ def _final_validate(config: ConfigType) -> ConfigType:
 
     socket.consume_sockets(4, "captive_portal")(config)
 
+    if ws_product is not None and cp_product is not None and ws_product != cp_product:
+        raise cv.Invalid(
+            f"captive_portal product '{cp_product}' conflicts with web_server product '{ws_product}'."
+        )
+
     return config
 
 
@@ -100,6 +117,8 @@ async def to_code(config):
 
     if config[CONF_COMPRESSION] == "gzip":
         cg.add_define("USE_CAPTIVE_PORTAL_GZIP")
+    if (product := config.get(CONF_PRODUCT)) is not None:
+        cg.add_define(PRODUCT_DEFINE_MAP[product])
 
     if CORE.using_arduino:
         if CORE.is_esp8266:

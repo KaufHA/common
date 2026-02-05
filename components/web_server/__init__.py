@@ -42,6 +42,15 @@ AUTO_LOAD = ["json", "web_server_base"]
 CONF_SORTING_GROUP_ID = "sorting_group_id"
 CONF_SORTING_GROUPS = "sorting_groups"
 CONF_SORTING_WEIGHT = "sorting_weight"
+CONF_PRODUCT = "product"
+CONF_FACTORY = "factory"
+
+PRODUCT_DEFINE_MAP = {
+    "plf10": "KAUF_PRODUCT_PLF10",
+    "plf12": "KAUF_PRODUCT_PLF12",
+    "rgbww": "KAUF_PRODUCT_RGBWW",
+    "rgbsw": "KAUF_PRODUCT_RGBSW",
+}
 
 
 web_server_ns = cg.esphome_ns.namespace("web_server")
@@ -218,6 +227,8 @@ CONFIG_SCHEMA = cv.All(
             # TODO: remove disable option completely on 1/23/27
             cv.Optional("disable", default=False): cv.boolean,
             cv.Optional("sensor_4m"): cv.boolean,
+            cv.Optional(CONF_PRODUCT): cv.one_of(*PRODUCT_DEFINE_MAP, lower=True),
+            cv.Optional(CONF_FACTORY, default=False): cv.boolean,
 
             cv.Optional(CONF_LOCAL): cv.boolean,
             cv.Optional(CONF_COMPRESSION, default="gzip"): cv.one_of("gzip", "br"),
@@ -363,6 +374,10 @@ async def to_code(config):
     # KAUF: implement sensor_4m option
     if "sensor_4m" in config:
         cg.add_define("SENSOR_4M", config["sensor_4m"])
+    if (product := config.get(CONF_PRODUCT)) is not None:
+        cg.add_define(PRODUCT_DEFINE_MAP[product])
+    if config.get(CONF_FACTORY):
+        cg.add_define("KAUF_FACTORY_FIRMWARE")
 
 
 def FILTER_SOURCE_FILES() -> list[str]:

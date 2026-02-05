@@ -85,9 +85,3 @@ fi
 if [ "$NAMESPACE" = "captive_portal" ]; then
     cp ../../_static/captive_portal/captive_index.h ../../../components/captive_portal/
 fi
-
-# Upload v2 www.js files to web server (requires SSH config alias "webdeploy")
-if [ "$NAMESPACE" = "web_server" ] && [ "$VERSION" = "2" ]; then
-    echo "Uploading www.js files..."
-    scp "$OUTPUT_DIR/www.js" "$OUTPUT_DIR/www.js.br" "$OUTPUT_DIR/www.js.gz" webdeploy:/var/www/wordpress/v2/
-fi

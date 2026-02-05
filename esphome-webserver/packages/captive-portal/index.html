@@ -52,8 +52,16 @@ Please wait.<br>
 <td id="t_free"></td>
 </tr>
 <tr>
+<td>Build Timestamp</td>
+<td id="t_buildts"></td>
+</tr>
+<tr>
 <td>ESPHome Version</td>
 <td id="t_esphv"></td>
+</tr>
+<tr>
+<td>Product</td>
+<td id="t_product"></td>
 </tr>
 <tr>
 <td>Project Name</td>
@@ -70,8 +78,7 @@ Please wait.<br>
 <h2>OTA Update</h2>
 ** DO NOT USE <b>TASMOTA-MINIMAL</b>.BIN or .BIN.GZ.<br>
 ** Use tasmota.bin.gz or tasmota-lite.bin.gz.<br><br>
-** Do not use any <b>WLED</b> firmware.<br>
-** KAUF bulbs have WLED support built in.<br><br>
+<span id="ota_warning"></span><br><br>
 <form method=POST action=/update enctype=multipart/form-data>
 <input type=file name=update>
 <button>Update</button>

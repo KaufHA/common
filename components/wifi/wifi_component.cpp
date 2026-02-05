@@ -928,6 +928,10 @@ void WiFiComponent::save_wifi_sta(const std::string &ssid, const std::string &pa
   // ensure it's written immediately
   global_preferences->sync();
 
+#ifdef USE_ESP8266
+  // KAUF: Save wifi credentials and reboot immediately without reconfiguring wifi
+  App.safe_reboot();
+#else
   WiFiAP sta{};
   sta.set_ssid(ssid);
   sta.set_password(password);
@@ -935,16 +939,7 @@ void WiFiComponent::save_wifi_sta(const std::string &ssid, const std::string &pa
 
   // Trigger connection attempt (exits cooldown if needed, no-op if already connecting/connected)
   this->connect_soon_();
-}
-
-// KAUF: Save wifi credentials and reboot immediately without reconfiguring wifi
-void WiFiComponent::save_wifi_sta_and_reboot(const std::string &ssid, const std::string &password) {
-  SavedWifiSettings save{};
-  strncpy(save.ssid, ssid.c_str(), sizeof(save.ssid) - 1);
-  strncpy(save.password, password.c_str(), sizeof(save.password) - 1);
-  this->pref_.save(&save);
-  global_preferences->sync();
-  App.safe_reboot();
+#endif
 }
 
 void WiFiComponent::connect_soon_() {
@@ -1453,6 +1448,12 @@ void WiFiComponent::check_connecting_finished(uint32_t now) {
 #endif
 
     this->release_scan_results_();
+
+#ifdef USE_WIFI_CONNECT_STATE_LISTENERS
+    // Notify listeners now that state machine has reached STA_CONNECTED
+    // This ensures wifi.connected condition returns true in listener automations
+    this->notify_connect_state_listeners_();
+#endif
 
     return;
   }
@@ -2181,6 +2182,21 @@ void WiFiComponent::release_scan_results_() {
 #endif
   }
 }
+
+#ifdef USE_WIFI_CONNECT_STATE_LISTENERS
+void WiFiComponent::notify_connect_state_listeners_() {
+  if (!this->pending_.connect_state)
+    return;
+  this->pending_.connect_state = false;
+  // Get current SSID and BSSID from the WiFi driver
+  char ssid_buf[SSID_BUFFER_SIZE];
+  const char *ssid = this->wifi_ssid_to(ssid_buf);
+  bssid_t bssid = this->wifi_bssid();
+  for (auto *listener : this->connect_state_listeners_) {
+    listener->on_wifi_connect_state(StringRef(ssid, strlen(ssid)), bssid);
+  }
+}
+#endif  // USE_WIFI_CONNECT_STATE_LISTENERS
 
 void WiFiComponent::check_roaming_(uint32_t now) {
   // Guard: not for hidden networks (may not appear in scan)
