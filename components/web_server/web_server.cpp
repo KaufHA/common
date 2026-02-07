@@ -20,13 +20,15 @@
 #include "StreamString.h"
 #endif
 
-// KAUF: include string for something
+// KAUF: include string stuff
 #include <string>
+#include <algorithm>
 
 #include <cstdlib>
 
 #ifdef USE_LIGHT
 #include "esphome/components/light/light_json_schema.h"
+#include "esphome/components/light/color_mode.h"
 #endif
 
 #ifdef USE_LOGGER
@@ -52,6 +54,64 @@
 namespace esphome::web_server {
 
 static const char *const TAG = "web_server";
+
+#ifdef USE_LIGHT
+static bool parse_color_mode_string_(const std::string &value, light::ColorMode &out) {
+  std::string v = value;
+  std::transform(v.begin(), v.end(), v.begin(), [](unsigned char c) { return std::tolower(c); });
+  if (v == "onoff" || v == "on_off") {
+    out = light::ColorMode::ON_OFF;
+    return true;
+  }
+  if (v == "brightness") {
+    out = light::ColorMode::BRIGHTNESS;
+    return true;
+  }
+  if (v == "white") {
+    out = light::ColorMode::WHITE;
+    return true;
+  }
+  if (v == "color_temp" || v == "color_temperature") {
+    out = light::ColorMode::COLOR_TEMPERATURE;
+    return true;
+  }
+  if (v == "cwww") {
+    out = light::ColorMode::COLD_WARM_WHITE;
+    return true;
+  }
+  if (v == "rgb") {
+    out = light::ColorMode::RGB;
+    return true;
+  }
+  if (v == "rgbw") {
+    out = light::ColorMode::RGB_WHITE;
+    return true;
+  }
+  if (v == "rgbct") {
+    out = light::ColorMode::RGB_COLOR_TEMPERATURE;
+    return true;
+  }
+  if (v == "rgbww") {
+    out = light::ColorMode::RGB_COLD_WARM_WHITE;
+    return true;
+  }
+  return false;
+}
+
+template<typename T>
+static void parse_color_mode_param_(AsyncWebServerRequest *request, T &call) {
+  if (!request->hasParam(ESPHOME_F("color_mode")))
+    return;
+  std::string value =
+      request->getParam(ESPHOME_F("color_mode"))->value().c_str();  // NOLINT(readability-redundant-string-cstr)
+  light::ColorMode mode = light::ColorMode::UNKNOWN;
+  if (parse_color_mode_string_(value, mode)) {
+    call.set_color_mode_if_supported(mode);
+  } else {
+    ESP_LOGW(TAG, "Unsupported color_mode value: %s", value.c_str());
+  }
+}
+#endif
 
 // Longest: UPDATE AVAILABLE (16 chars + null terminator, rounded up)
 static constexpr size_t PSTR_LOCAL_SIZE = 18;
@@ -456,6 +516,12 @@ std::string WebServer::get_config_json() {
   ProductUiMetadata product_ui = get_product_ui_metadata();
 
   root[ESPHOME_F("title")] = App.get_friendly_name().empty() ? App.get_name() : App.get_friendly_name();
+  // Feature entity whose name matches the device-friendly name (compile-time decision)
+  if (!this->featured_name_.empty()) {
+    root[ESPHOME_F("featured_name")] = this->featured_name_;
+  } else {
+    root[ESPHOME_F("featured_name")] = App.get_friendly_name().empty() ? App.get_name() : App.get_friendly_name();
+  }
   char comment_buffer[ESPHOME_COMMENT_SIZE];
   App.get_comment_string(comment_buffer);
   root[ESPHOME_F("comment")] = comment_buffer;
@@ -1055,6 +1121,7 @@ void WebServer::handle_light_request(AsyncWebServerRequest *request, const UrlMa
 
       if (is_on) {
         // Parse color parameters
+        parse_color_mode_param_(request, call);
         parse_light_param_(request, ESPHOME_F("brightness"), call, &decltype(call)::set_brightness, 255.0f);
         parse_light_param_(request, ESPHOME_F("r"), call, &decltype(call)::set_red, 255.0f);
         parse_light_param_(request, ESPHOME_F("g"), call, &decltype(call)::set_green, 255.0f);
@@ -1091,6 +1158,9 @@ std::string WebServer::light_json_(light::LightState *obj, JsonDetail start_conf
   set_json_value(root, obj, "light", obj->remote_values.is_on() ? "ON" : "OFF", start_config);
 
   light::LightJSONSchema::dump_json(*obj, root);
+  const auto traits = obj->get_traits();
+  root[ESPHOME_F("min_mireds")] = traits.get_min_mireds();
+  root[ESPHOME_F("max_mireds")] = traits.get_max_mireds();
   if (start_config == DETAIL_ALL) {
     JsonArray opt = root[ESPHOME_F("effects")].to<JsonArray>();
     opt.add("None");

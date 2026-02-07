@@ -76,7 +76,7 @@ if [ -n "$VERSION" ]; then
   echo "#endif" >>"$OUTPUT_FILE"
   echo "#endif" >>"$OUTPUT_FILE"
 
-  if [ "$VERSION" = "3" ]; then
+  if [ "$VERSION" = "2" ]; then
     cp ../../_static/v2/server_index_v2.h ../../../components/web_server/
   fi
 fi

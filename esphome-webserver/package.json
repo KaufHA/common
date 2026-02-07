@@ -6,9 +6,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build:packages && npm run deploy",
-    "build:packages": "npm run build --workspaces --if-present",
-    "deploy": "npm run deploy --workspaces --if-present",
+    "build": "npm run build -w @esphome-webserver/captive-portal -w @esphome-webserver/v2",
     "upload": "npm run upload -w @esphome-webserver/v2"
   }
 }

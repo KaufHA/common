@@ -1,5 +1,6 @@
-import { html, css, LitElement, TemplateResult } from "lit";
-import { customElement, state } from "lit/decorators.js";
+import { html, css, LitElement, nothing } from "lit";
+import { keyed } from "lit/directives/keyed.js";
+import { customElement, property, state } from "lit/decorators.js";
 import cssReset from "./css/reset";
 import cssButton from "./css/button";
 
@@ -17,6 +18,17 @@ interface entityConfig {
   option?: string[];
   assumed_state?: boolean;
   brightness?: number;
+  color_mode?: string;
+  color_temp?: number;
+  color?: {
+    r?: number;
+    g?: number;
+    b?: number;
+    c?: number;
+    w?: number;
+  };
+  min_mireds?: number;
+  max_mireds?: number;
   target_temperature?: number;
   target_temperature_low?: number;
   target_temperature_high?: number;
@@ -90,6 +102,11 @@ interface RestAction {
 export class EntityTable extends LitElement implements RestAction {
   @state() entities: entityConfig[] = [];
   @state() has_controls: boolean = false;
+  @state() activeMode: "rgb" | "ct" | "" = "";
+  @state() uiHoldRgb: boolean = false;
+  @state() uiRgb: { r: number; g: number; b: number } = { r: 0, g: 0, b: 0 };
+  @property({ type: String, attribute: "featured-name" }) featuredName: string = "";
+  @property({ type: String }) mode: "hero" | "table" = "table";
 
   private _actionRenderer = new ActionRenderer();
 
@@ -141,7 +158,14 @@ export class EntityTable extends LitElement implements RestAction {
   }
 
   restAction(entity: entityConfig, action: string) {
-    fetch(buildEntityActionUrl(entity, action), {
+    const path = buildEntityActionUrl(entity, action);
+    const fullUrl = `${window.location.origin}${path}`;
+    document.dispatchEvent(
+      new CustomEvent("webserver-api-call", {
+        detail: { method: "POST", url: fullUrl },
+      })
+    );
+    fetch(path, {
       method: "POST",
       headers:{
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -151,23 +175,328 @@ export class EntityTable extends LitElement implements RestAction {
     });
   }
 
-  render() {
+  private isFeatured(entity: entityConfig): boolean {
+    return !!this.featuredName && entity.name === this.featuredName;
+  }
+
+  private getFeaturedEntity(): entityConfig | undefined {
+    return this.entities.find((e) => this.isFeatured(e));
+  }
+
+  private setActiveMode(mode: "rgb" | "ct") {
+    if (this.activeMode !== mode) {
+      this.activeMode = mode;
+    }
+  }
+
+  private holdUiRgb() {
+    this.uiHoldRgb = true;
+    window.setTimeout(() => {
+      this.uiHoldRgb = false;
+    }, 600);
+  }
+
+  private getPreferredMode(entity: entityConfig): "rgb" | "ct" {
+    const mode = (entity.color_mode || "").toLowerCase();
+    if (mode.includes("rgb")) return "rgb";
+    if (mode.includes("color_temp")) return "ct";
+    if (this.activeMode) return this.activeMode;
+    return "rgb";
+  }
+
+  private renderHero() {
+    const entity = this.getFeaturedEntity();
+    if (!entity) {
+      return nothing;
+    }
+
+    if (entity.domain !== "light") {
+      return this.renderEntityTable([entity]);
+    }
+
+    const r = entity.color?.r ?? 0;
+    const g = entity.color?.g ?? 0;
+    const b = entity.color?.b ?? 0;
+    const brightness = entity.brightness ?? 0;
+    const defaultMinMireds = Math.round(1000000 / 6600);
+    const defaultMaxMireds = Math.round(1000000 / 2800);
+    const minMireds =
+      entity.min_mireds && entity.min_mireds > 0 ? entity.min_mireds : defaultMinMireds;
+    const maxMireds =
+      entity.max_mireds && entity.max_mireds > 0 ? entity.max_mireds : defaultMaxMireds;
+    const colorTemp = entity.color_temp && entity.color_temp > 0 ? entity.color_temp : maxMireds;
+    const kelvinMin = Math.round(1000000 / maxMireds);
+    const kelvinMax = Math.round(1000000 / minMireds);
+    const kelvinNow = Math.round(1000000 / colorTemp);
+    const dispBrightness = brightness;
+    const dispR = this.uiHoldRgb ? this.uiRgb.r : r;
+    const dispG = this.uiHoldRgb ? this.uiRgb.g : g;
+    const dispB = this.uiHoldRgb ? this.uiRgb.b : b;
+    const dispKelvin = kelvinNow;
+    const ctInputVal = kelvinMax + kelvinMin - dispKelvin;
+    const preferredMode = this.getPreferredMode(entity);
+
+    const isOn = entity.state === "ON";
+    const isRgb = isOn && preferredMode === "rgb";
+    const isCt = isOn && preferredMode === "ct";
+    const powerClass = isOn && (isRgb || isCt) ? "active" : "";
+    const rgbInactiveClass = !isRgb ? "inactive" : "";
+    const ctInactiveClass = !isCt ? "inactive" : "";
+    return html`
+      <div class="hero">
+        <div class="hero-grid">
+          <div
+            class="hero-col ${powerClass}"
+            @click="${(e: Event) => {
+              const target = e.target as HTMLElement;
+              if (target && target.tagName === "INPUT") return;
+              const next = entity.state === "ON" ? "turn_off" : "turn_on";
+              this.restAction(entity, next);
+            }}"
+          >
+            <div class="hero-col-title">Power</div>
+            <div class="hero-row">
+              <esp-switch
+                color="var(--primary-color,currentColor)"
+                .state=${entity.state}
+                @state="${(e: CustomEvent) => {
+                  let act = "turn_" + e.detail.state;
+                  this.restAction(entity, act.toLowerCase());
+                }}"
+              ></esp-switch>
+            </div>
+            <div class="hero-slider hero-slider-stacked">
+              <div class="hero-col-title">Brightness</div>
+              <div class="hero-slider-row">
+                ${keyed(
+                  brightness,
+                  html`<input
+                    type="range"
+                    min="1"
+                    max="255"
+                    step="1"
+                    .value="${dispBrightness}"
+                    @click="${(e: Event) => e.stopPropagation()}"
+                    @change="${(e: Event) => {
+                      e.stopPropagation();
+                      const val = Number((e.target as HTMLInputElement).value);
+                      this.restAction(entity, `turn_on?brightness=${val}`);
+                    }}"
+                  />`
+                )}
+                <span class="hero-slider-value">${dispBrightness}</span>
+              </div>
+            </div>
+          </div>
+          <div
+            class="hero-col ${isRgb ? "active" : ""} ${rgbInactiveClass}"
+            @click="${(e: Event) => {
+              const target = e.target as HTMLElement;
+              if (target && target.tagName === "INPUT") return;
+              this.setActiveMode("rgb");
+              this.restAction(entity, "turn_on?color_mode=rgb");
+            }}"
+          >
+            <div class="hero-col-title">RGB</div>
+            <div class="hero-slider">
+              <label>R</label>
+              ${keyed(
+                dispR,
+                html`<input
+                  type="range"
+                  min="0"
+                  max="255"
+                  step="1"
+                  .value="${dispR}"
+                  @click="${(e: Event) => e.stopPropagation()}"
+                  @mousedown="${(e: Event) => {
+                    if (!isRgb) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      this.setActiveMode("rgb");
+                      this.restAction(entity, "turn_on?color_mode=rgb");
+                    }
+                  }}"
+                  @touchstart="${(e: Event) => {
+                    if (!isRgb) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      this.setActiveMode("rgb");
+                      this.restAction(entity, "turn_on?color_mode=rgb");
+                    }
+                  }}"
+                  @change="${(e: Event) => {
+                    e.stopPropagation();
+                    if (!isRgb) return;
+                    const val = Number((e.target as HTMLInputElement).value);
+                    this.uiRgb = { r: val, g: dispG, b: dispB };
+                    this.holdUiRgb();
+                    this.setActiveMode("rgb");
+                    this.restAction(entity, `turn_on?r=${val}&g=${dispG}&b=${dispB}`);
+                  }}"
+                />`
+              )}
+              <span class="hero-slider-value">${isRgb ? dispR : "—"}</span>
+            </div>
+            <div class="hero-slider">
+              <label>G</label>
+              ${keyed(
+                dispG,
+                html`<input
+                  type="range"
+                  min="0"
+                  max="255"
+                  step="1"
+                  .value="${dispG}"
+                  @click="${(e: Event) => e.stopPropagation()}"
+                  @mousedown="${(e: Event) => {
+                    if (!isRgb) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      this.setActiveMode("rgb");
+                      this.restAction(entity, "turn_on?color_mode=rgb");
+                    }
+                  }}"
+                  @touchstart="${(e: Event) => {
+                    if (!isRgb) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      this.setActiveMode("rgb");
+                      this.restAction(entity, "turn_on?color_mode=rgb");
+                    }
+                  }}"
+                  @change="${(e: Event) => {
+                    e.stopPropagation();
+                    if (!isRgb) return;
+                    const val = Number((e.target as HTMLInputElement).value);
+                    this.uiRgb = { r: dispR, g: val, b: dispB };
+                    this.holdUiRgb();
+                    this.setActiveMode("rgb");
+                    this.restAction(entity, `turn_on?r=${dispR}&g=${val}&b=${dispB}`);
+                  }}"
+                />`
+              )}
+              <span class="hero-slider-value">${isRgb ? dispG : "—"}</span>
+            </div>
+            <div class="hero-slider">
+              <label>B</label>
+              ${keyed(
+                dispB,
+                html`<input
+                  type="range"
+                  min="0"
+                  max="255"
+                  step="1"
+                  .value="${dispB}"
+                  @click="${(e: Event) => e.stopPropagation()}"
+                  @mousedown="${(e: Event) => {
+                    if (!isRgb) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      this.setActiveMode("rgb");
+                      this.restAction(entity, "turn_on?color_mode=rgb");
+                    }
+                  }}"
+                  @touchstart="${(e: Event) => {
+                    if (!isRgb) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      this.setActiveMode("rgb");
+                      this.restAction(entity, "turn_on?color_mode=rgb");
+                    }
+                  }}"
+                  @change="${(e: Event) => {
+                    e.stopPropagation();
+                    if (!isRgb) return;
+                    const val = Number((e.target as HTMLInputElement).value);
+                    this.uiRgb = { r: dispR, g: dispG, b: val };
+                    this.holdUiRgb();
+                    this.setActiveMode("rgb");
+                    this.restAction(entity, `turn_on?r=${dispR}&g=${dispG}&b=${val}`);
+                  }}"
+                />`
+              )}
+              <span class="hero-slider-value">${isRgb ? dispB : "—"}</span>
+            </div>
+          </div>
+          <div
+            class="hero-col ${isCt ? "active" : ""} ${ctInactiveClass}"
+            @click="${(e: Event) => {
+              const target = e.target as HTMLElement;
+              if (target && target.tagName === "INPUT") return;
+              this.setActiveMode("ct");
+              this.restAction(entity, "turn_on?color_mode=color_temp");
+            }}"
+          >
+            <div class="hero-col-title">Color Temp</div>
+            <div class="hero-slider hero-slider-ct">
+              ${keyed(
+                dispKelvin,
+                html`<input
+                  type="range"
+                  min="${kelvinMin}"
+                  max="${kelvinMax}"
+                  step="1"
+                  .value="${ctInputVal}"
+                  @click="${(e: Event) => e.stopPropagation()}"
+                  @mousedown="${(e: Event) => {
+                    if (!isCt) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      this.setActiveMode("ct");
+                      this.restAction(entity, "turn_on?color_mode=color_temp");
+                    }
+                  }}"
+                  @touchstart="${(e: Event) => {
+                    if (!isCt) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      this.setActiveMode("ct");
+                      this.restAction(entity, "turn_on?color_mode=color_temp");
+                    }
+                  }}"
+                  @change="${(e: Event) => {
+                    e.stopPropagation();
+                    if (!isCt) return;
+                    const val = Number((e.target as HTMLInputElement).value);
+                    const kelvin = kelvinMax + kelvinMin - val;
+                    this.setActiveMode("ct");
+                    const mired = Math.round(1000000 / kelvin);
+                    this.restAction(entity, `turn_on?color_temp=${mired}`);
+                  }}"
+                />`
+              )}
+              <span class="hero-slider-value-k">${isCt ? `${dispKelvin}K` : "—"}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderTable() {
+    const rows = this.entities.filter((e) => !this.isFeatured(e));
+    return this.renderEntityTable(rows);
+  }
+
+  private renderEntityTable(rows: entityConfig[]) {
+    const showControls = rows.some((e) => e.has_action);
     return html`
       <table>
         <thead>
           <tr>
             <th>Name</th>
             <th>State</th>
-            ${this.has_controls ? html`<th>Actions</th>` : html``}
+            ${showControls ? html`<th>Actions</th>` : html``}
           </tr>
         </thead>
         <tbody>
-          ${this.entities.map(
+          ${rows.map(
             (component) => html`
               <tr>
-                <td>${component.device ? `[${component.device}] ` : ''}${component.name}</td>
+                <td>${component.device ? `[${component.device}] ` : ""}${component.name}</td>
                 <td>${component.state}</td>
-                ${this.has_controls
+                ${showControls
                   ? html`<td>
                       ${component.has_action ? this.control(component) : html``}
                     </td>`
@@ -178,6 +507,13 @@ export class EntityTable extends LitElement implements RestAction {
         </tbody>
       </table>
     `;
+  }
+
+  render() {
+    if (this.mode === "hero") {
+      return this.renderHero();
+    }
+    return this.renderTable();
   }
 
   static get styles() {
@@ -220,6 +556,99 @@ export class EntityTable extends LitElement implements RestAction {
         }
         .range, .text {
           text-align: center;
+        }
+        .hero {
+          padding: 0.5rem 0;
+        }
+        .hero.empty {
+          color: rgba(127, 127, 127, 0.8);
+        }
+        .hero-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 0.5rem;
+          width: 100%;
+          margin: 0;
+        }
+        .hero-col {
+          border: 1px solid rgba(127, 127, 127, 0.5);
+          border-radius: 4px;
+          padding: 0.5rem;
+          background: rgba(127, 127, 127, 0.1);
+        }
+        .hero-col.inactive {
+          opacity: 0.55;
+          filter: grayscale(0.2);
+        }
+        .hero-col.inactive input[type="range"] {
+          accent-color: rgba(127, 127, 127, 0.7);
+          pointer-events: none;
+        }
+        .hero-col.inactive input[type="range"]:hover {
+          accent-color: rgba(127, 127, 127, 0.7);
+        }
+        .hero-col.active {
+          border-color: var(--primary-color, currentColor);
+          background: rgba(3, 169, 244, 0.15);
+        }
+        .hero-col-title {
+          font-weight: 600;
+          margin-bottom: 0.25rem;
+          user-select: none;
+        }
+        .hero-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+        }
+        .hero-slider {
+          display: grid;
+          grid-template-columns: 2ch minmax(0, 1fr) 3ch;
+          align-items: center;
+          gap: 0.5rem;
+          margin-top: 0.25rem;
+        }
+        .hero-slider-ct {
+          grid-template-columns: minmax(0, 1fr) 5ch;
+        }
+        .hero-slider input[type="range"] {
+          width: 100%;
+          height: 0.75rem;
+        }
+        .hero-slider label {
+          text-align: right;
+          display: inline-block;
+          width: 2ch;
+        }
+        .hero-slider span {
+          display: inline-block;
+          text-align: right;
+        }
+        .hero-slider-value {
+          width: 3ch;
+        }
+        .hero-slider-value-k {
+          width: 5ch;
+        }
+        .hero-slider-stacked {
+          display: block;
+        }
+        .hero-slider-row {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 3ch;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        .hero-actions {
+          display: flex;
+          gap: 0.25rem;
+          align-items: center;
+        }
+        @media (max-width: 800px) {
+          .hero-grid {
+            grid-template-columns: 1fr;
+          }
         }
       `,
     ];

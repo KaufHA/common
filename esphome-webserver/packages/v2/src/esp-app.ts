@@ -72,12 +72,19 @@ interface Config {
     ota_warning?: string;
     factory_warning?: string;
   };
+  featured_name?: string;
 }
 
 @customElement("esp-app")
 export default class EspApp extends LitElement {
   @state() scheme: string = "";
   @state() ping: string = "";
+  @state() lastApiCall: string = "";
+  @state() eventConnected: boolean = true;
+  @state() showReconnectNotice: boolean = false;
+  @state() hadDisconnect: boolean = false;
+  @state() lastPingMs: number = Date.now();
+  @state() hasOpenedOnce: boolean = false;
   @query("#beat")
   beat!: HTMLSpanElement;
 
@@ -126,11 +133,39 @@ export default class EspApp extends LitElement {
         this.setConfig(JSON.parse(messageEvent.data));
       }
       this.ping = messageEvent.lastEventId;
+      this.eventConnected = true;
+      this.lastPingMs = Date.now();
     });
-    window.source.onerror = function (e: Event) {
+    document.addEventListener("webserver-api-call", (e: Event) => {
+      const ev = e as CustomEvent;
+      const method = ev.detail?.method || "POST";
+      const url = ev.detail?.url || "";
+      if (url) {
+        this.lastApiCall = `${method} ${url}`;
+      }
+    });
+    window.source.onopen = () => {
+      this.eventConnected = true;
+      if (this.hasOpenedOnce) {
+        this.showReconnectNotice = true;
+      }
+      this.hasOpenedOnce = true;
+    };
+    window.source.onerror = (e: Event) => {
       console.dir(e);
+      this.eventConnected = false;
+      this.hadDisconnect = true;
       //alert("Lost event stream!")
     };
+
+    // Heartbeat watchdog: if we miss pings for too long, flag as disconnected.
+    window.setInterval(() => {
+      const elapsed = Date.now() - this.lastPingMs;
+      if (elapsed > 22500) {
+        this.eventConnected = false;
+        this.hadDisconnect = true;
+      }
+    }, 5000);
   }
 
   isDark() {
@@ -235,6 +270,7 @@ export default class EspApp extends LitElement {
     const product = this.getProductUi();
     const displayName = product.display_name ? ` ${product.display_name}` : "";
     const productUrl = product.product_url || "https://kaufha.com";
+    const featuredName = this.config.featured_name || "";
 
     return html`
       <main class="flex-grid-half">
@@ -247,8 +283,28 @@ export default class EspApp extends LitElement {
           <br>Firmware version ${this.config.proj_v} made using <a href="https://esphome.io" target="_blank" rel="noopener noreferrer">ESPHome</a> version ${this.config.esph_v}. ${this.renderUpdateLink()}</p>
           <p>See <a href="https://esphome.io/web-api/" target="_blank" rel="noopener noreferrer">ESPHome Web Server API</a> for REST API documentation.</p>
           ${this.renderComment()}
-          <h2>Entity Table</h2>
-          <esp-entity-table></esp-entity-table>
+          ${featuredName
+            ? html`<h2>Main Control Entity</h2>
+                <esp-entity-table mode="hero" featured-name="${featuredName}"></esp-entity-table>`
+            : html``}
+          ${this.eventConnected
+            ? nothing
+            : html`<p class="event-warning"><b>Warning:</b> Live updates are disconnected. Refresh this page to see current status.</p>`}
+          ${this.showReconnectNotice
+            ? html`<p class="event-notice">
+                Live updates reconnected. Refresh recommended if you recently updated the device.
+                <button
+                  class="event-notice-close"
+                  @click=${() => (this.showReconnectNotice = false)}
+                  aria-label="Dismiss notice"
+                  title="Dismiss"
+                >
+                  ×
+                </button>
+              </p>`
+            : nothing}
+          <h2>Additional Entities</h2>
+          <esp-entity-table mode="table" featured-name="${featuredName}"></esp-entity-table>
           <h2>
             <esp-switch
               color="var(--primary-color,currentColor)"
@@ -301,6 +357,10 @@ export default class EspApp extends LitElement {
                   <td>${this.config.build_ts}</td>
                 </tr>`
               : nothing}
+            <tr>
+              <td>Last API Call</td>
+              <td>${this.lastApiCall || "-"}</td>
+            </tr>
           </tbody></table>
         </section>
         ${this.renderLog()}
@@ -357,6 +417,29 @@ export default class EspApp extends LitElement {
         h3 {
           text-align: center;
           margin: 0.5rem 0;
+        }
+        .event-warning {
+          color: #b00020;
+          font-weight: 700;
+          margin: 0.25rem 0 0.5rem;
+        }
+        .event-notice {
+          position: relative;
+          color: #666;
+          font-weight: 600;
+          margin: 0.25rem 0 0.5rem;
+          padding-right: 1.5rem;
+        }
+        .event-notice-close {
+          position: absolute;
+          right: 0.25rem;
+          top: 0;
+          border: none;
+          background: transparent;
+          color: #666;
+          font-size: 1.1rem;
+          line-height: 1;
+          cursor: pointer;
         }
         #beat {
           float: right;

@@ -235,6 +235,8 @@ class WebServer : public Controller,
    * @param expose_log.
    */
   void set_expose_log(bool expose_log) { this->expose_log_ = expose_log; }
+  /** Set the name of the featured entity (optional). */
+  void set_featured_name(const std::string &name) { this->featured_name_ = name; }
 
   // ========== INTERNAL METHODS ==========
   // (In most use cases you won't need these)
@@ -596,6 +598,7 @@ class WebServer : public Controller,
   const char *js_include_{nullptr};
 #endif
   bool expose_log_{true};
+  std::string featured_name_{};
 
  private:
 #ifdef USE_SENSOR

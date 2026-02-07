@@ -44,6 +44,7 @@ CONF_SORTING_GROUPS = "sorting_groups"
 CONF_SORTING_WEIGHT = "sorting_weight"
 CONF_PRODUCT = "product"
 CONF_FACTORY = "factory"
+CONF_FEATURED_ENTITY = "featured_entity"
 
 PRODUCT_DEFINE_MAP = {
     "plf10": "KAUF_PRODUCT_PLF10",
@@ -156,7 +157,33 @@ def _final_validate_sorting(config: ConfigType) -> ConfigType:
     return config
 
 
-FINAL_VALIDATE_SCHEMA = _final_validate_sorting
+def _collect_entity_names(node, names: set[str]) -> None:
+    if isinstance(node, dict):
+        name = node.get(CONF_NAME)
+        if isinstance(name, str):
+            names.add(name)
+        for value in node.values():
+            _collect_entity_names(value, names)
+    elif isinstance(node, list):
+        for item in node:
+            _collect_entity_names(item, names)
+
+
+def _final_validate_featured_entity(config: ConfigType) -> ConfigType:
+    featured = config.get(CONF_FEATURED_ENTITY)
+    if not featured:
+        return config
+    names: set[str] = set()
+    _collect_entity_names(fv.full_config.get(), names)
+    if featured not in names:
+        raise cv.FinalExternalInvalid(
+            f"'{CONF_FEATURED_ENTITY}' must match the name of an entity in the configuration",
+            path=[CONF_FEATURED_ENTITY],
+        )
+    return config
+
+
+FINAL_VALIDATE_SCHEMA = cv.All(_final_validate_sorting, _final_validate_featured_entity)
 
 
 def _consume_web_server_sockets(config: ConfigType) -> ConfigType:
@@ -229,6 +256,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional("sensor_4m"): cv.boolean,
             cv.Optional(CONF_PRODUCT): cv.one_of(*PRODUCT_DEFINE_MAP, lower=True),
             cv.Optional(CONF_FACTORY, default=False): cv.boolean,
+            cv.Optional(CONF_FEATURED_ENTITY): cv.string,
 
             cv.Optional(CONF_LOCAL): cv.boolean,
             cv.Optional(CONF_COMPRESSION, default="gzip"): cv.one_of("gzip", "br"),
@@ -378,6 +406,8 @@ async def to_code(config):
         cg.add_define(PRODUCT_DEFINE_MAP[product])
     if config.get(CONF_FACTORY):
         cg.add_define("KAUF_FACTORY_FIRMWARE")
+    if (featured := config.get(CONF_FEATURED_ENTITY)) is not None:
+        cg.add(var.set_featured_name(featured))
 
 
 def FILTER_SOURCE_FILES() -> list[str]:
