@@ -276,7 +276,15 @@ export default class EspApp extends LitElement {
       <main class="flex-grid-half">
         <section class="col">
           <h1>
-            ${this.config.title}
+            <span class="main-heading-icon" aria-hidden="true">
+              <svg class="icon-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d="M12,2A7,7 0 0,0 5,9C5,11.38 6.19,13.47 8,14.74V17A1,1 0 0,0 9,18H15A1,1 0 0,0 16,17V14.74C17.81,13.47 19,11.38 19,9A7,7 0 0,0 12,2M9,21A1,1 0 0,0 10,22H14A1,1 0 0,0 15,21V20H9V21Z" />
+              </svg>
+              <svg class="icon-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d="M12,2C9.76,2 7.78,3.05 6.5,4.68L16.31,14.5C17.94,13.21 19,11.24 19,9A7,7 0 0,0 12,2M3.28,4L2,5.27L5.04,8.3C5,8.53 5,8.76 5,9C5,11.38 6.19,13.47 8,14.74V17A1,1 0 0,0 9,18H14.73L18.73,22L20,20.72L3.28,4M9,20V21A1,1 0 0,0 10,22H14A1,1 0 0,0 15,21V20H9Z" />
+              </svg>
+            </span>
+            <span class="main-heading-title">${this.config.title}</span>
             <span id="beat" title="${this.version}">❤</span>
           </h1>
           <p><b>KAUF${displayName}</b> by <a href="${productUrl}" target="_blank" rel="noopener noreferrer">Kaufman Home Automation</a>
@@ -413,6 +421,49 @@ export default class EspApp extends LitElement {
         h2 {
           border-bottom: 1px solid #eaecef;
           margin-bottom: 0.25rem;
+        }
+        h1 {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+        }
+        .main-heading-title {
+          display: inline-block;
+        }
+        .main-heading-icon {
+          width: 1.6em;
+          height: 1.6em;
+          display: inline-block;
+          position: absolute;
+          left: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          opacity: var(--featured-icon-visible, 0);
+        }
+        .main-heading-icon svg {
+          width: 1.6em;
+          height: 1.6em;
+          position: absolute;
+          left: 0;
+          top: 0;
+        }
+        .main-heading-icon .icon-on {
+          fill: var(--featured-color, transparent);
+          stroke: #000;
+          stroke-width: 1.25;
+          stroke-linejoin: round;
+          stroke-linecap: round;
+          opacity: var(--featured-on, 0);
+        }
+        .main-heading-icon .icon-off {
+          fill: #666;
+          opacity: calc(1 - var(--featured-on, 0));
+        }
+        #beat {
+          position: absolute;
+          right: 0;
+          top: 0;
         }
         h3 {
           text-align: center;

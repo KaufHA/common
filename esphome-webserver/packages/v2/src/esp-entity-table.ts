@@ -204,15 +204,67 @@ export class EntityTable extends LitElement implements RestAction {
     return "rgb";
   }
 
+  private kelvinToRgb(kelvin: number): { r: number; g: number; b: number } {
+    let temp = Math.min(40000, Math.max(1000, kelvin)) / 100;
+    let r: number;
+    let g: number;
+    let b: number;
+    if (temp <= 66) {
+      r = 255;
+      g = 99.4708025861 * Math.log(temp) - 161.1195681661;
+      b = temp <= 19 ? 0 : 138.5177312231 * Math.log(temp - 10) - 305.0447927307;
+    } else {
+      r = 329.698727446 * Math.pow(temp - 60, -0.1332047592);
+      g = 288.1221695283 * Math.pow(temp - 60, -0.0755148492);
+      b = 255;
+    }
+    return {
+      r: Math.min(255, Math.max(0, Math.round(r))),
+      g: Math.min(255, Math.max(0, Math.round(g))),
+      b: Math.min(255, Math.max(0, Math.round(b))),
+    };
+  }
+
+  private setFeaturedColor(entity: entityConfig | undefined) {
+    const root = document.documentElement;
+    if (!entity || entity.domain !== "light") {
+      root.style.setProperty("--featured-color", "transparent");
+      root.style.setProperty("--featured-color-opacity", "0");
+      root.style.setProperty("--featured-on", "0");
+      root.style.setProperty("--featured-icon-visible", "0");
+      return;
+    }
+    const isOn = entity.state === "ON";
+    const r = entity.color?.r ?? 0;
+    const g = entity.color?.g ?? 0;
+    const b = entity.color?.b ?? 0;
+    let color = `rgb(${r}, ${g}, ${b})`;
+    const mode = (entity.color_mode || "").toLowerCase();
+    const isCt = mode.includes("color_temp");
+    if ((isCt || (!r && !g && !b)) && entity.color_temp) {
+      const kelvin = Math.round(1000000 / entity.color_temp);
+      const rgb = this.kelvinToRgb(kelvin);
+      color = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+    }
+    root.style.setProperty("--featured-color", color);
+    root.style.setProperty("--featured-color-opacity", isOn ? "1" : "0");
+    root.style.setProperty("--featured-on", isOn ? "1" : "0");
+    root.style.setProperty("--featured-icon-visible", "1");
+  }
+
   private renderHero() {
     const entity = this.getFeaturedEntity();
     if (!entity) {
+      this.setFeaturedColor(undefined);
       return nothing;
     }
 
     if (entity.domain !== "light") {
+      this.setFeaturedColor(undefined);
       return this.renderEntityTable([entity]);
     }
+
+    this.setFeaturedColor(entity);
 
     const r = entity.color?.r ?? 0;
     const g = entity.color?.g ?? 0;
