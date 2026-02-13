@@ -835,6 +835,7 @@ void WiFiComponent::loop() {
           // Reset so we force one full scan after captive portal starts
           // (previous scans were filtered because captive portal wasn't active yet)
           this->has_completed_scan_after_captive_portal_start_ = false;
+          this->start_scanning();  // KAUF: scan immediately so captive portal has results
           captive_portal::global_captive_portal->start();
         }
 #endif

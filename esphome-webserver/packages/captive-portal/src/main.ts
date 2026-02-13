@@ -109,23 +109,36 @@ function renderProductInfo(config: Config): void {
   }
 }
 
-fetch("/config.json").then((response) => {
-  response.json().then((config: Config) => {
-    document.title = config.name;
-    renderNetworks(config.aps || []);
-    const favicon = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null;
-    if (favicon) {
-      favicon.href = `data:image/svg+xml,${wifi(-65)}`;
-    }
+function fetchConfig(): void {
+  fetch("/config.json")
+    .then((response) => response.json())
+    .then((config: Config) => {
+      document.title = config.name;
+      renderNetworks(config.aps || []);
+      const favicon = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null;
+      if (favicon) {
+        favicon.href = `data:image/svg+xml,${wifi(-65)}`;
+      }
 
-    setText("#t_host", config.name || "");
-    setText("#t_mac", config.mac || "");
-    setText("#t_hard", config.hard_ssid || "");
-    setText("#t_soft", config.soft_ssid || "");
-    setText("#t_free", `${formatBytes(config.free_sp || 0)} bytes`);
-    setText("#t_buildts", config.build_ts || "");
-    setText("#t_esphv", config.esph_v || "");
+      setText("#t_host", config.name || "");
+      setText("#t_mac", config.mac || "");
+      setText("#t_hard", config.hard_ssid || "");
+      setText("#t_soft", config.soft_ssid || "");
+      setText("#t_free", `${formatBytes(config.free_sp || 0)} bytes`);
+      setText("#t_buildts", config.build_ts || "");
+      setText("#t_esphv", config.esph_v || "");
 
-    renderProductInfo(config);
-  });
-});
+      renderProductInfo(config);
+
+      // Retry if scan results or key data aren't available yet
+      if (!config.aps || config.aps.length === 0 || !config.name) {
+        setTimeout(fetchConfig, 3000);
+      }
+    })
+    .catch(() => {
+      // Fetch or JSON parse failed, retry
+      setTimeout(fetchConfig, 3000);
+    });
+}
+
+fetchConfig();

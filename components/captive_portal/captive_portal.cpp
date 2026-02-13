@@ -82,7 +82,7 @@ void CaptivePortal::handle_config(AsyncWebServerRequest *request) {
     }
 
     JsonObject ap = aps.add<JsonObject>();
-    ap[ESPHOME_F("ssid")] = scan.get_ssid();
+    ap[ESPHOME_F("ssid")] = scan.get_ssid().c_str();
     ap[ESPHOME_F("rssi")] = scan.get_rssi();
     ap[ESPHOME_F("lock")] = scan.get_with_auth();
   }
