@@ -35,8 +35,10 @@ optional<bool> Switch::get_initial_state() {
   // KAUF: always set up rtc_ in case mode changes later to one that saves
   // KAUF: forced addr/hash support
   if (this->forced_addr != 12345) esp8266::set_next_forced_addr(this->forced_addr);
-  uint32_t key = (this->forced_hash != 0) ? this->forced_hash : this->get_preference_hash();
-  this->rtc_ = global_preferences->make_preference<bool>(key);
+  if (this->forced_hash != 0)
+    this->rtc_ = global_preferences->make_preference<bool>(this->forced_hash);
+  else
+    this->rtc_ = this->make_entity_preference<bool>();
 
   // don't actually try to load if not in a restoring mode
   if (!(restore_mode & RESTORE_MODE_PERSISTENT_MASK))
@@ -108,18 +110,14 @@ void log_switch(const char *tag, const char *prefix, const char *type, Switch *o
                   LOG_STR_ARG(onoff));
 
     // Add optional fields separately
-    if (!obj->get_icon_ref().empty()) {
-      ESP_LOGCONFIG(tag, "%s  Icon: '%s'", prefix, obj->get_icon_ref().c_str());
-    }
+    LOG_ENTITY_ICON(tag, prefix, *obj);
     if (obj->assumed_state()) {
       ESP_LOGCONFIG(tag, "%s  Assumed State: YES", prefix);
     }
     if (obj->is_inverted()) {
       ESP_LOGCONFIG(tag, "%s  Inverted: YES", prefix);
     }
-    if (!obj->get_device_class_ref().empty()) {
-      ESP_LOGCONFIG(tag, "%s  Device Class: '%s'", prefix, obj->get_device_class_ref().c_str());
-    }
+    LOG_ENTITY_DEVICE_CLASS(tag, prefix, *obj);
   }
 }
 

@@ -17,8 +17,10 @@ void TemplateNumber::setup() {
 
     // KAUF: forced addr/hash support
     if (this->forced_addr != 12345) esp8266::set_next_forced_addr(this->forced_addr);
-    uint32_t key = (this->forced_hash != 0) ? this->forced_hash : this->get_preference_hash();
-    this->pref_ = global_preferences->make_preference<float>(key);
+    if (this->forced_hash != 0)
+      this->pref_ = global_preferences->make_preference<float>(this->forced_hash);
+    else
+      this->pref_ = this->make_entity_preference<float>();
 
     if (!this->pref_.load(&value)) {
       if (!std::isnan(this->initial_value_)) {
@@ -42,7 +44,7 @@ void TemplateNumber::update() {
 }
 
 void TemplateNumber::control(float value) {
-  this->set_trigger_->trigger(value);
+  this->set_trigger_.trigger(value);
 
   if (this->optimistic_)
     this->publish_state(value);

@@ -279,7 +279,8 @@ export class EntityTable extends LitElement implements RestAction {
     const colorTemp = entity.color_temp && entity.color_temp > 0 ? entity.color_temp : maxMireds;
     const kelvinMin = Math.round(1000000 / maxMireds);
     const kelvinMax = Math.round(1000000 / minMireds);
-    const kelvinNow = Math.round(1000000 / colorTemp);
+    const kelvinNowRaw = Math.round(1000000 / colorTemp);
+    const kelvinNow = Math.min(kelvinMax, Math.max(kelvinMin, kelvinNowRaw));
     const dispBrightness = brightness;
     const dispR = this.uiHoldRgb ? this.uiRgb.r : r;
     const dispG = this.uiHoldRgb ? this.uiRgb.g : g;
@@ -320,22 +321,19 @@ export class EntityTable extends LitElement implements RestAction {
             <div class="hero-slider hero-slider-stacked">
               <div class="hero-col-title">Brightness</div>
               <div class="hero-slider-row">
-                ${keyed(
-                  brightness,
-                  html`<input
-                    type="range"
-                    min="1"
-                    max="255"
-                    step="1"
-                    .value="${dispBrightness}"
-                    @click="${(e: Event) => e.stopPropagation()}"
-                    @change="${(e: Event) => {
-                      e.stopPropagation();
-                      const val = Number((e.target as HTMLInputElement).value);
-                      this.restAction(entity, `turn_on?brightness=${val}`);
-                    }}"
-                  />`
-                )}
+                <input
+                  type="range"
+                  min="1"
+                  max="255"
+                  step="1"
+                  .value="${dispBrightness}"
+                  @click="${(e: Event) => e.stopPropagation()}"
+                  @change="${(e: Event) => {
+                    e.stopPropagation();
+                    const val = Number((e.target as HTMLInputElement).value);
+                    this.restAction(entity, `turn_on?brightness=${val}`);
+                  }}"
+                />
                 <span class="hero-slider-value">${dispBrightness}</span>
               </div>
             </div>
@@ -352,9 +350,7 @@ export class EntityTable extends LitElement implements RestAction {
             <div class="hero-col-title">RGB</div>
             <div class="hero-slider">
               <label>R</label>
-              ${keyed(
-                dispR,
-                html`<input
+              <input
                   type="range"
                   min="0"
                   max="255"
@@ -386,15 +382,12 @@ export class EntityTable extends LitElement implements RestAction {
                     this.setActiveMode("rgb");
                     this.restAction(entity, `turn_on?r=${val}&g=${dispG}&b=${dispB}`);
                   }}"
-                />`
-              )}
+                />
               <span class="hero-slider-value">${isRgb ? dispR : "—"}</span>
             </div>
             <div class="hero-slider">
               <label>G</label>
-              ${keyed(
-                dispG,
-                html`<input
+              <input
                   type="range"
                   min="0"
                   max="255"
@@ -426,15 +419,12 @@ export class EntityTable extends LitElement implements RestAction {
                     this.setActiveMode("rgb");
                     this.restAction(entity, `turn_on?r=${dispR}&g=${val}&b=${dispB}`);
                   }}"
-                />`
-              )}
+                />
               <span class="hero-slider-value">${isRgb ? dispG : "—"}</span>
             </div>
             <div class="hero-slider">
               <label>B</label>
-              ${keyed(
-                dispB,
-                html`<input
+              <input
                   type="range"
                   min="0"
                   max="255"
@@ -466,8 +456,7 @@ export class EntityTable extends LitElement implements RestAction {
                     this.setActiveMode("rgb");
                     this.restAction(entity, `turn_on?r=${dispR}&g=${dispG}&b=${val}`);
                   }}"
-                />`
-              )}
+                />
               <span class="hero-slider-value">${isRgb ? dispB : "—"}</span>
             </div>
           </div>
@@ -482,9 +471,7 @@ export class EntityTable extends LitElement implements RestAction {
           >
             <div class="hero-col-title">Color Temp</div>
             <div class="hero-slider hero-slider-ct">
-              ${keyed(
-                dispKelvin,
-                html`<input
+              <input
                   type="range"
                   min="${kelvinMin}"
                   max="${kelvinMax}"
@@ -516,8 +503,7 @@ export class EntityTable extends LitElement implements RestAction {
                     const mired = Math.round(1000000 / kelvin);
                     this.restAction(entity, `turn_on?color_temp=${mired}`);
                   }}"
-                />`
-              )}
+                />
               <span class="hero-slider-value-k">${isCt ? `${dispKelvin}K` : "—"}</span>
             </div>
           </div>

@@ -7,6 +7,7 @@
   ],
   "scripts": {
     "build": "npm run build -w @esphome-webserver/captive-portal -w @esphome-webserver/v2",
-    "upload": "npm run upload -w @esphome-webserver/v2"
+    "upload": "npm run upload -w @esphome-webserver/v2",
+    "undo-upload": "npm run undo-upload -w @esphome-webserver/v2"
   }
 }

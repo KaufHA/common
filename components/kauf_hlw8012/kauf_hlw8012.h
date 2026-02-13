@@ -47,7 +47,6 @@ class Kauf_HLW8012Component : public PollingComponent {
  public:
   void setup() override;
   void dump_config() override;
-  float get_setup_priority() const override;
   void update() override;
 
   void set_sensor_model(HLW8012SensorModels sensor_model) { sensor_model_ = sensor_model; }

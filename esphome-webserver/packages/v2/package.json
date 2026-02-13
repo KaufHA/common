@@ -9,7 +9,8 @@
     "build": "npm run xbuild && npm run deploy",
     "serve": "vite preview",
     "deploy": "bash -c '../../scripts/make_header.sh ../../_static/v2 server_index_v2.h web_server 2'",
-    "upload": "npm run xbuild:upload && bash -c '../../scripts/upload_v2_www.sh ../../_static/v2'"
+    "upload": "npm run xbuild:upload && bash ../../scripts/upload_v2_www.sh ../../_static/v2",
+    "undo-upload": "bash ../../scripts/undo_upload_v2_www.sh ../../_static/v2"
   },
   "dependencies": {
     "http-proxy-middleware": "^2.0.1",

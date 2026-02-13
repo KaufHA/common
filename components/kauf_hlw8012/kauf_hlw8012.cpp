@@ -64,8 +64,6 @@ void Kauf_HLW8012Component::dump_config() {
   LOG_SENSOR("  ", "Power", this->power_sensor_);
 }
 
-float Kauf_HLW8012Component::get_setup_priority() const { return setup_priority::DATA; }
-
 float Kauf_HLW8012Component::period_to_power(float period_in) {
     return period_to_hz(period_in) * this->power_multiplier_;
 }

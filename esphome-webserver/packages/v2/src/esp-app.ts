@@ -85,6 +85,7 @@ export default class EspApp extends LitElement {
   @state() hadDisconnect: boolean = false;
   @state() lastPingMs: number = Date.now();
   @state() hasOpenedOnce: boolean = false;
+  private disconnectTimer: number | null = null;
   @query("#beat")
   beat!: HTMLSpanElement;
 
@@ -135,6 +136,10 @@ export default class EspApp extends LitElement {
       this.ping = messageEvent.lastEventId;
       this.eventConnected = true;
       this.lastPingMs = Date.now();
+      if (this.disconnectTimer !== null) {
+        window.clearTimeout(this.disconnectTimer);
+        this.disconnectTimer = null;
+      }
     });
     document.addEventListener("webserver-api-call", (e: Event) => {
       const ev = e as CustomEvent;
@@ -150,11 +155,20 @@ export default class EspApp extends LitElement {
         this.showReconnectNotice = true;
       }
       this.hasOpenedOnce = true;
+      if (this.disconnectTimer !== null) {
+        window.clearTimeout(this.disconnectTimer);
+        this.disconnectTimer = null;
+      }
     };
     window.source.onerror = (e: Event) => {
       console.dir(e);
-      this.eventConnected = false;
-      this.hadDisconnect = true;
+      if (this.disconnectTimer === null) {
+        this.disconnectTimer = window.setTimeout(() => {
+          this.eventConnected = false;
+          this.hadDisconnect = true;
+          this.disconnectTimer = null;
+        }, 1000);
+      }
       //alert("Lost event stream!")
     };
 
@@ -162,8 +176,13 @@ export default class EspApp extends LitElement {
     window.setInterval(() => {
       const elapsed = Date.now() - this.lastPingMs;
       if (elapsed > 22500) {
-        this.eventConnected = false;
-        this.hadDisconnect = true;
+        if (this.disconnectTimer === null) {
+          this.disconnectTimer = window.setTimeout(() => {
+            this.eventConnected = false;
+            this.hadDisconnect = true;
+            this.disconnectTimer = null;
+          }, 1000);
+        }
       }
     }, 5000);
   }
@@ -311,7 +330,7 @@ export default class EspApp extends LitElement {
                 </button>
               </p>`
             : nothing}
-          <h2>Additional Entities</h2>
+          <h2>${featuredName ? "Additional Entities" : "Entities Table"}</h2>
           <esp-entity-table mode="table" featured-name="${featuredName}"></esp-entity-table>
           <h2>
             <esp-switch

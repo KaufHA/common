@@ -52,15 +52,13 @@ void LightState::setup() {
   // For the plugs, I don't think there are any lights so this shouldn't run.  For the lights, they
   // have their own separate external light component in that repo.
 
-  uint32_t key = (this->forced_hash != 0) ? this->forced_hash : this->get_preference_hash();
   bool loaded = false;
 
 #ifdef USE_KAUF_LIGHT_HASH_MIGRATION
   // KAUF: Try old hash (hash-1) first for migration
   if (this->forced_hash != 0 && this->forced_addr != 12345) {
-    uint32_t old_key = this->forced_hash - 1;
     esp8266::set_next_forced_addr(this->forced_addr);
-    ESPPreferenceObject old_rtc = global_preferences->make_preference<LightStateRTCState>(old_key);
+    ESPPreferenceObject old_rtc = global_preferences->make_preference<LightStateRTCState>(this->forced_hash - 1);
 
 #ifdef USE_KAUF_LIGHT_DATA_MIGRATION
     // Binary update: load into struct then reinterpret as old format
@@ -93,7 +91,7 @@ void LightState::setup() {
     // Save with new hash
     if (loaded) {
       esp8266::set_next_forced_addr(this->forced_addr);
-      this->rtc_ = global_preferences->make_preference<LightStateRTCState>(key);
+      this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
       this->rtc_.save(&recovered);
     }
   }
@@ -108,7 +106,10 @@ void LightState::setup() {
     // KAUF: forced addr/hash support
       if (!loaded) {
         if (this->forced_addr != 12345) esp8266::set_next_forced_addr(this->forced_addr);
-        this->rtc_ = global_preferences->make_preference<LightStateRTCState>(key);
+        if ( this->forced_hash != 0 )
+          this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
+        else
+          this->rtc_ = this->make_entity_preference<LightStateRTCState>();
         loaded = this->rtc_.load(&recovered);
       }
 
@@ -128,7 +129,10 @@ void LightState::setup() {
     // KAUF: forced addr/hash support
       if (!loaded) {
         if (this->forced_addr != 12345) esp8266::set_next_forced_addr(this->forced_addr);
-        this->rtc_ = global_preferences->make_preference<LightStateRTCState>(key);
+        if ( this->forced_hash != 0 )
+          this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
+        else
+          this->rtc_ = this->make_entity_preference<LightStateRTCState>();
         this->rtc_.load(&recovered);
       }
 

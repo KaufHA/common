@@ -36,8 +36,15 @@ class OTARequestHandler : public AsyncWebHandler {
   void handleUpload(AsyncWebServerRequest *request, const PlatformString &filename, size_t index, uint8_t *data,
                     size_t len, bool final) override;
   bool canHandle(AsyncWebServerRequest *request) const override {
-    // Check if this is an OTA update request
-    bool is_ota_request = request->url() == "/update" && request->method() == HTTP_POST;
+    if (request->method() != HTTP_POST)
+      return false;
+      // Check if this is an OTA update request
+#ifdef USE_ESP32
+    char url_buf[AsyncWebServerRequest::URL_BUF_SIZE];
+    bool is_ota_request = request->url_to(url_buf) == "/update";
+#else
+    bool is_ota_request = request->url() == ESPHOME_F("/update");
+#endif
 
 #if defined(USE_WEBSERVER_OTA_DISABLED) && defined(USE_CAPTIVE_PORTAL)
     // IMPORTANT: USE_WEBSERVER_OTA_DISABLED only disables OTA for the web_server component
@@ -121,46 +128,46 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Platf
   if ( this->kauf_ota_error_code != 0 ) {
     ESP_LOGD(TAG, "Last OTA try errored out; reboot firmware to try again.");
     return;
-    }
+  }
 
   // kill process if "minimal" is found in string
   std::size_t found = str.find("minimal");
   if (found!=std::string::npos) {
-     this->kauf_ota_error_code = 1;
-     ESP_LOGD(TAG, "*****  DO NOT TRY TO FLASH TASMOTA-MINIMAL *****");
-     return;
+    this->kauf_ota_error_code = 1;
+    ESP_LOGD(TAG, "***** DO NOT TRY TO FLASH TASMOTA-MINIMAL *****");
+    return;
   }
 
   // kill process if "WLED" is found in string
   found = str.find("WLED");
   if (found!=std::string::npos) {
-     this->kauf_ota_error_code = 2;
-     ESP_LOGD(TAG, "*****  DO NOT TRY TO FLASH WLED *****");
-     return;
+    this->kauf_ota_error_code = 2;
+    ESP_LOGD(TAG, "***** DO NOT TRY TO FLASH WLED *****");
+    return;
   }
 
   // kill process if "wled" is found in string
   found = str.find("wled");
   if (found!=std::string::npos) {
-     this->kauf_ota_error_code = 2;
-     ESP_LOGD(TAG, "*****  DO NOT TRY TO FLASH WLED *****");
-     return;
+    this->kauf_ota_error_code = 2;
+    ESP_LOGD(TAG, "***** DO NOT TRY TO FLASH WLED *****");
+    return;
   }
 
   // if used, confirm filename does not conflict with sensor value
 #ifdef SENSOR_4M
   found = str.find("-1m");
   if ( SENSOR_4M && (found!=std::string::npos) ) {
-     ESP_LOGD(TAG, "*****  Apparently trying to flash 1M firmware over 4M version *****");
-     this->kauf_ota_error_code = 3;
-     return;
+    ESP_LOGD(TAG, "***** Apparently trying to flash 1M firmware over 4M version *****");
+    this->kauf_ota_error_code = 3;
+    return;
   }
 
   found = str.find("-4m");
   if ( !SENSOR_4M && (found!=std::string::npos) ) {
-     ESP_LOGD(TAG, "*****  Apparently trying to flash 4M firmware over 1M version *****");
-     this->kauf_ota_error_code = 3;
-     return;
+    ESP_LOGD(TAG, "***** Apparently trying to flash 4M firmware over 1M version *****");
+    this->kauf_ota_error_code = 3;
+    return;
   }
 #endif
 
@@ -266,13 +273,13 @@ void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
     stream->print(F("Update Failed. -- "));
 
     if ( this->kauf_ota_error_code == 1) {
-      stream->print(F("You appear to be trying to flash tasmota-minimal, which could brick the device.  Rename firmware file to not include the word <b>minimal</b> to override."));
+      stream->print(F("You appear to be trying to flash tasmota-minimal, which could brick the device. Rename firmware file to not include the word <b>minimal</b> to override."));
     }
     if ( this->kauf_ota_error_code == 2) {
-      stream->print(F("You appear to be trying to flash a WLED bin file, which could brick the device.  Rename firmware file to not include the word <b>wled</b> or <b>WLED</b> to override."));
+      stream->print(F("You appear to be trying to flash a WLED bin file, which could brick the device. Rename firmware file to not include the word <b>wled</b> or <b>WLED</b> to override."));
     }
     if ( this->kauf_ota_error_code == 3) {
-      stream->print(F("You appear to be trying to flash a mismatched update file, either -1m over -4m or -4m over -1m.  Download the proper update file or remove <b>-1m</b> or <b>-4m</b> from filename to override."));
+      stream->print(F("You appear to be trying to flash a mismatched update file, either -1m over -4m or -4m over -1m. Download the proper update file or remove <b>-1m</b> or <b>-4m</b> from filename to override."));
     }
 
     stream->print(F("</body></html>"));
@@ -282,7 +289,7 @@ void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
   }
   else if (this->ota_success_) {
     AsyncWebServerResponse *response;
-    response = request->beginResponse(200, "text/plain", "Firmware file uploaded successfully.  The device will now process the firmware file and reboot itself.  You can try to connect to the device over Wi-Fi immediately, but don't power cycle for at least five minutes if the device is not reachable.");
+    response = request->beginResponse(200, "text/plain", "Firmware file uploaded successfully. The device will now process the firmware file and reboot itself. You can try to connect to the device over Wi-Fi immediately, but don't power cycle for at least five minutes if the device is not reachable.");
     response->addHeader("Connection", "close");
     request->send(response);
   } else {
@@ -291,7 +298,7 @@ void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
     AsyncResponseStream *stream = request->beginResponseStream("text/html");
     stream->addHeader("Access-Control-Allow-Origin", "*");
     stream->print(F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
-    stream->print(F("Update Failed.  This device is now restarting itself automatically, which could resolve the error in some cases.<br><br>"));
+    stream->print(F("Update Failed. This device is now restarting itself automatically, which could resolve the error in some cases.<br><br>"));
 
     stream->print(F("</body></html>"));
     request->send(stream);

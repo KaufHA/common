@@ -13,8 +13,10 @@ void TotalDailyEnergy::setup() {
   if (this->restore_) {
     // KAUF: implement forced addr/hash
     if (this->forced_addr != 12345) esp8266::set_next_forced_addr(this->forced_addr);
-    uint32_t key = (this->forced_hash != 0) ? this->forced_hash : this->get_preference_hash();
-    this->pref_ = global_preferences->make_preference<float>(key);
+    if (this->forced_hash != 0)
+      this->pref_ = global_preferences->make_preference<float>(this->forced_hash);
+    else
+      this->pref_ = this->make_entity_preference<float>();
 
     this->pref_.load(&initial_value);
   }

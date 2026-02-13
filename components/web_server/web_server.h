@@ -42,6 +42,13 @@ using ParamNameType = const __FlashStringHelper *;
 using ParamNameType = const char *;
 #endif
 
+// All platforms need to defer actions to main loop thread.
+// Multi-core platforms need this for thread safety.
+// ESP8266 needs this because ESPAsyncWebServer callbacks run in "sys" context
+// (SDK system context), not "cont" context (continuation/main loop). Calling
+// yield() from sys context causes a panic in the Arduino core.
+#define DEFER_ACTION(capture, action) this->defer([capture]() mutable { action; })
+
 /// Result of matching a URL against an entity
 struct EntityMatchResult {
   bool matched;          ///< True if entity matched the URL
@@ -105,10 +112,10 @@ class DeferredUpdateEventSource : public AsyncEventSource {
   /*
     This class holds a pointer to the source component that wants to publish a state event, and a pointer to a function
     that will lazily generate that event.  The two pointers allow dedup in the deferred queue if multiple publishes for
-    the same component are backed up, and take up only 8 bytes of memory.  The entry in the deferred queue (a
-    std::vector) is the DeferredEvent instance itself (not a pointer to one elsewhere in heap) so still only 8 bytes per
-    entry (and no heap fragmentation).  Even 100 backed up events (you'd have to have at least 100 sensors publishing
-    because of dedup) would take up only 0.8 kB.
+    the same component are backed up, and take up only two pointers of memory.  The entry in the deferred queue (a
+    std::vector) is the DeferredEvent instance itself (not a pointer to one elsewhere in heap) so still only two
+    pointers per entry (and no heap fragmentation).  Even 100 backed up events (you'd have to have at least 100 sensors
+    publishing because of dedup) would take up only 0.8 kB.
   */
   struct DeferredEvent {
     friend class DeferredUpdateEventSource;
@@ -123,7 +130,9 @@ class DeferredUpdateEventSource : public AsyncEventSource {
     bool operator==(const DeferredEvent &test) const {
       return (source_ == test.source_ && message_generator_ == test.message_generator_);
     }
-  } __attribute__((packed));
+  };
+  static_assert(sizeof(DeferredEvent) == sizeof(void *) + sizeof(message_generator_t *),
+                "DeferredEvent should have no padding");
 
  protected:
   // surface a couple methods from the base class
@@ -235,7 +244,8 @@ class WebServer : public Controller,
    * @param expose_log.
    */
   void set_expose_log(bool expose_log) { this->expose_log_ = expose_log; }
-  /** Set the name of the featured entity (optional). */
+
+  /** KAUF: Set the name of the featured entity (optional). */
   void set_featured_name(const std::string &name) { this->featured_name_ = name; }
 
   // ========== INTERNAL METHODS ==========
@@ -297,7 +307,7 @@ class WebServer : public Controller,
   /// Handle a button request under '/button/<id>/press'.
   void handle_button_request(AsyncWebServerRequest *request, const UrlMatch &match);
 
-  static std::string button_state_json_generator(WebServer *web_server, void *source);
+  // Buttons are stateless, so there is no button_state_json_generator
   static std::string button_all_json_generator(WebServer *web_server, void *source);
 #endif
 
@@ -454,6 +464,13 @@ class WebServer : public Controller,
   static std::string water_heater_all_json_generator(WebServer *web_server, void *source);
 #endif
 
+#ifdef USE_INFRARED
+  /// Handle an infrared request under '/infrared/<id>/transmit'.
+  void handle_infrared_request(AsyncWebServerRequest *request, const UrlMatch &match);
+
+  static std::string infrared_all_json_generator(WebServer *web_server, void *source);
+#endif
+
 #ifdef USE_EVENT
   void on_event(event::Event *obj) override;
 
@@ -598,7 +615,7 @@ class WebServer : public Controller,
   const char *js_include_{nullptr};
 #endif
   bool expose_log_{true};
-  std::string featured_name_{};
+  std::string featured_name_{}; // KAUF: variable to store featured name
 
  private:
 #ifdef USE_SENSOR
@@ -661,6 +678,9 @@ class WebServer : public Controller,
 #endif
 #ifdef USE_WATER_HEATER
   std::string water_heater_json_(water_heater::WaterHeater *obj, JsonDetail start_config);
+#endif
+#ifdef USE_INFRARED
+  std::string infrared_json_(infrared::Infrared *obj, JsonDetail start_config);
 #endif
 #ifdef USE_UPDATE
   std::string update_json_(update::UpdateEntity *obj, JsonDetail start_config);
