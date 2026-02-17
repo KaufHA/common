@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cinttypes>
 #include <cmath>
+#include <cstring>
 
 #ifdef USE_ESP32
 #if (ESP_IDF_VERSION_MAJOR >= 5 && ESP_IDF_VERSION_MINOR >= 1)
@@ -612,7 +613,9 @@ void WiFiComponent::start() {
   this->last_connected_ = millis();
 
   // KAUF: forced addr/hash support
+#ifdef USE_ESP8266
   if (this->forced_addr != 12345) esp8266::set_next_forced_addr(this->forced_addr);
+#endif
   uint32_t hash = (this->forced_hash != 0) ? this->forced_hash
                                            : (this->has_sta() ? App.get_config_version_hash() : 88491487UL);
 
@@ -2257,18 +2260,25 @@ void WiFiComponent::save_fast_connect_settings_() {
 
 // KAUF: little function to return whether this device is trying to connect to the default credentials
 bool WiFiComponent::get_initial_ap() {
+  static constexpr char INITIAL_AP_PREFIX[] = "initial_ap";
+  static constexpr size_t INITIAL_AP_PREFIX_LEN = sizeof(INITIAL_AP_PREFIX) - 1;
+  auto starts_with_initial_ap = [](const char *ssid) {
+    return std::strncmp(ssid, INITIAL_AP_PREFIX, INITIAL_AP_PREFIX_LEN) == 0;
+  };
+
   // if connected to a network, check that directly
   if (this->is_connected()) {
-    return str_startswith(this->wifi_ssid(), "initial_ap");
+    char ssid_buf[SSID_BUFFER_SIZE];
+    return starts_with_initial_ap(this->wifi_ssid_to(ssid_buf));
   }
 
   // not connected - check saved and hard-coded SSIDs
-  if (str_startswith(this->soft_ssid, "initial_ap")) {
+  if (starts_with_initial_ap(this->soft_ssid.c_str())) {
     return true;
   }
   if (this->tried_loading_creds && !this->loaded_creds) {
     for (auto &sta : this->sta_) {
-      if (str_startswith(sta.get_ssid(), "initial_ap")) {
+      if (starts_with_initial_ap(sta.get_ssid().c_str())) {
         return true;
       }
     }

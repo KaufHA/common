@@ -383,7 +383,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional("forced_addr"): cv.int_,
             cv.Optional("disable_scanning", default=False): cv.boolean,
             cv.Optional("only_networks", default=False): cv.boolean,
-            cv.Optional("phy_mode", default='n'): validate_phy,
+            cv.Optional("phy_mode"): cv.All(validate_phy, cv.only_on_esp8266),
 
         }
     ),
@@ -622,7 +622,8 @@ async def to_code(config):
 
     # KAUF: configure other options
     cg.add(var.set_disable_scanning(config["disable_scanning"]))
-    cg.add(var.set_phy_mode(config["phy_mode"]))
+    if "phy_mode" in config:
+        cg.add(var.set_phy_mode(config["phy_mode"]))
 
     CORE.add_job(final_step)
 

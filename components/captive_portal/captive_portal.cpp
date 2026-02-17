@@ -6,6 +6,9 @@
 #include "esphome/components/json/json_util.h"
 #include "captive_index.h"
 #include "esphome/core/version.h"
+#ifdef USE_ESP32
+#include <esp_ota_ops.h>
+#endif
 
 namespace esphome {
 namespace captive_portal {
@@ -58,7 +61,18 @@ void CaptivePortal::handle_config(AsyncWebServerRequest *request) {
   root[ESPHOME_F("esph_v")] = ESPHOME_VERSION;
   root[ESPHOME_F("soft_ssid")] = wifi::global_wifi_component->soft_ssid;
   root[ESPHOME_F("hard_ssid")] = wifi::global_wifi_component->hard_ssid;
+#ifdef USE_ESP8266
   root[ESPHOME_F("free_sp")] = ESP.getFreeSketchSpace();
+#elif defined(USE_ESP32)
+  const esp_partition_t *next_partition = esp_ota_get_next_update_partition(nullptr);
+  if (next_partition != nullptr) {
+    root[ESPHOME_F("free_sp")] = next_partition->size;
+  } else {
+    root[ESPHOME_F("free_sp")] = "unknown";
+  }
+#else
+  root[ESPHOME_F("free_sp")] = "unknown";
+#endif
   char build_time_buffer[Application::BUILD_TIME_STR_SIZE];
   App.get_build_time_string(build_time_buffer);
   root[ESPHOME_F("build_ts")] = build_time_buffer;

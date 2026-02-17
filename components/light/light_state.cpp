@@ -4,7 +4,9 @@
 #include "esphome/core/log.h"
 #include "light_output.h"
 #include "transformers.h"
+#ifdef USE_ESP8266
 #include "esphome/components/esp8266/preferences.h"  // KAUF: included for set_next_forced_addr
+#endif
 
 namespace esphome::light {
 
@@ -105,7 +107,9 @@ void LightState::setup() {
 
     // KAUF: forced addr/hash support
       if (!loaded) {
+#ifdef USE_ESP8266
         if (this->forced_addr != 12345) esp8266::set_next_forced_addr(this->forced_addr);
+#endif
         if ( this->forced_hash != 0 )
           this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
         else
@@ -128,7 +132,9 @@ void LightState::setup() {
 
     // KAUF: forced addr/hash support
       if (!loaded) {
+#ifdef USE_ESP8266
         if (this->forced_addr != 12345) esp8266::set_next_forced_addr(this->forced_addr);
+#endif
         if ( this->forced_hash != 0 )
           this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
         else

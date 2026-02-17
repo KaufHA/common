@@ -389,11 +389,17 @@ class WiFiPowerSaveListener {
 class WiFiComponent : public Component {
  public:
 
-  // KAUF: function to change/set wifi phy mode
-  void set_phy_mode(const char* new_phy_mode) {
-    if ( *new_phy_mode == 'g' )  WiFi.setPhyMode(WIFI_PHY_MODE_11G);
-    if ( *new_phy_mode == 'b' )  WiFi.setPhyMode(WIFI_PHY_MODE_11B);
+  // KAUF: function to change/set wifi phy mode (ESP8266 only)
+#ifdef USE_ESP8266
+  void set_phy_mode(const char *new_phy_mode) {
+    if (*new_phy_mode == 'g')
+      WiFi.setPhyMode(WIFI_PHY_MODE_11G);
+    if (*new_phy_mode == 'b')
+      WiFi.setPhyMode(WIFI_PHY_MODE_11B);
   }
+#else
+  void set_phy_mode(const char *new_phy_mode) { (void) new_phy_mode; }
+#endif
 
   // KAUF: add two booleans so we can know when an attempt to load credentials was made
   //       and whether it was successful.

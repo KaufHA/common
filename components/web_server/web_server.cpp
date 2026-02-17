@@ -15,6 +15,9 @@
 #include "esphome/core/version.h"
 #include "esphome/components/wifi/wifi_component.h"
 #include "esphome/core/helpers.h"
+#ifdef USE_ESP32
+#include <esp_ota_ops.h>
+#endif
 
 #if !defined(USE_ESP32) && defined(USE_ARDUINO)
 #include "StreamString.h"
@@ -557,7 +560,18 @@ std::string WebServer::get_config_json() {
   root[ESPHOME_F("soft_ssid")] = wifi::global_wifi_component->soft_ssid;
   root[ESPHOME_F("hard_ssid")] = wifi::global_wifi_component->hard_ssid;
   root[ESPHOME_F("has_ap")]    = wifi::global_wifi_component->has_ap();
+#ifdef USE_ESP8266
   root[ESPHOME_F("free_sp")]   = ESP.getFreeSketchSpace();
+#elif defined(USE_ESP32)
+  const esp_partition_t *next_partition = esp_ota_get_next_update_partition(nullptr);
+  if (next_partition != nullptr) {
+    root[ESPHOME_F("free_sp")] = next_partition->size;
+  } else {
+    root[ESPHOME_F("free_sp")] = "unknown";
+  }
+#else
+  root[ESPHOME_F("free_sp")]   = "unknown";
+#endif
   root[ESPHOME_F("mac_addr")]  = get_mac_address_pretty();
   root[ESPHOME_F("hostname")]  = App.get_name();
   char build_time_buffer[Application::BUILD_TIME_STR_SIZE];
