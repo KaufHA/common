@@ -275,14 +275,25 @@ export default class EspApp extends LitElement {
       : nothing;
   }
 
-  factory_reset() {
+  renderFactoryResetInfo() {
     const warning = this.getProductUi().factory_warning;
     return warning ? html`<p><b>${warning}</b></p>` : nothing;
   }
 
-  clear() {
+  renderClearInfo() {
     if ( this.config.has_ap )
-      return html `<p><a href="/clear" target="_blank">/clear</a> - Writes new software-configured Wi-Fi credentials (SSID: initial_ap, password: asdfasdfasdfasdf).  The device will reboot and try to connect to a network with those credentials.  If those credentials cannot be connected to, then this device will put up a Wi-Fi AP allowing new software-configured Wi-Fi credential to be entered.</p>`
+      return html `<p><a href="/clear" target="_blank">/clear</a> - Saves fallback software Wi-Fi credentials (SSID: initial_ap, password: asdfasdfasdfasdf) and reboots. The device tries those credentials first; if not found, it starts AP mode so you can enter new software-configured Wi-Fi credentials.</p>`
+  }
+
+  renderResetInfo() {
+    return html`<p><a href="/reset" target="_blank">/reset</a> - Erases software-stored state and preferences, then reboots. Firmware defaults are restored. Software-configured Wi-Fi credentials are erased; hard-coded YAML credentials are not.</p>`;
+  }
+
+  renderStateDumpInfo() {
+    if (!this.config.featured_name) {
+      return nothing;
+    }
+    return html`<p><a href="/state" target="_blank">/state</a> - Dumps JSON for every entity on the device. Set <code>web_server.include_internal</code> to list internal entities. If <code>web_server.featured_entity</code> is set, it is listed first; otherwise, an entity matching the device <code>friendly_name</code> (or device <code>name</code>) is listed first.</p>`;
   }
 
   render() {
@@ -349,9 +360,10 @@ export default class EspApp extends LitElement {
           </h2>
           ${this.ota()}
           <h2>Web-Based Utilities</h2>
-          <p><a href="/reset" target="_blank">/reset</a> - Erases all software-stored data, including the current states of all modifiable entities.  Firmware defaults will be restored.  If this device has a relay, the relay may toggle.  Any software-configured Wi-Fi credentials will be erased, but hard-coded credentials will not be erased.</p>
-          ${this.factory_reset()}
-          ${this.clear()}
+          ${this.renderResetInfo()}
+          ${this.renderFactoryResetInfo()}
+          ${this.renderClearInfo()}
+          ${this.renderStateDumpInfo()}
           <h2>Device Parameters</h2>
           <table><tbody>
             <tr>

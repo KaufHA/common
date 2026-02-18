@@ -33,7 +33,7 @@ PRODUCT_DEFINE_MAP = {
 
 
 def AUTO_LOAD() -> list[str]:
-    auto_load = ["web_server_base", "ota.web_server"]
+    auto_load = ["json", "web_server_base", "ota.web_server"]
     if CORE.is_esp32:
         auto_load.append("socket")
     return auto_load

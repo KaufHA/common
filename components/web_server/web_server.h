@@ -266,6 +266,9 @@ class WebServer : public Controller,
   /// Handle an index request under '/'.
   void handle_index_request(AsyncWebServerRequest *request);
 
+  /// KAUF: Handle a streamed state dump request under '/state'.
+  void handle_state_request(AsyncWebServerRequest *request);
+
   /// Return the webserver configuration as JSON.
   std::string get_config_json();
 
