@@ -411,6 +411,11 @@ class WiFiComponent : public Component {
   void set_disable_scanning(bool disable_arg) {
     disable_scanning = disable_arg;
   }
+#ifdef USE_WIFI_FAST_CONNECT
+  void set_fast_connect(bool fast_connect_enabled) { this->fast_connect_enabled_ = fast_connect_enabled; }
+#else
+  void set_fast_connect(bool fast_connect_enabled) { (void) fast_connect_enabled; }
+#endif
 
   // KAUF: stuff for forced addr/hash
   uint32_t forced_hash = 0;
@@ -790,6 +795,7 @@ class WiFiComponent : public Component {
   ESPPreferenceObject pref_;
 #ifdef USE_WIFI_FAST_CONNECT
   ESPPreferenceObject fast_connect_pref_;
+  bool fast_connect_enabled_{true};
 #endif
 #ifdef USE_WIFI_CONNECT_TRIGGER
   Trigger<> connect_trigger_;

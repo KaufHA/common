@@ -688,21 +688,25 @@ void WiFiComponent::start() {
 
     this->transition_to_phase_(WiFiRetryPhase::INITIAL_CONNECT);
 #ifdef USE_WIFI_FAST_CONNECT
-    WiFiAP params;
-    bool loaded_fast_connect = this->load_fast_connect_settings_(params);
-    // Fast connect optimization: only use when we have saved BSSID+channel data
-    // Without saved data, try first configured network or use normal flow
-    if (loaded_fast_connect) {
-      ESP_LOGI(TAG, "Starting fast_connect (saved) " LOG_SECRET("'%s'"), params.ssid_.c_str());
-      this->start_connecting(params);
-    } else if (!this->sta_.empty() && !this->sta_[0].get_hidden()) {
-      // No saved data, but have configured networks - try first non-hidden network
-      ESP_LOGI(TAG, "Starting fast_connect (config) " LOG_SECRET("'%s'"), this->sta_[0].ssid_.c_str());
-      this->selected_sta_index_ = 0;
-      params = this->build_params_for_current_phase_();
-      this->start_connecting(params);
+    if (this->fast_connect_enabled_) {
+      WiFiAP params;
+      bool loaded_fast_connect = this->load_fast_connect_settings_(params);
+      // Fast connect optimization: only use when we have saved BSSID+channel data
+      // Without saved data, try first configured network or use normal flow
+      if (loaded_fast_connect) {
+        ESP_LOGI(TAG, "Starting fast_connect (saved) " LOG_SECRET("'%s'"), params.ssid_.c_str());
+        this->start_connecting(params);
+      } else if (!this->sta_.empty() && !this->sta_[0].get_hidden()) {
+        // No saved data, but have configured networks - try first non-hidden network
+        ESP_LOGI(TAG, "Starting fast_connect (config) " LOG_SECRET("'%s'"), this->sta_[0].ssid_.c_str());
+        this->selected_sta_index_ = 0;
+        params = this->build_params_for_current_phase_();
+        this->start_connecting(params);
+      } else {
+        // No saved data and (no networks OR first is hidden) - use normal flow
+        this->start_initial_connection_();
+      }
     } else {
-      // No saved data and (no networks OR first is hidden) - use normal flow
       this->start_initial_connection_();
     }
 #else
@@ -1688,7 +1692,7 @@ WiFiRetryPhase WiFiComponent::determine_next_phase_() {
 #ifdef USE_WIFI_FAST_CONNECT
     case WiFiRetryPhase::FAST_CONNECT_CYCLING_APS:
       // INITIAL_CONNECT and FAST_CONNECT_CYCLING_APS: no retries, try next AP or fall back to scan
-      if (this->selected_sta_index_ < static_cast<int8_t>(this->sta_.size()) - 1) {
+      if (this->fast_connect_enabled_ && this->selected_sta_index_ < static_cast<int8_t>(this->sta_.size()) - 1) {
         return WiFiRetryPhase::FAST_CONNECT_CYCLING_APS;  // Move to next AP
       }
 #endif
