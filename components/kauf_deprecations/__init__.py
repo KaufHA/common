@@ -24,7 +24,7 @@ def _validate_disable_webserver(value):
             "\n"
             "web_server: !remove\n"
             "\n"
-            "More details: https://github.com/KaufHA/common/DEPRECATED_SUBSTITUTIONS.md#disable_webserver"
+            "More details: https://github.com/KaufHA/common/blob/main/DEPRECATED_SUBSTITUTIONS.md#disable_webserver"
         )
     return value
 
@@ -40,7 +40,7 @@ def _validate_light_restore_mode(value):
             "  - id: !extend kauf_light\n"
             f"    restore_mode: {provided_value}\n"
             "\n"
-            "More details: https://github.com/KaufHA/common/DEPRECATED_SUBSTITUTIONS.md#light_restore_mode"
+            "More details: https://github.com/KaufHA/common/blob/main/DEPRECATED_SUBSTITUTIONS.md#light_restore_mode"
         )
     return value
 
@@ -56,7 +56,7 @@ def _validate_default_button_config(value):
             "  - id: !extend select_button\n"
             f"    initial_option: {provided_value}\n"
             "\n"
-            "More details: https://github.com/KaufHA/common/DEPRECATED_SUBSTITUTIONS.md#default_button_config"
+            "More details: https://github.com/KaufHA/common/blob/main/DEPRECATED_SUBSTITUTIONS.md#default_button_config"
         )
     return value
 
@@ -71,7 +71,7 @@ def _validate_sub_reboot_timeout(value):
             "api:\n"
             f"  reboot_timeout: {provided_value}\n"
             "\n"
-            "More details: https://github.com/KaufHA/common/DEPRECATED_SUBSTITUTIONS.md#sub_reboot_timeout"
+            "More details: https://github.com/KaufHA/common/blob/main/DEPRECATED_SUBSTITUTIONS.md#sub_reboot_timeout"
         )
     return value
 
@@ -86,7 +86,7 @@ def _validate_sub_api_reboot_timeout(value):
             "api:\n"
             f"  reboot_timeout: {provided_value}\n"
             "\n"
-            "More details: https://github.com/KaufHA/common/DEPRECATED_SUBSTITUTIONS.md#sub_api_reboot_timeout"
+            "More details: https://github.com/KaufHA/common/blob/main/DEPRECATED_SUBSTITUTIONS.md#sub_api_reboot_timeout"
         )
     return value
 
@@ -101,7 +101,7 @@ def _validate_sub_ota_num_attempts(value):
             "safe_mode:\n"
             f"  num_attempts: {provided_value}\n"
             "\n"
-            "More details: https://github.com/KaufHA/common/DEPRECATED_SUBSTITUTIONS.md#sub_ota_num_attempts"
+            "More details: https://github.com/KaufHA/common/blob/main/DEPRECATED_SUBSTITUTIONS.md#sub_ota_num_attempts"
         )
     return value
 
@@ -117,7 +117,7 @@ def _validate_sub_default_transition_length(value):
             "  - id: !extend kauf_light\n"
             f"    default_transition_length: {provided_value}\n"
             "\n"
-            "More details: https://github.com/KaufHA/common/DEPRECATED_SUBSTITUTIONS.md#sub_default_transition_length"
+            "More details: https://github.com/KaufHA/common/blob/main/DEPRECATED_SUBSTITUTIONS.md#sub_default_transition_length"
         )
     return value
 
@@ -133,7 +133,7 @@ def _validate_sub_warm_white_temp(value):
             "  - id: !extend kauf_light\n"
             f"    warm_white_color_temperature: {provided_value}\n"
             "\n"
-            "More details: https://github.com/KaufHA/common/DEPRECATED_SUBSTITUTIONS.md#sub_warm_white_temp"
+            "More details: https://github.com/KaufHA/common/blob/main/DEPRECATED_SUBSTITUTIONS.md#sub_warm_white_temp"
         )
     return value
 
@@ -149,7 +149,7 @@ def _validate_sub_cold_white_temp(value):
             "  - id: !extend kauf_light\n"
             f"    cold_white_color_temperature: {provided_value}\n"
             "\n"
-            "More details: https://github.com/KaufHA/common/DEPRECATED_SUBSTITUTIONS.md#sub_cold_white_temp"
+            "More details: https://github.com/KaufHA/common/blob/main/DEPRECATED_SUBSTITUTIONS.md#sub_cold_white_temp"
         )
     return value
 
