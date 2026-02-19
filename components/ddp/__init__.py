@@ -22,7 +22,7 @@ from esphome.core import CORE
 
 def AUTO_LOAD() -> list[str]:
     auto_load = []
-    if CORE.is_esp32 and not CORE.using_arduino:
+    if CORE.is_esp32:
         auto_load.append("socket")
     return auto_load
 
@@ -31,7 +31,7 @@ DEPENDENCIES = ["network"]
 
 
 def _consume_ddp_sockets(config):
-    if CORE.is_esp32 and not CORE.using_arduino:
+    if CORE.is_esp32:
         from esphome.components import socket
 
         socket.consume_sockets(1, "ddp")(config)
@@ -152,12 +152,14 @@ async def ddp_light_effect_to_code(config, effect_id):
 FILTER_SOURCE_FILES = filter_source_files_from_platform(
     {
         "ddp_arduino.cpp": {
-            PlatformFramework.ESP32_ARDUINO,
             PlatformFramework.ESP8266_ARDUINO,
             PlatformFramework.BK72XX_ARDUINO,
             PlatformFramework.RTL87XX_ARDUINO,
             PlatformFramework.LN882X_ARDUINO,
         },
-        "ddp_esp32_idf.cpp": {PlatformFramework.ESP32_IDF},
+        "ddp_esp32.cpp": {
+            PlatformFramework.ESP32_ARDUINO,
+            PlatformFramework.ESP32_IDF,
+        },
     }
 )

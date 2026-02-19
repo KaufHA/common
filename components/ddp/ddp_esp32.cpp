@@ -1,4 +1,4 @@
-#ifdef USE_ESP_IDF
+#ifdef USE_ESP32
 
 #include "ddp.h"
 #include "esphome/core/log.h"
@@ -118,4 +118,4 @@ void DDPComponent::remove_effect(DDPLightEffectBase *light_effect) {
 }  // namespace ddp
 }  // namespace esphome
 
-#endif  // USE_ESP_IDF
+#endif  // USE_ESP32

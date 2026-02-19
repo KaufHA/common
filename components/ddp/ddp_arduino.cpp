@@ -1,4 +1,4 @@
-#ifdef USE_ARDUINO
+#if defined(USE_ARDUINO) && !defined(USE_ESP32)
 
 #include "ddp.h"
 #include "esphome/core/log.h"
@@ -76,4 +76,4 @@ void DDPComponent::remove_effect(DDPLightEffectBase *light_effect) {
 }  // namespace ddp
 }  // namespace esphome
 
-#endif  // USE_ARDUINO
+#endif  // USE_ARDUINO && !USE_ESP32

@@ -1,6 +1,6 @@
 #pragma once
 
-#if defined(USE_ARDUINO) || defined(USE_ESP_IDF)
+#if defined(USE_ARDUINO) || defined(USE_ESP32)
 
 #include "esphome/core/component.h"
 #include "esphome/components/light/addressable_light_effect.h"
@@ -46,4 +46,4 @@ class DDPAddressableLightEffect : public DDPLightEffectBase, public light::Addre
 }  // namespace ddp
 }  // namespace esphome
 
-#endif  // USE_ARDUINO || USE_ESP_IDF
+#endif  // USE_ARDUINO || USE_ESP32
