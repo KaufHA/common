@@ -1,4 +1,4 @@
-#if defined(USE_ARDUINO) || defined(USE_ESP_IDF)
+#if defined(USE_ARDUINO) || defined(USE_ESP32)
 
 #include "ddp.h"
 #include "ddp_light_effect_base.h"
@@ -99,4 +99,4 @@ bool DDPComponent::process_(const uint8_t *payload, uint16_t size) {
 }  // namespace ddp
 }  // namespace esphome
 
-#endif  // USE_ARDUINO || USE_ESP_IDF
+#endif  // USE_ARDUINO || USE_ESP32

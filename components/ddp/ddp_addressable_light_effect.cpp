@@ -1,4 +1,4 @@
-#if defined(USE_ARDUINO) || defined(USE_ESP_IDF)
+#if defined(USE_ARDUINO) || defined(USE_ESP32)
 
 #include "ddp.h"
 #include "ddp_addressable_light_effect.h"
@@ -224,4 +224,4 @@ void DDPAddressableLightEffect::set_effect_active_(light::AddressableLight *it, 
 }  // namespace ddp
 }  // namespace esphome
 
-#endif  // USE_ARDUINO || USE_ESP_IDF
+#endif  // USE_ARDUINO || USE_ESP32
