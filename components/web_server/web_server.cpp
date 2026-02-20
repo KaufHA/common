@@ -787,382 +787,6 @@ static JsonDetail get_request_detail(AsyncWebServerRequest *request) {
   return (param && param->value() == "all") ? DETAIL_ALL : DETAIL_STATE;
 }
 
-// KAUF: add function to dump out all JSON at /state
-void WebServer::handle_state_request(AsyncWebServerRequest *request) {
-  if (request->method() != HTTP_GET) {
-    request->send(405, ESPHOME_F("text/plain"), ESPHOME_F("Method Not Allowed"));
-    return;
-  }
-
-  AsyncResponseStream *stream = request->beginResponseStream(ESPHOME_F("application/json"));
-  stream->print(ESPHOME_F("{\"entities\":["));
-
-  bool wrote_entity = false;
-  EntityBase *featured_entity = nullptr;
-  const std::string featured_name = this->featured_name_.empty()
-                                        ? (App.get_friendly_name().empty() ? App.get_name() : App.get_friendly_name())
-                                        : this->featured_name_;
-
-  auto write_json = [&](EntityBase *obj, const std::string &json) {
-    if (!this->include_internal_ && obj->is_internal())
-      return;
-    if (wrote_entity)
-      stream->print(',');
-    stream->print(json.c_str());
-    wrote_entity = true;
-  };
-
-  auto try_write_featured = [&](EntityBase *obj, const std::string &json) -> bool {
-    if (featured_entity != nullptr || featured_name.empty() || obj->get_name() != featured_name)
-      return false;
-    if (!this->include_internal_ && obj->is_internal())
-      return false;
-    if (wrote_entity)
-      stream->print(',');
-    stream->print(json.c_str());
-    wrote_entity = true;
-    featured_entity = obj;
-    return true;
-  };
-
-#ifdef USE_SENSOR
-  for (sensor::Sensor *obj : App.get_sensors()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->sensor_json_(obj, obj->state, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_SWITCH
-  for (switch_::Switch *obj : App.get_switches()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->switch_json_(obj, obj->state, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_BUTTON
-  for (button::Button *obj : App.get_buttons()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->button_json_(obj, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_BINARY_SENSOR
-  for (binary_sensor::BinarySensor *obj : App.get_binary_sensors()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->binary_sensor_json_(obj, obj->state, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_FAN
-  for (fan::Fan *obj : App.get_fans()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->fan_json_(obj, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_LIGHT
-  for (light::LightState *obj : App.get_lights()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->light_json_(obj, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_TEXT_SENSOR
-  for (text_sensor::TextSensor *obj : App.get_text_sensors()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->text_sensor_json_(obj, obj->state, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_COVER
-  for (cover::Cover *obj : App.get_covers()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->cover_json_(obj, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_NUMBER
-  for (number::Number *obj : App.get_numbers()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->number_json_(obj, obj->state, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_DATETIME_DATE
-  for (datetime::DateEntity *obj : App.get_dates()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->date_json_(obj, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_DATETIME_TIME
-  for (datetime::TimeEntity *obj : App.get_times()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->time_json_(obj, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_DATETIME_DATETIME
-  for (datetime::DateTimeEntity *obj : App.get_datetimes()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->datetime_json_(obj, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_TEXT
-  for (text::Text *obj : App.get_texts()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->text_json_(obj, obj->state, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_SELECT
-  for (select::Select *obj : App.get_selects()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      StringRef value = obj->has_state() ? obj->current_option() : StringRef();
-      if (try_write_featured(obj, this->select_json_(obj, value, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_CLIMATE
-  for (climate::Climate *obj : App.get_climates()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->climate_json_(obj, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_LOCK
-  for (lock::Lock *obj : App.get_locks()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->lock_json_(obj, obj->state, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_VALVE
-  for (valve::Valve *obj : App.get_valves()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->valve_json_(obj, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_ALARM_CONTROL_PANEL
-  for (alarm_control_panel::AlarmControlPanel *obj : App.get_alarm_control_panels()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->alarm_control_panel_json_(obj, obj->get_state(), DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_WATER_HEATER
-  for (water_heater::WaterHeater *obj : App.get_water_heaters()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->water_heater_json_(obj, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_INFRARED
-  for (infrared::Infrared *obj : App.get_infrareds()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->infrared_json_(obj, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_EVENT
-  for (event::Event *obj : App.get_events()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->event_json_(obj, StringRef(), DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-#ifdef USE_UPDATE
-  for (update::UpdateEntity *obj : App.get_updates()) {
-    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
-      if (try_write_featured(obj, this->update_json_(obj, DETAIL_ALL)))
-        break;
-    }
-  }
-#endif
-
-#ifdef USE_SENSOR
-  for (sensor::Sensor *obj : App.get_sensors()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->sensor_json_(obj, obj->state, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_SWITCH
-  for (switch_::Switch *obj : App.get_switches()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->switch_json_(obj, obj->state, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_BUTTON
-  for (button::Button *obj : App.get_buttons()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->button_json_(obj, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_BINARY_SENSOR
-  for (binary_sensor::BinarySensor *obj : App.get_binary_sensors()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->binary_sensor_json_(obj, obj->state, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_FAN
-  for (fan::Fan *obj : App.get_fans()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->fan_json_(obj, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_LIGHT
-  for (light::LightState *obj : App.get_lights()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->light_json_(obj, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_TEXT_SENSOR
-  for (text_sensor::TextSensor *obj : App.get_text_sensors()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->text_sensor_json_(obj, obj->state, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_COVER
-  for (cover::Cover *obj : App.get_covers()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->cover_json_(obj, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_NUMBER
-  for (number::Number *obj : App.get_numbers()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->number_json_(obj, obj->state, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_DATETIME_DATE
-  for (datetime::DateEntity *obj : App.get_dates()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->date_json_(obj, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_DATETIME_TIME
-  for (datetime::TimeEntity *obj : App.get_times()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->time_json_(obj, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_DATETIME_DATETIME
-  for (datetime::DateTimeEntity *obj : App.get_datetimes()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->datetime_json_(obj, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_TEXT
-  for (text::Text *obj : App.get_texts()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->text_json_(obj, obj->state, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_SELECT
-  for (select::Select *obj : App.get_selects()) {
-    if (obj == featured_entity)
-      continue;
-    StringRef value = obj->has_state() ? obj->current_option() : StringRef();
-    write_json(obj, this->select_json_(obj, value, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_CLIMATE
-  for (climate::Climate *obj : App.get_climates()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->climate_json_(obj, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_LOCK
-  for (lock::Lock *obj : App.get_locks()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->lock_json_(obj, obj->state, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_VALVE
-  for (valve::Valve *obj : App.get_valves()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->valve_json_(obj, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_ALARM_CONTROL_PANEL
-  for (alarm_control_panel::AlarmControlPanel *obj : App.get_alarm_control_panels()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->alarm_control_panel_json_(obj, obj->get_state(), DETAIL_ALL));
-  }
-#endif
-#ifdef USE_WATER_HEATER
-  for (water_heater::WaterHeater *obj : App.get_water_heaters()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->water_heater_json_(obj, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_INFRARED
-  for (infrared::Infrared *obj : App.get_infrareds()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->infrared_json_(obj, DETAIL_ALL));
-  }
-#endif
-#ifdef USE_EVENT
-  for (event::Event *obj : App.get_events()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->event_json_(obj, StringRef(), DETAIL_ALL));
-  }
-#endif
-#ifdef USE_UPDATE
-  for (update::UpdateEntity *obj : App.get_updates()) {
-    if (obj == featured_entity)
-      continue;
-    write_json(obj, this->update_json_(obj, DETAIL_ALL));
-  }
-#endif
-
-  stream->print(ESPHOME_F("]}"));
-  request->send(stream);
-}
-
 #ifdef USE_SENSOR
 void WebServer::on_sensor_update(sensor::Sensor *obj) {
   if (!this->include_internal_ && obj->is_internal())
@@ -2181,6 +1805,24 @@ std::string WebServer::climate_json_(climate::Climate *obj, JsonDetail start_con
 #endif
 
 #ifdef USE_LOCK
+enum LockAction : uint8_t { LOCK_ACTION_NONE, LOCK_ACTION_LOCK, LOCK_ACTION_UNLOCK, LOCK_ACTION_OPEN };
+
+static void execute_lock_action(lock::Lock *obj, LockAction action) {
+  switch (action) {
+    case LOCK_ACTION_LOCK:
+      obj->lock();
+      break;
+    case LOCK_ACTION_UNLOCK:
+      obj->unlock();
+      break;
+    case LOCK_ACTION_OPEN:
+      obj->open();
+      break;
+    default:
+      break;
+  }
+}
+
 void WebServer::on_lock_update(lock::Lock *obj) {
   if (!this->include_internal_ && obj->is_internal())
     return;
@@ -2478,6 +2120,9 @@ std::string WebServer::water_heater_json_(water_heater::WaterHeater *obj, JsonDe
     JsonArray modes = root[ESPHOME_F("modes")].to<JsonArray>();
     for (auto m : traits.get_supported_modes())
       modes.add(PSTR_LOCAL(water_heater::water_heater_mode_to_string(m)));
+    root[ESPHOME_F("min_temp")] = traits.get_min_temperature();
+    root[ESPHOME_F("max_temp")] = traits.get_max_temperature();
+    root[ESPHOME_F("step")] = traits.get_target_temperature_step();
     this->add_sorting_info_(root, obj);
   }
 
@@ -2499,10 +2144,6 @@ std::string WebServer::water_heater_json_(water_heater::WaterHeater *obj, JsonDe
     if (!std::isnan(target))
       root[ESPHOME_F("target_temperature")] = target;
   }
-
-  root[ESPHOME_F("min_temperature")] = traits.get_min_temperature();
-  root[ESPHOME_F("max_temperature")] = traits.get_max_temperature();
-  root[ESPHOME_F("step")] = traits.get_target_temperature_step();
 
   if (traits.get_supports_away_mode()) {
     root[ESPHOME_F("away")] = obj->is_away();
@@ -3166,6 +2807,382 @@ void WebServer::save_wifi(AsyncWebServerRequest *request) {
 #else
   this->defer([ssid, psk]() { wifi::global_wifi_component->save_wifi_sta(ssid, psk); });
 #endif
+}
+
+// KAUF: add function to dump out all JSON at /state
+void WebServer::handle_state_request(AsyncWebServerRequest *request) {
+  if (request->method() != HTTP_GET) {
+    request->send(405, ESPHOME_F("text/plain"), ESPHOME_F("Method Not Allowed"));
+    return;
+  }
+
+  AsyncResponseStream *stream = request->beginResponseStream(ESPHOME_F("application/json"));
+  stream->print(ESPHOME_F("{\"entities\":["));
+
+  bool wrote_entity = false;
+  EntityBase *featured_entity = nullptr;
+  const std::string featured_name = this->featured_name_.empty()
+                                        ? (App.get_friendly_name().empty() ? App.get_name() : App.get_friendly_name())
+                                        : this->featured_name_;
+
+  auto write_json = [&](EntityBase *obj, const std::string &json) {
+    if (!this->include_internal_ && obj->is_internal())
+      return;
+    if (wrote_entity)
+      stream->print(',');
+    stream->print(json.c_str());
+    wrote_entity = true;
+  };
+
+  auto try_write_featured = [&](EntityBase *obj, const std::string &json) -> bool {
+    if (featured_entity != nullptr || featured_name.empty() || obj->get_name() != featured_name)
+      return false;
+    if (!this->include_internal_ && obj->is_internal())
+      return false;
+    if (wrote_entity)
+      stream->print(',');
+    stream->print(json.c_str());
+    wrote_entity = true;
+    featured_entity = obj;
+    return true;
+  };
+
+#ifdef USE_SENSOR
+  for (sensor::Sensor *obj : App.get_sensors()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->sensor_json_(obj, obj->state, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_SWITCH
+  for (switch_::Switch *obj : App.get_switches()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->switch_json_(obj, obj->state, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_BUTTON
+  for (button::Button *obj : App.get_buttons()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->button_json_(obj, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_BINARY_SENSOR
+  for (binary_sensor::BinarySensor *obj : App.get_binary_sensors()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->binary_sensor_json_(obj, obj->state, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_FAN
+  for (fan::Fan *obj : App.get_fans()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->fan_json_(obj, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_LIGHT
+  for (light::LightState *obj : App.get_lights()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->light_json_(obj, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_TEXT_SENSOR
+  for (text_sensor::TextSensor *obj : App.get_text_sensors()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->text_sensor_json_(obj, obj->state, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_COVER
+  for (cover::Cover *obj : App.get_covers()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->cover_json_(obj, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_NUMBER
+  for (number::Number *obj : App.get_numbers()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->number_json_(obj, obj->state, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_DATETIME_DATE
+  for (datetime::DateEntity *obj : App.get_dates()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->date_json_(obj, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_DATETIME_TIME
+  for (datetime::TimeEntity *obj : App.get_times()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->time_json_(obj, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_DATETIME_DATETIME
+  for (datetime::DateTimeEntity *obj : App.get_datetimes()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->datetime_json_(obj, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_TEXT
+  for (text::Text *obj : App.get_texts()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->text_json_(obj, obj->state, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_SELECT
+  for (select::Select *obj : App.get_selects()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      StringRef value = obj->has_state() ? obj->current_option() : StringRef();
+      if (try_write_featured(obj, this->select_json_(obj, value, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_CLIMATE
+  for (climate::Climate *obj : App.get_climates()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->climate_json_(obj, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_LOCK
+  for (lock::Lock *obj : App.get_locks()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->lock_json_(obj, obj->state, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_VALVE
+  for (valve::Valve *obj : App.get_valves()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->valve_json_(obj, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_ALARM_CONTROL_PANEL
+  for (alarm_control_panel::AlarmControlPanel *obj : App.get_alarm_control_panels()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->alarm_control_panel_json_(obj, obj->get_state(), DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_WATER_HEATER
+  for (water_heater::WaterHeater *obj : App.get_water_heaters()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->water_heater_json_(obj, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_INFRARED
+  for (infrared::Infrared *obj : App.get_infrareds()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->infrared_json_(obj, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_EVENT
+  for (event::Event *obj : App.get_events()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->event_json_(obj, StringRef(), DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+#ifdef USE_UPDATE
+  for (update::UpdateEntity *obj : App.get_updates()) {
+    if (featured_entity == nullptr && !featured_name.empty() && obj->get_name() == featured_name) {
+      if (try_write_featured(obj, this->update_json_(obj, DETAIL_ALL)))
+        break;
+    }
+  }
+#endif
+
+#ifdef USE_SENSOR
+  for (sensor::Sensor *obj : App.get_sensors()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->sensor_json_(obj, obj->state, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_SWITCH
+  for (switch_::Switch *obj : App.get_switches()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->switch_json_(obj, obj->state, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_BUTTON
+  for (button::Button *obj : App.get_buttons()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->button_json_(obj, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_BINARY_SENSOR
+  for (binary_sensor::BinarySensor *obj : App.get_binary_sensors()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->binary_sensor_json_(obj, obj->state, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_FAN
+  for (fan::Fan *obj : App.get_fans()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->fan_json_(obj, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_LIGHT
+  for (light::LightState *obj : App.get_lights()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->light_json_(obj, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_TEXT_SENSOR
+  for (text_sensor::TextSensor *obj : App.get_text_sensors()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->text_sensor_json_(obj, obj->state, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_COVER
+  for (cover::Cover *obj : App.get_covers()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->cover_json_(obj, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_NUMBER
+  for (number::Number *obj : App.get_numbers()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->number_json_(obj, obj->state, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_DATETIME_DATE
+  for (datetime::DateEntity *obj : App.get_dates()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->date_json_(obj, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_DATETIME_TIME
+  for (datetime::TimeEntity *obj : App.get_times()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->time_json_(obj, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_DATETIME_DATETIME
+  for (datetime::DateTimeEntity *obj : App.get_datetimes()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->datetime_json_(obj, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_TEXT
+  for (text::Text *obj : App.get_texts()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->text_json_(obj, obj->state, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_SELECT
+  for (select::Select *obj : App.get_selects()) {
+    if (obj == featured_entity)
+      continue;
+    StringRef value = obj->has_state() ? obj->current_option() : StringRef();
+    write_json(obj, this->select_json_(obj, value, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_CLIMATE
+  for (climate::Climate *obj : App.get_climates()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->climate_json_(obj, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_LOCK
+  for (lock::Lock *obj : App.get_locks()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->lock_json_(obj, obj->state, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_VALVE
+  for (valve::Valve *obj : App.get_valves()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->valve_json_(obj, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_ALARM_CONTROL_PANEL
+  for (alarm_control_panel::AlarmControlPanel *obj : App.get_alarm_control_panels()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->alarm_control_panel_json_(obj, obj->get_state(), DETAIL_ALL));
+  }
+#endif
+#ifdef USE_WATER_HEATER
+  for (water_heater::WaterHeater *obj : App.get_water_heaters()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->water_heater_json_(obj, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_INFRARED
+  for (infrared::Infrared *obj : App.get_infrareds()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->infrared_json_(obj, DETAIL_ALL));
+  }
+#endif
+#ifdef USE_EVENT
+  for (event::Event *obj : App.get_events()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->event_json_(obj, StringRef(), DETAIL_ALL));
+  }
+#endif
+#ifdef USE_UPDATE
+  for (update::UpdateEntity *obj : App.get_updates()) {
+    if (obj == featured_entity)
+      continue;
+    write_json(obj, this->update_json_(obj, DETAIL_ALL));
+  }
+#endif
+
+  stream->print(ESPHOME_F("]}"));
+  request->send(stream);
 }
 
 }  // namespace esphome::web_server
