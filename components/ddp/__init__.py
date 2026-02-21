@@ -21,7 +21,7 @@ from esphome.core import CORE
 
 
 def AUTO_LOAD() -> list[str]:
-    auto_load = []
+    auto_load = ["binary_sensor"]
     if CORE.is_esp32:
         auto_load.append("socket")
     return auto_load
