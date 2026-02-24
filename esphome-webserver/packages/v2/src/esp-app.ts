@@ -60,6 +60,7 @@ interface Config {
   esph_v?: string;
   free_sp?: number;
   build_ts?: string;
+  cfg_hash?: number;
   hostname?: string;
   mac_addr?: string;
   hard_ssid?: string;
@@ -394,6 +395,12 @@ export default class EspApp extends LitElement {
               ? html`<tr>
                   <td>Build Timestamp</td>
                   <td>${this.config.build_ts}</td>
+                </tr>`
+              : nothing}
+            ${this.config.cfg_hash !== undefined
+              ? html`<tr>
+                  <td>Config Hash</td>
+                  <td>0x${this.config.cfg_hash.toString(16).padStart(8, '0')}</td>
                 </tr>`
               : nothing}
             <tr>

@@ -577,6 +577,7 @@ std::string WebServer::get_config_json() {
   char build_time_buffer[Application::BUILD_TIME_STR_SIZE];
   App.get_build_time_string(build_time_buffer);
   root[ESPHOME_F("build_ts")]  = build_time_buffer;
+  root[ESPHOME_F("cfg_hash")]  = App.get_config_hash();
 
   JsonObject kauf_ui = root[ESPHOME_F("kauf_ui")].to<JsonObject>();
   kauf_ui[ESPHOME_F("display_name")] = product_ui.display_name;
@@ -2390,6 +2391,8 @@ bool WebServer::canHandle(AsyncWebServerRequest *request) const {
   // KAUF: add new endpoints for custom stuff
   if (url == ESPHOME_F("/state") && method == HTTP_GET)
     return true;
+  if (url == ESPHOME_F("/states") && method == HTTP_GET)
+    return true;
   if (url == ESPHOME_F("/reset"))
     return true;
   if (url == ESPHOME_F("/clear"))
@@ -2545,6 +2548,10 @@ void WebServer::handleRequest(AsyncWebServerRequest *request) {
 
   // KAUF: add functions to handle custom stuff
   if (url == ESPHOME_F("/state")) {
+    this->handle_state_request(request);
+    return;
+  }
+  if (url == ESPHOME_F("/states")) {
     this->handle_state_request(request);
     return;
   }
@@ -2816,8 +2823,13 @@ void WebServer::handle_state_request(AsyncWebServerRequest *request) {
     return;
   }
 
+  const bool wrap_entities = request->url() == ESPHOME_F("/state");
   AsyncResponseStream *stream = request->beginResponseStream(ESPHOME_F("application/json"));
-  stream->print(ESPHOME_F("{\"entities\":["));
+  if (wrap_entities) {
+    stream->print(ESPHOME_F("{\"entities\":["));
+  } else {
+    stream->print('[');
+  }
 
   bool wrote_entity = false;
   EntityBase *featured_entity = nullptr;
@@ -3181,7 +3193,11 @@ void WebServer::handle_state_request(AsyncWebServerRequest *request) {
   }
 #endif
 
-  stream->print(ESPHOME_F("]}"));
+  if (wrap_entities) {
+    stream->print(ESPHOME_F("]}"));
+  } else {
+    stream->print(']');
+  }
   request->send(stream);
 }
 
