@@ -193,6 +193,23 @@ light:
     cold_white_color_temperature: 6500 Kelvin
 ```
 
+### sub_cw_freq / sub_ww_freq
+
+Old style:
+
+```yaml
+substitutions:
+  sub_cw_freq: 125 hz
+  sub_ww_freq: 125 hz
+```
+
+New style:
+
+```yaml
+substitutions:
+  sub_cwww_freq: 125 hz
+```
+
 ## RGB Switch
 
 Device-specific deprecation entries will be added here as substitutions are retired.

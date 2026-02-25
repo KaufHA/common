@@ -9,6 +9,8 @@ CONF_SUB_OTA_NUM_ATTEMPTS = "sub_ota_num_attempts"
 CONF_SUB_DEFAULT_TRANSITION_LENGTH = "sub_default_transition_length"
 CONF_SUB_WARM_WHITE_TEMP = "sub_warm_white_temp"
 CONF_SUB_COLD_WHITE_TEMP = "sub_cold_white_temp"
+CONF_SUB_CW_FREQ = "sub_cw_freq"
+CONF_SUB_WW_FREQ = "sub_ww_freq"
 SENTINEL = "__KAUF_DEPRECATED_SENTINEL__"
 
 
@@ -154,6 +156,36 @@ def _validate_sub_cold_white_temp(value):
     return value
 
 
+def _validate_sub_cw_freq(value):
+    if value != SENTINEL:
+        provided_value = str(value)
+        raise cv.Invalid(
+            f"'{CONF_SUB_CW_FREQ}' and '{CONF_SUB_WW_FREQ}' have been removed and combined into 'sub_cwww_freq'. "
+            "Remove old substitutions and add the following YAML.\n"
+            "\n"
+            "substitutions:\n"
+            f"  sub_cwww_freq: {provided_value}\n"
+            "\n"
+            "More details: https://github.com/KaufHA/common/blob/main/DEPRECATED_SUBSTITUTIONS.md#sub_cw_freq--sub_ww_freq"
+        )
+    return value
+
+
+def _validate_sub_ww_freq(value):
+    if value != SENTINEL:
+        provided_value = str(value)
+        raise cv.Invalid(
+            f"'{CONF_SUB_CW_FREQ}' and '{CONF_SUB_WW_FREQ}' have been removed and combined into 'sub_cwww_freq'. "
+            "Remove old substitutions and add the following YAML.\n"
+            "\n"
+            "substitutions:\n"
+            f"  sub_cwww_freq: {provided_value}\n"
+            "\n"
+            "More details: https://github.com/KaufHA/common/blob/main/DEPRECATED_SUBSTITUTIONS.md#sub_cw_freq--sub_ww_freq"
+        )
+    return value
+
+
 CONFIG_SCHEMA = cv.Schema(
     {
         cv.Optional(CONF_DISABLE_WEBSERVER, default=SENTINEL): cv.All(
@@ -182,6 +214,12 @@ CONFIG_SCHEMA = cv.Schema(
         ),
         cv.Optional(CONF_SUB_COLD_WHITE_TEMP, default=SENTINEL): cv.All(
             _any_value, _validate_sub_cold_white_temp
+        ),
+        cv.Optional(CONF_SUB_CW_FREQ, default=SENTINEL): cv.All(
+            _any_value, _validate_sub_cw_freq
+        ),
+        cv.Optional(CONF_SUB_WW_FREQ, default=SENTINEL): cv.All(
+            _any_value, _validate_sub_ww_freq
         ),
     },
     extra=cv.ALLOW_EXTRA,

@@ -28,6 +28,7 @@
 #include <algorithm>
 
 #include <cstdlib>
+#include <cmath>
 
 #ifdef USE_LIGHT
 #include "esphome/components/light/light_json_schema.h"
@@ -1185,8 +1186,17 @@ std::string WebServer::light_json_(light::LightState *obj, JsonDetail start_conf
 
   // KAUF: send min and max mireds for frontend slider.
   const auto traits = obj->get_traits();
-  root[ESPHOME_F("min_mireds")] = traits.get_min_mireds();
-  root[ESPHOME_F("max_mireds")] = traits.get_max_mireds();
+  const float min_mireds = traits.get_min_mireds();
+  const float max_mireds = traits.get_max_mireds();
+  root[ESPHOME_F("min_mireds")] = min_mireds;
+  root[ESPHOME_F("max_mireds")] = max_mireds;
+  // Also send Kelvin bounds to avoid reciprocal round-trip drift in the UI slider.
+  if (max_mireds > 0.0f) {
+    root[ESPHOME_F("min_kelvin")] = static_cast<uint32_t>(roundf(1000000.0f / max_mireds));
+  }
+  if (min_mireds > 0.0f) {
+    root[ESPHOME_F("max_kelvin")] = static_cast<uint32_t>(roundf(1000000.0f / min_mireds));
+  }
 
   if (start_config == DETAIL_ALL) {
     JsonArray opt = root[ESPHOME_F("effects")].to<JsonArray>();

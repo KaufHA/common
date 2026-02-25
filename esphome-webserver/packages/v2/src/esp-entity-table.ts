@@ -29,6 +29,8 @@ interface entityConfig {
   };
   min_mireds?: number;
   max_mireds?: number;
+  min_kelvin?: number;
+  max_kelvin?: number;
   target_temperature?: number;
   target_temperature_low?: number;
   target_temperature_high?: number;
@@ -277,10 +279,29 @@ export class EntityTable extends LitElement implements RestAction {
     const maxMireds =
       entity.max_mireds && entity.max_mireds > 0 ? entity.max_mireds : defaultMaxMireds;
     const colorTemp = entity.color_temp && entity.color_temp > 0 ? entity.color_temp : maxMireds;
-    const kelvinMin = Math.round(1000000 / maxMireds);
-    const kelvinMax = Math.round(1000000 / minMireds);
+    let kelvinMin =
+      entity.min_kelvin && entity.min_kelvin > 0
+        ? entity.min_kelvin
+        : Math.round(1000000 / maxMireds);
+    let kelvinMax =
+      entity.max_kelvin && entity.max_kelvin > 0
+        ? entity.max_kelvin
+        : Math.round(1000000 / minMireds);
+    // Normalize common RGBWW endpoints so slider labels stay at expected YAML Kelvin values.
+    if (Math.abs(kelvinMin - 2800) <= 1) {
+      kelvinMin = 2800;
+    }
+    if (Math.abs(kelvinMax - 6600) <= 1) {
+      kelvinMax = 6600;
+    }
     const kelvinNowRaw = Math.round(1000000 / colorTemp);
-    const kelvinNow = Math.min(kelvinMax, Math.max(kelvinMin, kelvinNowRaw));
+    let kelvinNow = Math.min(kelvinMax, Math.max(kelvinMin, kelvinNowRaw));
+    // Snap displayed value to declared endpoints when current mired is effectively at either limit.
+    if (Math.abs(colorTemp - maxMireds) <= 1) {
+      kelvinNow = kelvinMin;
+    } else if (Math.abs(colorTemp - minMireds) <= 1) {
+      kelvinNow = kelvinMax;
+    }
     const dispBrightness = brightness;
     const dispR = this.uiHoldRgb ? this.uiRgb.r : r;
     const dispG = this.uiHoldRgb ? this.uiRgb.g : g;
@@ -500,7 +521,21 @@ export class EntityTable extends LitElement implements RestAction {
                     const val = Number((e.target as HTMLInputElement).value);
                     const kelvin = kelvinMax + kelvinMin - val;
                     this.setActiveMode("ct");
-                    const mired = Math.round(1000000 / kelvin);
+                    // Snap slider endpoints to exact trait limits so one white channel can fully turn off.
+                    // Keep intermediate points using reciprocal conversion.
+                    let mired: number;
+                    if (val <= kelvinMin + 0.5) {
+                      // Send an integer endpoint that is at/below min so backend clamp lands
+                      // exactly on traits.min_mireds (avoids float rounding residue).
+                      mired = Math.floor(minMireds);  // coolest endpoint
+                    } else if (val >= kelvinMax - 0.5) {
+                      // Send an integer endpoint that is at/above max so backend clamp lands
+                      // exactly on traits.max_mireds.
+                      mired = Math.ceil(maxMireds);  // warmest endpoint
+                    } else {
+                      mired = Math.round(1000000 / kelvin);
+                      mired = Math.min(maxMireds, Math.max(minMireds, mired));
+                    }
                     this.restAction(entity, `turn_on?color_temp=${mired}`);
                   }}"
                 />
