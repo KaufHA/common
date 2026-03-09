@@ -11,7 +11,12 @@ CONF_SUB_WARM_WHITE_TEMP = "sub_warm_white_temp"
 CONF_SUB_COLD_WHITE_TEMP = "sub_cold_white_temp"
 CONF_SUB_CW_FREQ = "sub_cw_freq"
 CONF_SUB_WW_FREQ = "sub_ww_freq"
+CONF_TARGET_PACKAGE = "target_package"
+CONF_HASS_CT_MIREDS_ENTITY = "hass_ct_mireds_entity"
+CONF_HASS_CT_MIREDS_ATTRIBUTE = "hass_ct_mireds_attribute"
+CONF_HASS_CT_MIREDS_FIXED = "hass_ct_mireds_fixed"
 SENTINEL = "__KAUF_DEPRECATED_SENTINEL__"
+ERROR_SENTINEL = "__KAUF_ERROR_SENTINEL__"
 
 
 def _any_value(value):
@@ -186,6 +191,55 @@ def _validate_sub_ww_freq(value):
     return value
 
 
+def _validate_target_package(value):
+    value_str = str(value)
+    if value_str in (SENTINEL, ERROR_SENTINEL):
+        raise cv.Invalid(
+            "Target package is required. Include one of the target YAML packages before using this profile.\n"
+            "\n"
+            "Example:\n"
+            "packages:\n"
+            "  Kauf.Target: !include targets/kauf-plf10.yaml\n"
+            "\n"
+            "or:\n"
+            "packages:\n"
+            "  Kauf.Target: !include targets/kauf-plf12.yaml"
+        )
+    if value_str.startswith("targets/stock-"):
+        raise cv.Invalid(
+            "Kauf profile cannot be used with a stock target package.\n"
+            f"Received: {value_str}\n"
+            "Use one of:\n"
+            "  Kauf.Target: !include targets/kauf-plf10.yaml\n"
+            "  Kauf.Target: !include targets/kauf-plf12.yaml"
+        )
+    return value
+
+
+def _validate_hass_ct_mireds_entity(value):
+    if value != SENTINEL:
+        raise cv.Invalid(
+            "Home Assistant no longer supports mired color temperature options. Use Kelvin instead."
+        )
+    return value
+
+
+def _validate_hass_ct_mireds_attribute(value):
+    if value != SENTINEL:
+        raise cv.Invalid(
+            "Home Assistant no longer supports mired color temperature options. Use Kelvin instead."
+        )
+    return value
+
+
+def _validate_hass_ct_mireds_fixed(value):
+    if value != SENTINEL:
+        raise cv.Invalid(
+            "Home Assistant no longer supports mired color temperature options. Use Kelvin instead."
+        )
+    return value
+
+
 CONFIG_SCHEMA = cv.Schema(
     {
         cv.Optional(CONF_DISABLE_WEBSERVER, default=SENTINEL): cv.All(
@@ -220,6 +274,16 @@ CONFIG_SCHEMA = cv.Schema(
         ),
         cv.Optional(CONF_SUB_WW_FREQ, default=SENTINEL): cv.All(
             _any_value, _validate_sub_ww_freq
+        ),
+        cv.Optional(CONF_TARGET_PACKAGE, default=SENTINEL): cv.All(_any_value, _validate_target_package),
+        cv.Optional(CONF_HASS_CT_MIREDS_ENTITY, default=SENTINEL): cv.All(
+            _any_value, _validate_hass_ct_mireds_entity
+        ),
+        cv.Optional(CONF_HASS_CT_MIREDS_ATTRIBUTE, default=SENTINEL): cv.All(
+            _any_value, _validate_hass_ct_mireds_attribute
+        ),
+        cv.Optional(CONF_HASS_CT_MIREDS_FIXED, default=SENTINEL): cv.All(
+            _any_value, _validate_hass_ct_mireds_fixed
         ),
     },
     extra=cv.ALLOW_EXTRA,
