@@ -15,6 +15,8 @@ class TemplateNumber final : public number::Number, public PollingComponent {
   void setup() override;
   void update() override;
   void dump_config() override;
+
+  // KAUF: increase priority so config entities get setup first.
   float get_setup_priority() const override { return setup_priority::HARDWARE + 1.0f; }
 
   Trigger<float> *get_set_trigger() { return &this->set_trigger_; }

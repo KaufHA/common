@@ -115,7 +115,7 @@ const char *get_disconnect_reason_str(uint8_t reason) {
   return "UNKNOWN";
 }
 
-WiFiSTAConnectStatus WiFiComponent::wifi_sta_connect_status_() {
+WiFiSTAConnectStatus WiFiComponent::wifi_sta_connect_status_() const {
   int status = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
   switch (status) {
     case CYW43_LINK_JOIN:

@@ -655,7 +655,7 @@ void WiFiComponent::start() {
   }
 
   // KAUF: tells ESPHome yaml file boot routine that an attempt was made to load credentials
-  // KAUF: whether or not successful.
+  //       whether or not successful.
   tried_loading_creds = true;
 
   // KAUF: hard code an AP timeout of 15 seconds for all devices if Wi-Fi credentials are not configured.
@@ -2145,7 +2145,7 @@ bool WiFiComponent::can_proceed() {
 #endif
 
 void WiFiComponent::set_reboot_timeout(uint32_t reboot_timeout) { this->reboot_timeout_ = reboot_timeout; }
-bool WiFiComponent::is_connected() {
+bool WiFiComponent::is_connected() const {
   return this->state_ == WIFI_COMPONENT_STATE_STA_CONNECTED &&
          this->wifi_sta_connect_status_() == WiFiSTAConnectStatus::CONNECTED && !this->error_from_callback_;
 }
