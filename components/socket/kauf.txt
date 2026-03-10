@@ -1,19 +1,31 @@
 Socket component changes vs upstream ESPHome (dev)
 
+Only KAUF-specific changes are documented below. Search for "KAUF:" in code.
+
 Changed files:
+
 __init__.py
-  - Added two optional config keys for ESP8266 wake-path tuning:
+  - Added optional ESP8266-only tuning keys:
     - esp8266_wake_schedule
     - esp8266_wake_flag
-  - Added ESP8266-only define emission in to_code():
-    - KAUF_DISABLE_SOCKET_WAKE_SCHEDULE (when esp8266_wake_schedule: false)
-    - KAUF_DISABLE_SOCKET_WAKE_FLAG (when esp8266_wake_flag: false)
-  - Purpose: allow runtime-configurable control over aggressive socket wake behavior on ESP8266.
+  - Added validation for those keys and emitted compile defines:
+    - KAUF_DISABLE_SOCKET_WAKE_SCHEDULE
+    - KAUF_DISABLE_SOCKET_WAKE_FLAG
+  - Purpose: keep default upstream behavior unless explicitly disabled in YAML.
 
 lwip_raw_tcp_impl.cpp
-  - Added compile-time gates around ESP8266 wake behavior:
-    - KAUF_DISABLE_SOCKET_WAKE_FLAG disables early-exit wake flag path in socket_delay()/socket_wake().
-    - KAUF_DISABLE_SOCKET_WAKE_SCHEDULE disables esp_schedule() wake nudges in socket_wake().
+  - Added optional compile-time gating for ESP8266 wake behavior:
+    - KAUF_DISABLE_SOCKET_WAKE_FLAG: disable wake-flag early-exit path.
+    - KAUF_DISABLE_SOCKET_WAKE_SCHEDULE: disable forced esp_schedule() wake nudge.
+  - Added teardown safety guard in destructor:
+    - detaches lwIP callbacks (tcp_arg/tcp_recv/tcp_err) before tcp_abort().
+  - Added teardown safety guard in close():
+    - detaches lwIP callbacks before tcp_close()/tcp_abort().
+  - Added null-arg guards in static lwIP callbacks:
+    - s_err_fn: return when arg == nullptr.
+    - s_recv_fn: free pbuf and return when arg == nullptr.
+    - s_accept_fn: abort newpcb and return ERR_ABRT when arg == nullptr.
+  - Purpose: avoid callback->this races after socket/listener teardown.
 
 socket.h
-  - Updated comments for socket_delay()/socket_wake() to document the two KAUF tuning defines.
+  - Updated comments to document KAUF wake defines used by socket_delay/socket_wake.

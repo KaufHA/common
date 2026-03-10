@@ -123,9 +123,7 @@ size_t format_sockaddr_to(const struct sockaddr *addr_ptr, socklen_t len, std::s
 
 #if defined(USE_ESP8266) && defined(USE_SOCKET_IMPL_LWIP_TCP)
 /// Delay that can be woken early by socket activity.
-/// On ESP8266, lwip callbacks set a flag and can optionally call esp_schedule() to wake the delay.
-/// KAUF_DISABLE_SOCKET_WAKE_SCHEDULE disables the upstream esp_schedule() wake path.
-/// KAUF_DISABLE_SOCKET_WAKE_FLAG disables the wake-flag early-exit path.
+/// On ESP8266, lwip callbacks set a flag and call esp_schedule() to wake the delay.
 void socket_delay(uint32_t ms);
 
 /// Called by lwip callbacks to signal socket activity and wake delay.

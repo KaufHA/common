@@ -1,0 +1,35 @@
+KAUF API CHANGE NOTES
+=====================
+
+Scope
+- This file documents KAUF-specific API changes kept after debug cleanup.
+- Goal: retain only safety guards that prevent send-path work during connection teardown.
+
+Touched Files
+
+1) api_connection.h
+- Added APIFlags.socket_alive bit.
+- Purpose: cheap per-connection guard flag that is cleared as soon as teardown/fatal starts.
+
+2) api_connection.cpp
+- start(): sets flags_.socket_alive = true when connection starts.
+- next_close path in loop(): clears socket_alive before setting remove.
+- on_fatal_error(): clears socket_alive and sets remove.
+- try_send_log_message(): returns false if !socket_alive or remove or unauthenticated.
+- try_to_clear_buffer(): returns false immediately if !socket_alive or remove.
+- send_message_impl(): returns false immediately if !socket_alive or remove.
+- send_buffer(): returns false immediately if !socket_alive or remove.
+- Purpose: stop all API send attempts once teardown begins, reducing race windows.
+
+3) api_server.cpp
+- on_log(): bails out during shutting_down/client_list_mutating.
+- on_log(): dispatches only to clients with socket_alive && !remove && authenticated && subscribed.
+- Purpose: avoid log fan-out into connections that are in teardown/mutation windows.
+
+Removed (debug-only)
+- api_diag.h / api_diag.cpp (temporary counters/diagnostic framework).
+- Temporary verbose API debug print instrumentation and KAUF_SD serial trace hooks.
+
+Notes
+- These changes are intended to be behavior-preserving for healthy connections.
+- They only short-circuit send paths during teardown/fatal states.

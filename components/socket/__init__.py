@@ -139,8 +139,10 @@ async def to_code(config):
 
     if CORE.is_esp8266:
         if config.get(CONF_ESP8266_WAKE_SCHEDULE) is False:
+            # KAUF: optional compile-time disable for esp_schedule wake nudge.
             cg.add_define("KAUF_DISABLE_SOCKET_WAKE_SCHEDULE")
         if config.get(CONF_ESP8266_WAKE_FLAG) is False:
+            # KAUF: optional compile-time disable for wake-flag early-exit path.
             cg.add_define("KAUF_DISABLE_SOCKET_WAKE_FLAG")
 
 

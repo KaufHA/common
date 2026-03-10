@@ -72,6 +72,10 @@ class LWIPRawImpl : public Socket {
   LWIPRawImpl(sa_family_t family, struct tcp_pcb *pcb) : pcb_(pcb), family_(family) {}
   ~LWIPRawImpl() override {
     if (pcb_ != nullptr) {
+      // KAUF: detach callbacks before teardown to prevent stale callback->this races.
+      tcp_arg(pcb_, nullptr);
+      tcp_recv(pcb_, nullptr);
+      tcp_err(pcb_, nullptr);
       LWIP_LOG("tcp_abort(%p)", pcb_);
       tcp_abort(pcb_);
       pcb_ = nullptr;
@@ -159,6 +163,10 @@ class LWIPRawImpl : public Socket {
       errno = ECONNRESET;
       return -1;
     }
+    // KAUF: detach callbacks before close to avoid callback->this races during teardown.
+    tcp_arg(pcb_, nullptr);
+    tcp_recv(pcb_, nullptr);
+    tcp_err(pcb_, nullptr);
     LWIP_LOG("tcp_close(%p)", pcb_);
     err_t err = tcp_close(pcb_);
     if (err != ERR_OK) {
@@ -514,11 +522,22 @@ class LWIPRawImpl : public Socket {
   }
 
   static void s_err_fn(void *arg, err_t err) {
+    // KAUF: tolerate late lwIP callbacks after arg was detached/null.
+    if (arg == nullptr) {
+      return;
+    }
     LWIPRawImpl *arg_this = reinterpret_cast<LWIPRawImpl *>(arg);
     arg_this->err_fn(err);
   }
 
   static err_t s_recv_fn(void *arg, struct tcp_pcb *pcb, struct pbuf *pb, err_t err) {
+    // KAUF: tolerate late lwIP callbacks after arg was detached/null.
+    if (arg == nullptr) {
+      if (pb != nullptr) {
+        pbuf_free(pb);
+      }
+      return ERR_OK;
+    }
     LWIPRawImpl *arg_this = reinterpret_cast<LWIPRawImpl *>(arg);
     return arg_this->recv_fn(pb, err);
   }
@@ -667,6 +686,14 @@ class LWIPRawListenImpl final : public LWIPRawImpl {
   }
 
   static err_t s_accept_fn(void *arg, struct tcp_pcb *newpcb, err_t err) {
+    // KAUF: tolerate late lwIP callbacks after arg was detached/null.
+    if (arg == nullptr) {
+      if (newpcb != nullptr) {
+        tcp_abort(newpcb);
+        return ERR_ABRT;
+      }
+      return ERR_OK;
+    }
     LWIPRawListenImpl *arg_this = reinterpret_cast<LWIPRawListenImpl *>(arg);
     return arg_this->accept_fn_(newpcb, err);
   }
