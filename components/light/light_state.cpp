@@ -58,8 +58,10 @@ void LightState::setup() {
 
 #ifdef USE_KAUF_LIGHT_HASH_MIGRATION
   // KAUF: Try old hash (hash-1) first for migration
-  if (this->forced_hash != 0 && this->forced_addr != 12345) {
+  if (this->forced_hash != 0) {
+#ifdef USE_ESP8266
     esp8266::set_next_forced_addr(this->forced_addr);
+#endif
     ESPPreferenceObject old_rtc = global_preferences->make_preference<LightStateRTCState>(this->forced_hash - 1);
 
 #ifdef USE_KAUF_LIGHT_DATA_MIGRATION
@@ -92,7 +94,9 @@ void LightState::setup() {
 
     // Save with new hash
     if (loaded) {
+#ifdef USE_ESP8266
       esp8266::set_next_forced_addr(this->forced_addr);
+#endif
       this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
       this->rtc_.save(&recovered);
     }
