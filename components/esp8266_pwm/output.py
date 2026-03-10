@@ -4,11 +4,14 @@ from esphome.components import output
 from esphome.components.esp8266.const import require_waveform
 import esphome.config_validation as cv
 from esphome.const import CONF_FREQUENCY, CONF_ID, CONF_NUMBER, CONF_PIN
+import esphome.final_validate as fv
 
 DEPENDENCIES = ["esp8266"]
 
 CONF_ALIGN_PIN = "align_pin"
 CONF_PHASE_OFFSET = "phase_offset"
+CONF_ADAPT_DELAY = "adapt_delay"
+CONF_SERVO = "servo"
 
 
 def valid_pwm_pin(value):
@@ -31,13 +34,34 @@ CONFIG_SCHEMA = cv.All(
             ),
             cv.Optional(CONF_FREQUENCY, default="1kHz"): validate_frequency,
             cv.Optional(CONF_ALIGN_PIN): cv.use_id(ESP8266PWM),
-            cv.Optional(CONF_PHASE_OFFSET, default=0.5): cv.float_range(min=0.0, max=1.0),
+            cv.Optional(CONF_PHASE_OFFSET): cv.float_range(min=0.0, max=1.0),
+            cv.Optional(CONF_ADAPT_DELAY, default="2s"): cv.positive_time_period_milliseconds,
+            cv.Optional(CONF_SERVO, default=False): cv.boolean,
         }
     ).extend(cv.COMPONENT_SCHEMA),
     cv.require_framework_version(
         esp8266_arduino=cv.Version(2, 4, 0),
     ),
 )
+
+
+def _final_validate(config):
+    if CONF_ALIGN_PIN not in config:
+        return config
+    fconf = fv.full_config.get()
+    align_path = fconf.get_path_for_id(config[CONF_ALIGN_PIN])[:-1]
+    align_config = fconf.get_config_for_path(align_path)
+    align_freq = align_config.get(CONF_FREQUENCY)
+    this_freq = config[CONF_FREQUENCY]
+    if align_freq is not None and align_freq != this_freq:
+        raise cv.Invalid(
+            f"align_pin frequency ({align_freq}Hz) must match this output's frequency ({this_freq}Hz)",
+            [CONF_ALIGN_PIN],
+        )
+    return config
+
+
+FINAL_VALIDATE_SCHEMA = _final_validate
 
 
 async def to_code(config) -> None:
@@ -51,10 +75,15 @@ async def to_code(config) -> None:
     cg.add(var.set_pin(pin))
 
     cg.add(var.set_frequency(config[CONF_FREQUENCY]))
+    if config[CONF_SERVO]:
+        cg.add_define("KAUF_ESP8266_PWM_SERVO_COMPAT")
     if CONF_ALIGN_PIN in config:
         align = await cg.get_variable(config[CONF_ALIGN_PIN])
         cg.add(var.set_align_pin(align.get_pin_num()))
-        cg.add(var.set_phase_offset(config[CONF_PHASE_OFFSET]))
+        cg.add(var.set_align_output(align))
+        if CONF_PHASE_OFFSET in config:
+            cg.add(var.set_phase_offset(config[CONF_PHASE_OFFSET]))
+        cg.add(var.set_adapt_delay(config[CONF_ADAPT_DELAY]))
         cg.add_define("KAUF_ESP8266_PHASE_LOCKED_PWM")
 
 

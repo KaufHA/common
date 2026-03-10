@@ -7,6 +7,10 @@
 #include "esphome/core/automation.h"
 #include "esphome/components/output/float_output.h"
 
+#ifdef KAUF_ESP8266_PHASE_LOCKED_PWM
+extern "C" void enablePhaseLockedWaveform();
+#endif
+
 namespace esphome {
 namespace esp8266_pwm {
 
@@ -23,11 +27,16 @@ class ESP8266PWM : public output::FloatOutput, public Component {
 
 #ifdef KAUF_ESP8266_PHASE_LOCKED_PWM
   void set_align_pin(int8_t pin) { this->align_pin_ = pin; }
-  void set_phase_offset(float offset) { this->phase_offset_ = offset; }
+  void set_align_output(ESP8266PWM *output) { this->align_output_ = output; }
+  void set_phase_offset(float offset) { this->phase_current_ = offset; this->fixed_phase_ = true; }
+  void set_adapt_delay(uint32_t ms) { this->adapt_delay_ms_ = ms; }
+  void prepare_startup_phase(float hint) { this->phase_hint_ = hint; }
 #endif
+  float get_last_output() const { return this->last_output_; }
 
   /// Initialize pin
   void setup() override;
+  void loop() override;
   void dump_config() override;
   /// HARDWARE setup_priority
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
@@ -42,7 +51,15 @@ class ESP8266PWM : public output::FloatOutput, public Component {
 
 #ifdef KAUF_ESP8266_PHASE_LOCKED_PWM
   int8_t align_pin_{-1};
-  float phase_offset_{0.5f};
+  bool fixed_phase_{false};       // true = use phase_current_ as fixed offset, no adaptive logic
+  /// Phase offset (fraction 0-1) used at next INIT. Updated by loop() after 2s stability.
+  float phase_current_{0.5f};
+  float phase_pending_{-1.0f};      // candidate CW duty being watched for stability; -1 = none
+  uint32_t phase_stable_ms_{0};     // millis() when phase_pending_ last changed
+  uint32_t adapt_delay_ms_{2000};   // stability window before committing phase_current_ (not really used except to print status)
+  float phase_hint_{-1.0f};         // set by light component; -1 = none pending
+  float phase_hardware_{0.5f};      // phase actually sent to hardware at last INIT; never changes while on
+  ESP8266PWM *align_output_{nullptr};
 #endif
 };
 
