@@ -1,4 +1,16 @@
+import logging
+
 import esphome.config_validation as cv
+
+LOGGER = logging.getLogger(__name__)
+
+CONF_YAML_FILE = "yaml_file"
+YAML_FILE_TRIGGER_RGBS_1M     = "__KAUF_RGBS_LEGACY_YAML_1M__"
+YAML_FILE_TRIGGER_RGBS_4M     = "__KAUF_RGBS_LEGACY_YAML_4M__"
+YAML_FILE_TRIGGER_RGBS_1M_LITE = "__KAUF_RGBS_LEGACY_YAML_1M_LITE__"
+YAML_FILE_TRIGGER_RGBS_4M_LITE = "__KAUF_RGBS_LEGACY_YAML_4M_LITE__"
+YAML_FILE_TRIGGER_RGBS_1M_MIN  = "__KAUF_RGBS_LEGACY_YAML_1M_MIN__"
+YAML_FILE_TRIGGER_RGBS_4M_MIN  = "__KAUF_RGBS_LEGACY_YAML_4M_MIN__"
 
 CONF_DISABLE_WEBSERVER = "disable_webserver"
 CONF_LIGHT_RESTORE_MODE = "light_restore_mode"
@@ -19,6 +31,123 @@ ERROR_SENTINEL = "__KAUF_ERROR_SENTINEL__"
 
 
 def _any_value(value):
+    return value
+
+
+# Added: 2026-03-10. Switch to cv.Invalid after 2026-09-10. Delete file after 2027-03-10.
+def _validate_yaml_file(value):
+    if value == YAML_FILE_TRIGGER_RGBS_1M:
+        LOGGER.warning(
+            "\n"
+            "============================================================\n"
+            "kauf-rgbs.yaml is deprecated. Please migrate by updating\n"
+            "your yaml file:\n"
+            "\n"
+            "---- CHANGE THIS: ----\n"
+            "packages:\n"
+            "  Kauf.RGBSw: github://KaufHA/kauf-rgb-switch/kauf-rgbs.yaml\n"
+            "\n"
+            "---- TO THIS: ----\n"
+            "packages:\n"
+            "  Kauf.RGBSw: github://KaufHA/kauf-rgb-switch/packages/kauf-srf10-1m.yaml\n"
+            "\n"
+            "See: https://github.com/KaufHA/kauf-rgb-switch#yaml-migration\n"
+            "============================================================"
+        )
+    elif value == YAML_FILE_TRIGGER_RGBS_4M:
+        LOGGER.warning(
+            "\n"
+            "============================================================\n"
+            "kauf-rgbs-4m.yaml is deprecated. Please migrate by updating\n"
+            "your yaml file:\n"
+            "\n"
+            "---- CHANGE THIS: ----\n"
+            "packages:\n"
+            "  Kauf.RGBSw: github://KaufHA/kauf-rgb-switch/kauf-rgbs-4m.yaml\n"
+            "\n"
+            "---- TO THIS: ----\n"
+            "packages:\n"
+            "  Kauf.RGBSw: github://KaufHA/kauf-rgb-switch/packages/kauf-srf10-4m.yaml\n"
+            "\n"
+            "See: https://github.com/KaufHA/kauf-rgb-switch#yaml-migration\n"
+            "============================================================"
+        )
+    elif value == YAML_FILE_TRIGGER_RGBS_1M_LITE:
+        LOGGER.warning(
+            "\n"
+            "============================================================\n"
+            "kauf-rgbs-lite.yaml is deprecated. Please migrate by updating\n"
+            "your yaml file:\n"
+            "\n"
+            "---- CHANGE THIS: ----\n"
+            "packages:\n"
+            "  Kauf.RGBSw: github://KaufHA/kauf-rgb-switch/config/kauf-rgbs-lite.yaml\n"
+            "\n"
+            "---- TO THIS: ----\n"
+            "packages:\n"
+            "  profile: github://KaufHA/kauf-rgb-switch/packages/profiles/stock-default.yaml\n"
+            "  target:  github://KaufHA/kauf-rgb-switch/packages/targets/stock-srf10-1m-target.yaml\n"
+            "\n"
+            "See: https://github.com/KaufHA/kauf-rgb-switch#yaml-migration\n"
+            "============================================================"
+        )
+    elif value == YAML_FILE_TRIGGER_RGBS_4M_LITE:
+        LOGGER.warning(
+            "\n"
+            "============================================================\n"
+            "kauf-rgbs-4m-lite.yaml is deprecated. Please migrate by updating\n"
+            "your yaml file:\n"
+            "\n"
+            "---- CHANGE THIS: ----\n"
+            "packages:\n"
+            "  Kauf.RGBSw: github://KaufHA/kauf-rgb-switch/config/kauf-rgbs-4m-lite.yaml\n"
+            "\n"
+            "---- TO THIS: ----\n"
+            "packages:\n"
+            "  profile: github://KaufHA/kauf-rgb-switch/packages/profiles/stock-default.yaml\n"
+            "  target:  github://KaufHA/kauf-rgb-switch/packages/targets/stock-srf10-4m-target.yaml\n"
+            "\n"
+            "See: https://github.com/KaufHA/kauf-rgb-switch#yaml-migration\n"
+            "============================================================"
+        )
+    elif value == YAML_FILE_TRIGGER_RGBS_1M_MIN:
+        LOGGER.warning(
+            "\n"
+            "============================================================\n"
+            "kauf-rgbs-minimal.yaml is deprecated. Please migrate by updating\n"
+            "your yaml file:\n"
+            "\n"
+            "---- CHANGE THIS: ----\n"
+            "packages:\n"
+            "  Kauf.RGBSw: github://KaufHA/kauf-rgb-switch/config/kauf-rgbs-minimal.yaml\n"
+            "\n"
+            "---- TO THIS: ----\n"
+            "packages:\n"
+            "  profile: github://KaufHA/kauf-rgb-switch/packages/profiles/stock-minimal.yaml\n"
+            "  target:  github://KaufHA/kauf-rgb-switch/packages/targets/stock-srf10-1m-target.yaml\n"
+            "\n"
+            "See: https://github.com/KaufHA/kauf-rgb-switch#yaml-migration\n"
+            "============================================================"
+        )
+    elif value == YAML_FILE_TRIGGER_RGBS_4M_MIN:
+        LOGGER.warning(
+            "\n"
+            "============================================================\n"
+            "kauf-rgbs-4m-minimal.yaml is deprecated. Please migrate by updating\n"
+            "your yaml file:\n"
+            "\n"
+            "---- CHANGE THIS: ----\n"
+            "packages:\n"
+            "  Kauf.RGBSw: github://KaufHA/kauf-rgb-switch/config/kauf-rgbs-4m-minimal.yaml\n"
+            "\n"
+            "---- TO THIS: ----\n"
+            "packages:\n"
+            "  profile: github://KaufHA/kauf-rgb-switch/packages/profiles/stock-minimal.yaml\n"
+            "  target:  github://KaufHA/kauf-rgb-switch/packages/targets/stock-srf10-4m-target.yaml\n"
+            "\n"
+            "See: https://github.com/KaufHA/kauf-rgb-switch#yaml-migration\n"
+            "============================================================"
+        )
     return value
 
 
@@ -220,6 +349,9 @@ def _validate_hass_ct_mireds_fixed(value):
 
 CONFIG_SCHEMA = cv.Schema(
     {
+        cv.Optional(CONF_YAML_FILE, default=SENTINEL): cv.All(
+            _any_value, _validate_yaml_file
+        ),
         cv.Optional(CONF_DISABLE_WEBSERVER, default=SENTINEL): cv.All(
             _any_value, _validate_disable_webserver
         ),
