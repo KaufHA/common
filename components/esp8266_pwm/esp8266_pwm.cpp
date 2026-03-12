@@ -16,6 +16,18 @@ namespace esp8266_pwm {
 
 static const char *const TAG = "esp8266_pwm";
 
+static const char *quantize_mode_to_str(QuantizeMode mode) {
+  switch (mode) {
+    case QUANTIZE_UP:
+      return "up";
+    case QUANTIZE_DOWN:
+      return "down";
+    case QUANTIZE_NONE:
+    default:
+      return "none";
+  }
+}
+
 void ESP8266PWM::setup() {
 #ifdef KAUF_ESP8266_PHASE_LOCKED_PWM
   enablePhaseLockedWaveform();
@@ -29,6 +41,7 @@ void ESP8266PWM::dump_config() {
                 "  Frequency: %.1f Hz",
                 this->frequency_);
   LOG_PIN("  Pin: ", this->pin_);
+  ESP_LOGCONFIG(TAG, "  Quantize: %s", quantize_mode_to_str(this->quantize_mode_));
 #ifdef KAUF_ESP8266_PHASE_LOCKED_PWM
   if (this->align_pin_ >= 0) {
     ESP_LOGCONFIG(TAG, "  Align pin: GPIO%d  Phase offset: %.3f", this->align_pin_, this->phase_current_);
@@ -79,7 +92,23 @@ void HOT ESP8266PWM::write_state(float state) {
   }
 
   auto total_time_us = static_cast<uint32_t>(roundf(1e6f / this->frequency_));
-  auto duty_on = static_cast<uint32_t>(roundf(total_time_us * state));
+  float duty_f = total_time_us * state;
+  uint32_t duty_on;
+  switch (this->quantize_mode_) {
+    case QUANTIZE_UP:
+      duty_on = static_cast<uint32_t>(ceilf(duty_f));
+      break;
+    case QUANTIZE_DOWN:
+      duty_on = static_cast<uint32_t>(floorf(duty_f));
+      break;
+    case QUANTIZE_NONE:
+    default:
+      duty_on = static_cast<uint32_t>(roundf(duty_f));
+      break;
+  }
+  if (duty_on > total_time_us) {
+    duty_on = total_time_us;
+  }
   uint32_t duty_off = total_time_us - duty_on;
 
   if (duty_on == 0) {
@@ -104,8 +133,10 @@ void HOT ESP8266PWM::write_state(float state) {
       }
       this->phase_hardware_ = this->phase_current_;
       auto offset_us = static_cast<uint32_t>(roundf(this->phase_current_ * total_time_us));
-      ESP_LOGI(TAG, "WW startup GPIO%d: phase=%.3f offset=%uus (period=%uus)",
-               this->pin_->get_pin(), this->phase_current_, offset_us, total_time_us);
+      if (!this->fixed_phase_) {
+        ESP_LOGI(TAG, "Aligned startup GPIO%d: phase=%.3f offset=%uus (period=%uus)",
+                 this->pin_->get_pin(), this->phase_current_, offset_us, total_time_us);
+      }
       startWaveform(this->pin_->get_pin(), duty_on, duty_off, 0,
                     this->align_pin_, offset_us, false);
     } else

@@ -12,6 +12,7 @@ CONF_ALIGN_PIN = "align_pin"
 CONF_PHASE_OFFSET = "phase_offset"
 CONF_ADAPT_DELAY = "adapt_delay"
 CONF_SERVO = "servo"
+CONF_QUANTIZE = "quantize"
 
 
 def valid_pwm_pin(value):
@@ -23,7 +24,14 @@ def valid_pwm_pin(value):
 esp8266_pwm_ns = cg.esphome_ns.namespace("esp8266_pwm")
 ESP8266PWM = esp8266_pwm_ns.class_("ESP8266PWM", output.FloatOutput, cg.Component)
 SetFrequencyAction = esp8266_pwm_ns.class_("SetFrequencyAction", automation.Action)
+QuantizeMode = esp8266_pwm_ns.enum("QuantizeMode")
 validate_frequency = cv.All(cv.frequency, cv.float_range(min=1.0e-6))
+
+QUANTIZE_MODES = {
+    "none": QuantizeMode.QUANTIZE_NONE,
+    "up": QuantizeMode.QUANTIZE_UP,
+    "down": QuantizeMode.QUANTIZE_DOWN,
+}
 
 CONFIG_SCHEMA = cv.All(
     output.FLOAT_OUTPUT_SCHEMA.extend(
@@ -37,6 +45,9 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_PHASE_OFFSET): cv.float_range(min=0.0, max=1.0),
             cv.Optional(CONF_ADAPT_DELAY, default="2s"): cv.positive_time_period_milliseconds,
             cv.Optional(CONF_SERVO, default=False): cv.boolean,
+            cv.Optional(CONF_QUANTIZE, default="none"): cv.enum(
+                QUANTIZE_MODES, lower=True
+            ),
         }
     ).extend(cv.COMPONENT_SCHEMA),
     cv.require_framework_version(
@@ -75,6 +86,7 @@ async def to_code(config) -> None:
     cg.add(var.set_pin(pin))
 
     cg.add(var.set_frequency(config[CONF_FREQUENCY]))
+    cg.add(var.set_quantize_mode(config[CONF_QUANTIZE]))
     if config[CONF_SERVO]:
         cg.add_define("KAUF_ESP8266_PWM_SERVO_COMPAT")
     if CONF_ALIGN_PIN in config:

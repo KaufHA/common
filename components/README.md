@@ -154,3 +154,94 @@ sensor:
 Still to do:
 - Settings to update sensors before the update interval period is complete if values change by a fixed value or percentage.
 - Settings to average multiple readings for each sensor publication.
+
+## ESP8266_PWM (Custom Behavior)
+
+The `esp8266_pwm` component in this repository includes KAUF-specific enhancements for ESP8266 RGBWW bulbs.
+
+### What is custom
+
+- Optional phase-locked PWM startup behavior for synchronized white channels.
+- Optional adaptive phase hinting for warm-white startup based on recent CT state.
+- Optional fixed phase mode (no adaptive updates).
+- Additional diagnostics around phase selection and overlap.
+
+### Enablement
+
+These behaviors are compile-time features used by KAUF bulb firmware and are not intended as a generic drop-in API extension for all projects.
+
+Relevant compile-time defines used by this component include:
+
+- `KAUF_ESP8266_PHASE_LOCKED_PWM`
+- `KAUF_ESP8266_PWM_SERVO_COMPAT` (optional servo workaround path)
+
+### Quantization mode (`quantize`)
+
+The component supports per-output duty quantization policy:
+
+- `quantize: none` (default): round to nearest PWM tick (existing behavior).
+- `quantize: up`: always round up to the next PWM tick.
+- `quantize: down`: always round down to the previous PWM tick.
+
+Quantization is applied in the PWM driver at duty-tick conversion time, after output scaling, so it reflects actual
+hardware resolution.
+
+Example:
+
+```yaml
+output:
+  - platform: esp8266_pwm
+    id: pwm_cw
+    pin: GPIO12
+    frequency: 125 Hz
+    quantize: up
+```
+
+Two-channel alignment example (channel `pwm_b` follows `pwm_a` with a phase offset):
+
+```yaml
+output:
+  - platform: esp8266_pwm
+    id: pwm_a
+    pin: GPIO12
+    frequency: 125 Hz
+    quantize: up
+
+  - platform: esp8266_pwm
+    id: pwm_b
+    pin: GPIO13
+    frequency: 125 Hz
+    quantize: up
+    align_pin: pwm_a
+    phase_offset: 0.25
+```
+
+### Fixed vs Adaptive phase behavior
+
+- **Fixed phase mode**:
+  - If `phase_offset` is configured, that channel stays at a fixed phase relative to the `align_pin` channel.
+
+
+- **Adaptive phase mode**:
+  - Phase can be updated from runtime hints.
+  - Runtime hints are provided by higher-level light logic before an aligned channel starts PWM
+    (for example using `prepare_startup_phase(...)` in custom light code).
+  - Why this is useful:
+    - On startup/restart of the aligned channel, using only the instantaneous duty snapshot can pick a
+      suboptimal phase.
+    - A hint allows selecting a better startup phase based on intended target state (for example a CT target
+      at the end of a transition), which can reduce overlap spikes and improve visual smoothness.
+  - Practical guidance:
+    - Use hints when your two channels represent complementary outputs (for example dual-white or other paired channels)
+      and startup transients matter.
+    - If you do not provide hints, adaptive mode still works; it will estimate phase from observed duty values.
+  - Startup log line is emitted for aligned-channel startup:
+    - `Aligned startup GPIO...`
+  - Stable-phase diagnostic logs may be emitted, showing overlap percentage at current values
+    - `Phase saved GPIO...`
+
+
+### Notes
+
+- This customization is primarily for ESP8266 Kauf RGBWW bulb hardware behavior and transition quality.
+- If you import this component externally, ensure your firmware/config expectations match these custom semantics.

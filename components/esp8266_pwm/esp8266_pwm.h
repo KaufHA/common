@@ -14,10 +14,17 @@ extern "C" void enablePhaseLockedWaveform();
 namespace esphome {
 namespace esp8266_pwm {
 
+enum QuantizeMode : uint8_t {
+  QUANTIZE_NONE = 0,  // Keep default behavior (round to nearest PWM tick)
+  QUANTIZE_UP = 1,    // Always round up to next PWM tick
+  QUANTIZE_DOWN = 2,  // Always round down to previous PWM tick
+};
+
 class ESP8266PWM : public output::FloatOutput, public Component {
  public:
   void set_pin(InternalGPIOPin *pin) { pin_ = pin; }
   void set_frequency(float frequency) { this->frequency_ = frequency; }
+  void set_quantize_mode(QuantizeMode mode) { this->quantize_mode_ = mode; }
   uint8_t get_pin_num() const { return this->pin_->get_pin(); }
   /// Dynamically update frequency
   void update_frequency(float frequency) override {
@@ -48,6 +55,7 @@ class ESP8266PWM : public output::FloatOutput, public Component {
   float frequency_{1000.0};
   /// Cache last output level for dynamic frequency updating
   float last_output_{0.0};
+  QuantizeMode quantize_mode_{QUANTIZE_NONE};
 
 #ifdef KAUF_ESP8266_PHASE_LOCKED_PWM
   int8_t align_pin_{-1};
