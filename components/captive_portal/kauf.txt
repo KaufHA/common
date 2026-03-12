@@ -1,3 +1,6 @@
+__init__.py
+  - add validation for KAUF product config
+
 captive_index.h
   - different file generated from our repo
 

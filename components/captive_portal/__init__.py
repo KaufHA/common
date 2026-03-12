@@ -13,6 +13,7 @@ from esphome.const import (
     PLATFORM_ESP32,
     PLATFORM_ESP8266,
     PLATFORM_LN882X,
+    PLATFORM_RP2040,
     PLATFORM_RTL87XX,
     PlatformFramework,
 )
@@ -22,8 +23,9 @@ import esphome.final_validate as fv
 from esphome.types import ConfigType
 
 _LOGGER = logging.getLogger(__name__)
-CONF_PRODUCT = "product"
+CONF_PRODUCT = "product"  # KAUF
 
+# KAUF
 PRODUCT_DEFINE_MAP = {
     "plf10": "KAUF_PRODUCT_PLF10",
     "plf12": "KAUF_PRODUCT_PLF12",
@@ -33,7 +35,7 @@ PRODUCT_DEFINE_MAP = {
 
 
 def AUTO_LOAD() -> list[str]:
-    auto_load = ["json", "web_server_base", "ota.web_server"]
+    auto_load = ["json", "web_server_base", "ota.web_server"]  # KAUF
     if CORE.is_esp32:
         auto_load.append("socket")
     return auto_load
@@ -53,7 +55,7 @@ CONFIG_SCHEMA = cv.All(
                 web_server_base.WebServerBase
             ),
             cv.Optional(CONF_COMPRESSION, default="gzip"): cv.one_of("gzip", "br"),
-            cv.Optional(CONF_PRODUCT): cv.one_of(*PRODUCT_DEFINE_MAP, lower=True),
+            cv.Optional(CONF_PRODUCT): cv.one_of(*PRODUCT_DEFINE_MAP, lower=True),  # KAUF
         }
     ).extend(cv.COMPONENT_SCHEMA),
     cv.only_on(
@@ -62,6 +64,7 @@ CONFIG_SCHEMA = cv.All(
             PLATFORM_ESP8266,
             PLATFORM_BK72XX,
             PLATFORM_LN882X,
+            PLATFORM_RP2040,
             PLATFORM_RTL87XX,
         ]
     ),
@@ -71,6 +74,8 @@ CONFIG_SCHEMA = cv.All(
 def _final_validate(config: ConfigType) -> ConfigType:
     full_config = fv.full_config.get()
     wifi_conf = full_config.get("wifi")
+    
+    # KAUF
     web_server_conf = full_config.get("web_server") or {}
     ws_product = web_server_conf.get(CONF_PRODUCT)
     cp_product = config.get(CONF_PRODUCT)
@@ -88,14 +93,17 @@ def _final_validate(config: ConfigType) -> ConfigType:
 
     # Register socket needs for DNS server and additional HTTP connections
     # - 1 UDP socket for DNS server
-    # - 3 additional TCP sockets for captive portal detection probes + configuration requests
+    # - 3 TCP sockets for captive portal detection probes + configuration requests
     #   OS captive portal detection makes multiple probe requests that stay in TIME_WAIT.
     #   Need headroom for actual user configuration requests.
     #   LRU purging will reclaim idle sockets to prevent exhaustion from repeated attempts.
+    # The listening socket is registered by web_server_base (shared HTTP server).
     from esphome.components import socket
 
-    socket.consume_sockets(4, "captive_portal")(config)
+    socket.consume_sockets(3, "captive_portal")(config)
+    socket.consume_sockets(1, "captive_portal", socket.SocketType.UDP)(config)
 
+    # KAUF
     if ws_product is not None and cp_product is not None and ws_product != cp_product:
         raise cv.Invalid(
             f"captive_portal product '{cp_product}' conflicts with web_server product '{ws_product}'."
@@ -117,14 +125,13 @@ async def to_code(config):
 
     if config[CONF_COMPRESSION] == "gzip":
         cg.add_define("USE_CAPTIVE_PORTAL_GZIP")
+
+    # KAUF
     if (product := config.get(CONF_PRODUCT)) is not None:
         cg.add_define(PRODUCT_DEFINE_MAP[product])
 
-    if CORE.using_arduino:
-        if CORE.is_esp8266:
-            cg.add_library("DNSServer", None)
-        if CORE.is_libretiny:
-            cg.add_library("DNSServer", None)
+    if CORE.using_arduino and (CORE.is_esp8266 or CORE.is_libretiny or CORE.is_rp2040):
+        cg.add_library("DNSServer", None)
 
 
 # Only compile the ESP-IDF DNS server when using ESP-IDF framework

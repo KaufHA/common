@@ -22,10 +22,8 @@ lwip_raw_tcp_impl.cpp
   - Added teardown safety guard in close():
     - detaches lwIP callbacks before tcp_close()/tcp_abort().
   - Added null-arg guards in static lwIP callbacks:
-    - s_err_fn: return when arg == nullptr.
-    - s_recv_fn: free pbuf and return when arg == nullptr.
-    - s_accept_fn: abort newpcb and return ERR_ABRT when arg == nullptr.
+    - LWIPRawImpl::s_err_fn: return when arg == nullptr.
+    - LWIPRawImpl::s_recv_fn: free pbuf and return when arg == nullptr.
+    - LWIPRawListenImpl::s_err_fn: return when arg == nullptr.
+    - LWIPRawListenImpl::s_accept_fn: abort newpcb and return ERR_ABRT when arg == nullptr.
   - Purpose: avoid callback->this races after socket/listener teardown.
-
-socket.h
-  - Updated comments to document KAUF wake defines used by socket_delay/socket_wake.

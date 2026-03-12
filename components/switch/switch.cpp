@@ -6,8 +6,7 @@
 #include "esphome/components/esp8266/preferences.h"  // KAUF: included for set_next_forced_addr
 #endif
 
-namespace esphome {
-namespace switch_ {
+namespace esphome::switch_ {
 
 static const char *const TAG = "switch";
 
@@ -125,5 +124,4 @@ void log_switch(const char *tag, const char *prefix, const char *type, Switch *o
   }
 }
 
-}  // namespace switch_
-}  // namespace esphome
+}  // namespace esphome::switch_

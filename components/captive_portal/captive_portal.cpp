@@ -108,8 +108,8 @@ void CaptivePortal::handle_config(AsyncWebServerRequest *request) {
   request->send(stream);
 }
 void CaptivePortal::handle_wifisave(AsyncWebServerRequest *request) {
-  std::string ssid = request->arg("ssid").c_str();  // NOLINT(readability-redundant-string-cstr)
-  std::string psk = request->arg("psk").c_str();    // NOLINT(readability-redundant-string-cstr)
+  const auto &ssid = request->arg("ssid");
+  const auto &psk = request->arg("psk");
   ESP_LOGI(TAG,
            "Requested WiFi Settings Change:\n"
            "  SSID='%s'\n"
@@ -117,11 +117,11 @@ void CaptivePortal::handle_wifisave(AsyncWebServerRequest *request) {
            ssid.c_str(), psk.c_str());
   request->redirect(ESPHOME_F("/?save"));
 #ifdef USE_ESP8266
-  // Delay reboot briefly so HTTP response/redirect can flush to the client.
-  this->set_timeout(250, [ssid, psk]() { wifi::global_wifi_component->save_wifi_sta(ssid, psk); });
+  // Delay reboot briefly so HTTP response/redirect can flush to the client. KAUF adds delay
+  this->set_timeout(250, [ssid, psk]() { wifi::global_wifi_component->save_wifi_sta(ssid.c_str(), psk.c_str()); });
 #else
   // Defer save to main loop thread to avoid NVS operations from HTTP thread
-  this->defer([ssid, psk]() { wifi::global_wifi_component->save_wifi_sta(ssid, psk); });
+  this->defer([ssid, psk]() { wifi::global_wifi_component->save_wifi_sta(ssid.c_str(), psk.c_str()); });
 #endif
 }
 
