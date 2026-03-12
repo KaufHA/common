@@ -1,0 +1,10 @@
+__init__.py
+  - add options for forced addr/hash
+
+switch.cpp
+  - implement forced addr/hash
+  - update publish_state function to allow forcing save
+
+switch.h
+  - declarations for forced addr/hash implementation
+  - modify publish to allow forcing save
