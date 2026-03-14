@@ -2878,7 +2878,13 @@ void WebServer::handle_state_request(AsyncWebServerRequest *request) {
     return;
   }
 
-  const bool wrap_entities = request->url() == ESPHOME_F("/state");
+  bool wrap_entities = false;
+#ifdef USE_ESP32
+  char url_buf[AsyncWebServerRequest::URL_BUF_SIZE];
+  wrap_entities = request->url_to(url_buf) == "/state";
+#else
+  wrap_entities = request->url() == ESPHOME_F("/state");
+#endif
   AsyncResponseStream *stream = request->beginResponseStream(ESPHOME_F("application/json"));
   if (wrap_entities) {
     stream->print(ESPHOME_F("{\"entities\":["));
