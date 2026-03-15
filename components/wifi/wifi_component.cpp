@@ -702,7 +702,7 @@ void WiFiComponent::start() {
 
     this->transition_to_phase_(WiFiRetryPhase::INITIAL_CONNECT);
 #ifdef USE_WIFI_FAST_CONNECT
-    if (this->fast_connect_enabled_) {
+    if (this->fast_connect_enabled_) {  // KAUF: allow disabling of fast connect
       WiFiAP params;
       bool loaded_fast_connect = this->load_fast_connect_settings_(params);
       // Fast connect optimization: only use when we have saved BSSID+channel data
@@ -2206,20 +2206,6 @@ void WiFiComponent::retry_connect() {
     this->start_connecting(params);
   }
 }
-
-#ifdef USE_RP2040
-// RP2040's mDNS library (LEAmDNS) relies on LwipIntf::stateUpCB() to restart
-// mDNS when the network interface reconnects. However, this callback is disabled
-// in the arduino-pico framework. As a workaround, we block component setup until
-// WiFi is connected, ensuring mDNS.begin() is called with an active connection.
-
-bool WiFiComponent::can_proceed() {
-  if (!this->has_sta() || this->state_ == WIFI_COMPONENT_STATE_DISABLED || this->ap_setup_) {
-    return true;
-  }
-  return this->is_connected_();
-}
-#endif
 
 void WiFiComponent::set_reboot_timeout(uint32_t reboot_timeout) { this->reboot_timeout_ = reboot_timeout; }
 bool WiFiComponent::is_connected_() const {

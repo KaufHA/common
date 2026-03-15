@@ -123,6 +123,7 @@ void CaptivePortal::handle_wifisave(AsyncWebServerRequest *request) {
   // Defer save to main loop thread to avoid NVS operations from HTTP thread
   this->defer([ssid, psk]() { wifi::global_wifi_component->save_wifi_sta(ssid.c_str(), psk.c_str()); });
 #endif
+  request->send(200, ESPHOME_F("text/plain"), ESPHOME_F("Saved. Connecting..."));
 }
 
 void CaptivePortal::setup() {
@@ -132,7 +133,7 @@ void CaptivePortal::setup() {
 void CaptivePortal::start() {
   this->base_->init();
   if (!this->initialized_) {
-    this->base_->add_handler(this);
+    this->base_->add_handler_without_auth(this);
   }
 
   network::IPAddress ip = wifi::global_wifi_component->wifi_soft_ap_ip();
