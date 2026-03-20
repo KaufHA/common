@@ -35,9 +35,9 @@ static ProductUiMetadata get_product_ui_metadata() {
       "DO NOT USE ANY WLED BIN FILE. WLED is not going to work properly on this bulb. "
       "Use the included DDP functionality to control this bulb from another WLED instance "
       "or xLights."};
-#elif defined(KAUF_PRODUCT_RGBSW)
+#elif defined(KAUF_PRODUCT_SRF10)
   return ProductUiMetadata{
-      "RGB Switch", "https://kaufha.com/srf10", "https://github.com/KaufHA/kauf-rgb-switch/releases", ""};
+      "RGB Switch (SRF10)", "https://kaufha.com/srf10", "https://github.com/KaufHA/kauf-rgb-switch/releases", ""};
 #else
   return ProductUiMetadata{"Unknown Product", "https://kaufha.com", "https://github.com/KaufHA", ""};
 #endif

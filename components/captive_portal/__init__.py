@@ -30,7 +30,7 @@ PRODUCT_DEFINE_MAP = {
     "plf10": "KAUF_PRODUCT_PLF10",
     "plf12": "KAUF_PRODUCT_PLF12",
     "rgbww": "KAUF_PRODUCT_RGBWW",
-    "rgbsw": "KAUF_PRODUCT_RGBSW",
+    "srf10": "KAUF_PRODUCT_SRF10",
 }
 
 
