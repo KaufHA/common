@@ -178,7 +178,21 @@ defer:
 
     const std::string &latest = result->info.latest_version;
     const std::string &current = result->info.current_version;
-    bool up_to_date = latest.empty() || latest == current;
+
+    // Parse "major.minor" version strings and compare numerically.
+    // current >= latest means no update needed (handles device ahead of manifest).
+    auto parse_version = [](const std::string &v, int &major, int &minor) {
+      const char *s = v.c_str();
+      major = atoi(s);
+      const char *dot = strchr(s, '.');
+      minor = dot ? atoi(dot + 1) : 0;
+    };
+    int cur_maj, cur_min, lat_maj, lat_min;
+    parse_version(current, cur_maj, cur_min);
+    parse_version(latest, lat_maj, lat_min);
+    bool up_to_date = latest.empty() ||
+                      (cur_maj > lat_maj) ||
+                      (cur_maj == lat_maj && cur_min >= lat_min);
 
     bool trigger_update_available = false;
     update::UpdateState new_state;

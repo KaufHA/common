@@ -27,7 +27,7 @@ static ProductUiMetadata get_product_ui_metadata() {
   return ProductUiMetadata{"Plug (PLF12)", "https://kaufha.com/plf12", "https://github.com/KaufHA/PLF12/releases", ""};
 #elif defined(KAUF_PRODUCT_PLF10)
   return ProductUiMetadata{"Plug (PLF10)", "https://kaufha.com/plf10", "https://github.com/KaufHA/PLF10/releases", ""};
-#elif defined(KAUF_PRODUCT_RGBWW)
+#elif defined(KAUF_PRODUCT_BULB)
   return ProductUiMetadata{
       "RGBWW Bulb",
       "https://kaufha.com/blf10",

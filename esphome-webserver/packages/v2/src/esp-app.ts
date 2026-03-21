@@ -290,7 +290,7 @@ export default class EspApp extends LitElement {
     </p>`;
   }
 
-  static readonly ALL_PRODUCTS = ["plf10", "plf12", "rgbww", "srf10", "rgbsw", "bulb", "plug"];
+  static readonly ALL_PRODUCTS = ["plf10", "plf12", "srf10", "rgbsw", "bulb", "plug"];
 
   handleOtaFileChange = (e: Event) => {
     const input = e.target as HTMLInputElement;

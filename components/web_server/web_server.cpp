@@ -171,7 +171,7 @@ static ProductUiMetadata get_product_ui_metadata() {
       ""
 #endif
       , "plf10"};
-#elif defined(KAUF_PRODUCT_RGBWW)
+#elif defined(KAUF_PRODUCT_BULB)
   return ProductUiMetadata{
       "RGBWW Bulb",
       "https://kaufha.com/blf10",
@@ -188,7 +188,7 @@ static ProductUiMetadata get_product_ui_metadata() {
 #else
       ""
 #endif
-      , "rgbww"};
+      , "bulb"};
 #elif defined(KAUF_PRODUCT_SRF10)
   return ProductUiMetadata{
       "RGB Switch (SRF10)",
