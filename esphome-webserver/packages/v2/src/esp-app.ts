@@ -41,7 +41,7 @@ const LEGACY_PRODUCT_UI_BY_PROJECT: Record<string, ProductUi> =
             "DO NOT USE ANY WLED BIN FILE. WLED is not going to work properly on this bulb. Use the included DDP functionality to control this bulb from another WLED instance or xLights.",
         },
         "Kauf.RGBSw": {
-          display_name: "RGB Switch",
+          display_name: "RGB Switch (SRF10)",
           product_url: "https://kaufha.com/srf10",
           update_url: "https://github.com/KaufHA/kauf-rgb-switch/releases",
           ota_warning: "",
@@ -72,6 +72,7 @@ interface Config {
     update_url?: string;
     ota_warning?: string;
     factory_warning?: string;
+    product_id?: string;
   };
   featured_name?: string;
 }
@@ -86,6 +87,10 @@ export default class EspApp extends LitElement {
   @state() hadDisconnect: boolean = false;
   @state() lastPingMs: number = Date.now();
   @state() hasOpenedOnce: boolean = false;
+  @state() updateReleaseUrl: string = "";
+  @state() updateLatestVersion: string = "";
+  @state() otaFileWarning: string = "";
+  @state() sensor4m: boolean | undefined = undefined;
   private disconnectTimer: number | null = null;
   @query("#beat")
   beat!: HTMLSpanElement;
@@ -148,6 +153,35 @@ export default class EspApp extends LitElement {
         this.disconnectTimer = null;
       }
     });
+    const handleUpdateState = (e: Event) => {
+      const data = JSON.parse((e as MessageEvent).data);
+      const id: string = data.id || "";
+      const nameId: string = data.name_id || "";
+      if (!id.startsWith("update-") && !nameId.startsWith("update/")) return;
+      if (data.state === "UPDATE AVAILABLE") {
+        const url = data.firmware_url || data.release_url;
+        if (url) {
+          this.updateReleaseUrl = url;
+          this.updateLatestVersion = data.value || "";
+        }
+      } else if (data.state) {
+        // Only clear on an explicit state (NO UPDATE, UNKNOWN, INSTALLING) — not on missing/incomplete events
+        this.updateReleaseUrl = "";
+        this.updateLatestVersion = "";
+      }
+    };
+    window.source.addEventListener("state", handleUpdateState);
+    window.source.addEventListener("state_detail_all", handleUpdateState);
+
+    const handle4mState = (e: Event) => {
+      const data = JSON.parse((e as MessageEvent).data);
+      if (data.id === "binary_sensor-4mib" || data.name_id === "binary_sensor/4MiB") {
+        this.sensor4m = data.value === true;
+      }
+    };
+    window.source.addEventListener("state", handle4mState);
+    window.source.addEventListener("state_detail_all", handle4mState);
+
     document.addEventListener("webserver-api-call", (e: Event) => {
       const ev = e as CustomEvent;
       const method = ev.detail?.method || "POST";
@@ -248,6 +282,52 @@ export default class EspApp extends LitElement {
     return warning ? html`<p>**** ${warning}</p>` : nothing;
   }
 
+  renderUpdateNotice() {
+    if (!this.updateReleaseUrl) return nothing;
+    const filename = this.updateReleaseUrl.split("/").pop() || this.updateReleaseUrl;
+    return html`<p class="update-notice">
+      Update available: <a href="${this.updateReleaseUrl}" target="_blank" rel="noopener noreferrer">${filename}</a>
+    </p>`;
+  }
+
+  static readonly ALL_PRODUCTS = ["plf10", "plf12", "rgbww", "srf10", "rgbsw", "bulb", "plug"];
+
+  handleOtaFileChange = (e: Event) => {
+    const input = e.target as HTMLInputElement;
+    if (!input.files || !input.files[0]) {
+      this.otaFileWarning = "";
+      return;
+    }
+    const filename = input.files[0].name.toLowerCase();
+    const warnings: string[] = [];
+
+    // product check
+    const myProduct = this.config.kauf_ui?.product_id || "";
+    const wrongProducts = myProduct ? EspApp.ALL_PRODUCTS.filter((p) => p !== myProduct) : [];
+    const wrongProduct = wrongProducts.find((p) => filename.includes(p));
+    const overrides: string[] = [];
+    if (wrongProduct) {
+      const mine = myProduct ? `This device is "${myProduct}".` : "This device product is unknown.";
+      warnings.push(`filename contains "${wrongProduct}" which is a different product. ${mine}`);
+      overrides.push(`"${wrongProduct}"`);
+    }
+
+    // 1m/4m check
+    if (this.sensor4m !== undefined) {
+      if (this.sensor4m && filename.includes("-1m")) {
+        warnings.push(`filename contains "-1m" but this is a 4M device.`);
+        overrides.push(`"-1m"`);
+      } else if (!this.sensor4m && filename.includes("-4m")) {
+        warnings.push(`filename contains "-4m" but this is a 1M device.`);
+        overrides.push(`"-4m"`);
+      }
+    }
+
+    this.otaFileWarning = warnings.length
+      ? "Warning: " + warnings.join(" ") + ` Select the correct file to proceed, or rename to remove ${overrides.join(" and ")} to override.`
+      : "";
+  }
+
   formatBytes(value?: number) {
     return Number(value || 0).toLocaleString("en-US");
   }
@@ -256,16 +336,20 @@ export default class EspApp extends LitElement {
     if (this.config.ota) {
       let basePath = getBasePath();
       return html`<h2>OTA Update</h2>
-        <p>Either .bin or .bin.gz files will work, but the file size needs to be under ${this.formatBytes(this.config.free_sp)} bytes.  For KAUF update files, the .bin.gz file is recommended, and the .bin files are typically too large to work anyway.</p>
-        <p>**** DO NOT USE <b>TASMOTA-MINIMAL</b>.BIN or .BIN.GZ<br>**** Use tasmota.bin.gz or tasmota-lite.bin.gz</p>
-        ${this.renderOtaWarning()}
+        ${this.updateReleaseUrl ? nothing : html`
+          <p>Either .bin or .bin.gz files will work, but the file size needs to be under ${this.formatBytes(this.config.free_sp)} bytes.  For KAUF update files, the .bin.gz file is recommended, and the .bin files are typically too large to work anyway.</p>
+          <p>**** DO NOT USE <b>TASMOTA-MINIMAL</b>.BIN or .BIN.GZ<br>**** Use tasmota.bin.gz or tasmota-lite.bin.gz</p>
+          ${this.renderOtaWarning()}
+        `}
+        ${this.renderUpdateNotice()}
         <form
           method="POST"
           action="${basePath}/update"
           enctype="multipart/form-data"
         >
-          <input class="btn" type="file" name="update" />
-          <input class="btn" type="submit" value="Update" />
+          <input class="btn" type="file" name="update" @change=${this.handleOtaFileChange} />
+          <input class="btn" type="submit" value="Update" ?disabled=${!!this.otaFileWarning} />
+          ${this.otaFileWarning ? html`<p class="ota-warning"><strong style="color:orange">Warning:</strong> ${this.otaFileWarning.replace(/^Warning: /, "")}</p>` : nothing}
         </form>`;
     }
   }
@@ -516,6 +600,10 @@ export default class EspApp extends LitElement {
         .event-warning {
           color: #b00020;
           font-weight: 700;
+          margin: 0.25rem 0 0.5rem;
+        }
+        .update-notice {
+          font-weight: 600;
           margin: 0.25rem 0 0.5rem;
         }
         .event-notice {

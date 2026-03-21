@@ -11,6 +11,7 @@
 
 // KAUF: added to compare strings in filename
 #include <string>
+#include <algorithm>
 #ifdef USE_ESP8266
 #include <StreamString.h>
 #endif
@@ -79,10 +80,8 @@ class OTARequestHandler : public AsyncWebHandler {
  private:
   ota::OTABackendPtr ota_backend_{nullptr};
 
-  // KAUF: new variables to store info (ESP8266 custom OTA path)
-#ifdef USE_ESP8266
+  // KAUF: error code set during upload to report descriptive failure in handleRequest
   uint16_t kauf_ota_error_code = 0;
-#endif
 };
 
 void OTARequestHandler::report_ota_progress_(AsyncWebServerRequest *request) {
@@ -125,9 +124,9 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Platf
                                      uint8_t *data, size_t len, bool final) {
   ota::OTAResponseTypes error_code = ota::OTA_RESPONSE_OK;
 
-#ifdef USE_ESP8266
   // KAUF: analyze filename and don't update in some cases.
   std::string str = filename.c_str();
+  std::transform(str.begin(), str.end(), str.begin(), ::tolower);
 
   // kill process if already errored out
   if (this->kauf_ota_error_code != 0) {
@@ -136,24 +135,14 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Platf
   }
 
   // kill process if "minimal" is found in string
-  std::size_t found = str.find("minimal");
-  if (found != std::string::npos) {
+  if (str.find("minimal") != std::string::npos) {
     this->kauf_ota_error_code = 1;
     ESP_LOGD(TAG, "***** DO NOT TRY TO FLASH TASMOTA-MINIMAL *****");
     return;
   }
 
-  // kill process if "WLED" is found in string
-  found = str.find("WLED");
-  if (found != std::string::npos) {
-    this->kauf_ota_error_code = 2;
-    ESP_LOGD(TAG, "***** DO NOT TRY TO FLASH WLED *****");
-    return;
-  }
-
   // kill process if "wled" is found in string
-  found = str.find("wled");
-  if (found != std::string::npos) {
+  if (str.find("wled") != std::string::npos) {
     this->kauf_ota_error_code = 2;
     ESP_LOGD(TAG, "***** DO NOT TRY TO FLASH WLED *****");
     return;
@@ -161,21 +150,43 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Platf
 
   // if used, confirm filename does not conflict with sensor value
 #ifdef SENSOR_4M
-  found = str.find("-1m");
-  if (SENSOR_4M && (found != std::string::npos)) {
+  if (SENSOR_4M && str.find("-1m") != std::string::npos) {
     ESP_LOGD(TAG, "***** Apparently trying to flash 1M firmware over 4M version *****");
     this->kauf_ota_error_code = 3;
     return;
   }
 
-  found = str.find("-4m");
-  if (!SENSOR_4M && (found != std::string::npos)) {
+  if (!SENSOR_4M && str.find("-4m") != std::string::npos) {
     ESP_LOGD(TAG, "***** Apparently trying to flash 4M firmware over 1M version *****");
     this->kauf_ota_error_code = 3;
     return;
   }
 #endif // SENSOR_4M
-#endif // USE_ESP8266
+
+  // check filename does not contain a different product's string
+  static const char *const all_products[] = {"plf10", "plf12", "rgbww", "srf10", "rgbsw", "bulb", "plug"};
+#if defined(KAUF_PRODUCT_PLF12)
+  static const char *const my_product = "plf12";
+#elif defined(KAUF_PRODUCT_PLF10)
+  static const char *const my_product = "plf10";
+#elif defined(KAUF_PRODUCT_RGBWW)
+  static const char *const my_product = "rgbww";
+#elif defined(KAUF_PRODUCT_SRF10)
+  static const char *const my_product = "srf10";
+#else
+  static const char *const my_product = nullptr;
+#endif
+  if (my_product != nullptr) {
+    for (size_t i = 0; i < sizeof(all_products) / sizeof(all_products[0]); i++) {
+      if (strcmp(all_products[i], my_product) == 0)
+        continue;
+      if (str.find(all_products[i]) != std::string::npos) {
+        ESP_LOGD(TAG, "***** Wrong product: filename contains '%s', this is a %s device *****", all_products[i], my_product);
+        this->kauf_ota_error_code = 4;
+        return;
+      }
+    }
+  }
 
 
   if (index == 0 && !this->ota_backend_) {
@@ -269,7 +280,7 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Platf
 void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
 
 // KAUF: print out error messages.
-#if defined(USE_ESP8266) && !defined(KAUF_SMALLER)
+#ifndef KAUF_SMALLER
   if ( this->kauf_ota_error_code != 0 ) {
     // create response
     AsyncResponseStream *stream = request->beginResponseStream("text/html");
@@ -286,6 +297,9 @@ void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
     }
     if ( this->kauf_ota_error_code == 3) {
       stream->print(F("You appear to be trying to flash a mismatched update file, either -1m over -4m or -4m over -1m. Download the proper update file or remove <b>-1m</b> or <b>-4m</b> from filename to override."));
+    }
+    if ( this->kauf_ota_error_code == 4) {
+      stream->print(F("You appear to be trying to flash firmware for a different product. Download the correct firmware or remove the product name from the filename to override."));
     }
 
     stream->print(F("</body></html>"));

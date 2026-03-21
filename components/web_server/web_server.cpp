@@ -139,6 +139,7 @@ struct ProductUiMetadata {
   const char *update_url;
   const char *ota_warning;
   const char *factory_warning;
+  const char *product_id;
 };
 
 static ProductUiMetadata get_product_ui_metadata() {
@@ -155,7 +156,7 @@ static ProductUiMetadata get_product_ui_metadata() {
 #else
       ""
 #endif
-  };
+      , "plf12"};
 #elif defined(KAUF_PRODUCT_PLF10)
   return ProductUiMetadata{
       "Plug (PLF10)",
@@ -169,7 +170,7 @@ static ProductUiMetadata get_product_ui_metadata() {
 #else
       ""
 #endif
-  };
+      , "plf10"};
 #elif defined(KAUF_PRODUCT_RGBWW)
   return ProductUiMetadata{
       "RGBWW Bulb",
@@ -187,10 +188,10 @@ static ProductUiMetadata get_product_ui_metadata() {
 #else
       ""
 #endif
-  };
-#elif defined(KAUF_PRODUCT_RGBSW)
+      , "rgbww"};
+#elif defined(KAUF_PRODUCT_SRF10)
   return ProductUiMetadata{
-      "RGB Switch",
+      "RGB Switch (SRF10)",
       "https://kaufha.com/srf10",
       "https://github.com/KaufHA/kauf-rgb-switch/releases",
       "",
@@ -201,10 +202,10 @@ static ProductUiMetadata get_product_ui_metadata() {
 #else
       ""
 #endif
-  };
+      , "srf10"};
 #else
   return ProductUiMetadata{
-      "Unknown Product", "https://kaufha.com", "https://github.com/KaufHA", "", ""};
+      "Unknown Product", "https://kaufha.com", "https://github.com/KaufHA", "", "", ""};
 #endif
 }
 
@@ -592,6 +593,7 @@ json::SerializationBuffer<> WebServer::get_config_json() {
   kauf_ui[ESPHOME_F("update_url")] = product_ui.update_url;
   kauf_ui[ESPHOME_F("ota_warning")] = product_ui.ota_warning;
   kauf_ui[ESPHOME_F("factory_warning")] = product_ui.factory_warning;
+  kauf_ui[ESPHOME_F("product_id")] = product_ui.product_id;
 
   return builder.serialize();
 }
@@ -2418,6 +2420,7 @@ json::SerializationBuffer<> WebServer::update_json_(update::UpdateEntity *obj, J
     root[ESPHOME_F("title")] = obj->update_info.title;
     root[ESPHOME_F("summary")] = obj->update_info.summary;
     root[ESPHOME_F("release_url")] = obj->update_info.release_url;
+    root[ESPHOME_F("firmware_url")] = obj->update_info.firmware_url;
     this->add_sorting_info_(root, obj);
   }
 
