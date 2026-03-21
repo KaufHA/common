@@ -15,8 +15,10 @@ esphome::StringRef DDPLightEffect::get_name() const { return LightEffect::get_na
 
 void DDPLightEffect::start() {
 
-  // backup gamma for restoring when effect ends
-  this->gamma_backup_ = this->state_->get_gamma_correct();
+#ifdef USE_LIGHT_GAMMA_LUT
+  // backup gamma LUT for restoring when effect ends
+  this->gamma_table_backup_ = this->state_->get_gamma_table();
+#endif
   this->next_packet_will_be_first_ = true;
 
   LightEffect::start();
@@ -25,8 +27,10 @@ void DDPLightEffect::start() {
 
 void DDPLightEffect::stop() {
 
-  // restore gamma.
-  this->state_->set_gamma_correct(this->gamma_backup_);
+#ifdef USE_LIGHT_GAMMA_LUT
+  // restore gamma LUT.
+  this->state_->set_gamma_table(this->gamma_table_backup_);
+#endif
   this->next_packet_will_be_first_ = true;
 
   DDPLightEffectBase::stop();
@@ -58,8 +62,10 @@ void DDPLightEffect::apply() {
     call.set_publish(false);
     call.set_save(false);
 
-    // restore backed up gamma value
-    this->state_->set_gamma_correct(this->gamma_backup_);
+    // restore backed up gamma LUT
+#ifdef USE_LIGHT_GAMMA_LUT
+    this->state_->set_gamma_table(this->gamma_table_backup_);
+#endif
     call.perform();
    }
 
@@ -76,7 +82,10 @@ uint16_t DDPLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_
   // being received but effect is still enabled.
   // gamma will be enabled again when effect disabled or on timeout.
   if ( this->next_packet_will_be_first_ && this->disable_gamma_ ) {
-    this->state_->set_gamma_correct(0.0f);
+#ifdef USE_LIGHT_GAMMA_LUT
+    // disable gamma by removing LUT
+    this->state_->set_gamma_table(nullptr);
+#endif
   }
 
   this->next_packet_will_be_first_ = false;
