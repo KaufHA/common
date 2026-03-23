@@ -27,8 +27,10 @@ void DDPAddressableLightEffect::set_effect_active_sensor(binary_sensor::BinarySe
 
 void DDPAddressableLightEffect::start() {
 
-  // backup gamma for restoring when effect ends
-  this->gamma_backup_ = this->state_->get_gamma_correct();
+#ifdef USE_LIGHT_GAMMA_LUT
+  // backup gamma LUT for restoring when effect ends
+  this->gamma_table_backup_ = this->state_->get_gamma_table();
+#endif
   this->next_packet_will_be_first_ = true;
 
   AddressableLightEffect::start();
@@ -41,8 +43,10 @@ void DDPAddressableLightEffect::start() {
 
 void DDPAddressableLightEffect::stop() {
 
-  // restore backed up gamma value and recalculate gamma table.
-  this->state_->set_gamma_correct(this->gamma_backup_);
+#ifdef USE_LIGHT_GAMMA_LUT
+  // restore backed up gamma LUT.
+  this->state_->set_gamma_table(this->gamma_table_backup_);
+#endif
   auto *it = this->get_addressable_();
   it->setup_state(this->state_);
   this->next_packet_will_be_first_ = true;
@@ -77,8 +81,10 @@ void DDPAddressableLightEffect::apply(light::AddressableLight &it, const Color &
     call.set_publish(false);
     call.set_save(false);
 
-    // restore backed up gamma value and recalculate gamma table.
-    this->state_->set_gamma_correct(this->gamma_backup_);
+    // restore backed up gamma LUT.
+#ifdef USE_LIGHT_GAMMA_LUT
+    this->state_->set_gamma_table(this->gamma_table_backup_);
+#endif
     it.setup_state(this->state_);
 
     // effect no longer active
@@ -96,7 +102,10 @@ uint16_t DDPAddressableLightEffect::process_(const uint8_t *payload, uint16_t si
   // being received but effect is still enabled.
   // gamma will be enabled again when effect disabled or on timeout.
   if ( this->next_packet_will_be_first_ && this->disable_gamma_ ) {
-    this->state_->set_gamma_correct(0.0f);
+#ifdef USE_LIGHT_GAMMA_LUT
+    // disable gamma by removing LUT
+    this->state_->set_gamma_table(nullptr);
+#endif
     this->get_addressable_()->setup_state(this->state_);
   }
 
