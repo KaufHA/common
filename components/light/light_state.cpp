@@ -48,7 +48,7 @@ void LightState::setup() {
   // The format was changed in https://github.com/esphome/esphome/pull/9260.  The result of that PR
   // is that light values stored before that update won't load after the update.  This happened long
   // enough ago that I don't care that much for most things, but for the RGB Switch binary update
-  // files there are six lights that are losing their configuration and I would be pretty annoyed 
+  // files there are six lights that are losing their configuration and I would be pretty annoyed
   // at that myself.  So this code will convert the data format of all the lights on the RGB Switch.
   // For dashboard updaters, this update happened 6 months ago so I assume everyone already had to
   // deal with this.  Sorry.  I still have to increment the hashes for those people on the dashboard.
@@ -339,12 +339,11 @@ void LightState::current_values_as_rgbw(float *red, float *green, float *blue, f
 }
 void LightState::current_values_as_rgbww(float *red, float *green, float *blue, float *cold_white, float *warm_white,
                                          bool constant_brightness) {
-  this->current_values.as_rgbww(red, green, blue, cold_white, warm_white, constant_brightness);
+  this->current_values.as_rgb(red, green, blue);
   *red = this->gamma_correct_lut(*red);
   *green = this->gamma_correct_lut(*green);
   *blue = this->gamma_correct_lut(*blue);
-  *cold_white = this->gamma_correct_lut(*cold_white);
-  *warm_white = this->gamma_correct_lut(*warm_white);
+  this->current_values_as_cwww(cold_white, warm_white, constant_brightness);
 }
 void LightState::current_values_as_rgbct(float *red, float *green, float *blue, float *color_temperature,
                                          float *white_brightness) {
@@ -357,9 +356,45 @@ void LightState::current_values_as_rgbct(float *red, float *green, float *blue, 
   *white_brightness = this->gamma_correct_lut(*white_brightness);
 }
 void LightState::current_values_as_cwww(float *cold_white, float *warm_white, bool constant_brightness) {
-  this->current_values.as_cwww(cold_white, warm_white, constant_brightness);
-  *cold_white = this->gamma_correct_lut(*cold_white);
-  *warm_white = this->gamma_correct_lut(*warm_white);
+  if (!constant_brightness) {
+    // Without constant_brightness, gamma commutes with simple multiplication:
+    //   gamma(white_level * cw) = gamma(white_level) * gamma(cw)
+    // (since gamma(a*b) = (a*b)^g = a^g * b^g = gamma(a) * gamma(b))
+    // so applying gamma after is mathematically equivalent and simpler.
+    this->current_values.as_cwww(cold_white, warm_white, false);
+    *cold_white = this->gamma_correct_lut(*cold_white);
+    *warm_white = this->gamma_correct_lut(*warm_white);
+    return;
+  }
+
+  // For constant_brightness mode, gamma MUST be applied to the individual
+  // channel values BEFORE the balancing formula (max/sum ratio), not after.
+  //
+  // Why: The cold_white_ and warm_white_ values stored in LightColorValues
+  // are gamma-uncorrected (see transform_parameters_() which applies
+  // gamma_uncorrect to the linear CW/WW fractions derived from color
+  // temperature). Applying gamma_correct here recovers the original linear
+  // fractions, which the constant_brightness formula then uses to distribute
+  // power evenly. The max/sum formula ensures cold+warm PWM output sums to
+  // a constant, keeping total power (and perceived brightness) the same
+  // across all color temperatures.
+  //
+  // Applying gamma AFTER the formula would be incorrect because gamma is
+  // nonlinear: gamma(a/b) != gamma(a)/gamma(b), so the carefully balanced
+  // ratio would be distorted, causing a severe brightness dip at mid-range
+  // color temperatures.
+  const auto &v = this->current_values;
+  if (!(v.get_color_mode() & ColorCapability::COLD_WARM_WHITE)) {
+    *cold_white = *warm_white = 0;
+    return;
+  }
+
+  const float cw_level = this->gamma_correct_lut(v.get_cold_white());
+  const float ww_level = this->gamma_correct_lut(v.get_warm_white());
+  const float white_level = this->gamma_correct_lut(v.get_state() * v.get_brightness());
+  const float sum = cw_level > 0 || ww_level > 0 ? cw_level + ww_level : 1;  // Don't divide by zero.
+  *cold_white = white_level * std::max(cw_level, ww_level) * cw_level / sum;
+  *warm_white = white_level * std::max(cw_level, ww_level) * ww_level / sum;
 }
 void LightState::current_values_as_ct(float *color_temperature, float *white_brightness) {
   auto traits = this->get_traits();
