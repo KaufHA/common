@@ -13,6 +13,7 @@
 
 // KAUF: add includes for printing out detailed information on web interface
 #include "esphome/core/version.h"
+
 #ifdef USE_WIFI
 #include "esphome/components/wifi/wifi_component.h"
 #endif
@@ -493,7 +494,11 @@ void DeferredUpdateEventSourceList::on_client_connect_(DeferredUpdateEventSource
     }
 #endif
 
-    source->entities_iterator_.begin(ws->include_internal_);
+    source->entities_iterator_.begin(ws->include_internal_
+#ifdef KAUF_FACTORY
+        || (ws->factory_condition_ != nullptr && *ws->factory_condition_)
+#endif
+    );
 
     // just dump them all up-front and take advantage of the deferred queue
     //     on second thought that takes too long, but leaving the commented code here for debug purposes

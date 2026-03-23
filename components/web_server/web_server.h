@@ -242,6 +242,13 @@ class WebServer final : public Controller, public Component, public AsyncWebHand
   /** KAUF: Set the name of the featured entity (optional). */
   void set_featured_name(const std::string &name) { this->featured_name_ = name; }
 
+#ifdef KAUF_FACTORY
+  /** KAUF_FACTORY: Pass a pointer to first_boot so the web server shows internal
+   *  entities while it's true. Call once from on_boot: set_factory_condition(&id(first_boot)) */
+  void set_factory_condition(bool *ptr) { this->factory_condition_ = ptr; }
+  bool *factory_condition_{nullptr};
+#endif
+
   // ========== INTERNAL METHODS ==========
   // (In most use cases you won't need these)
   /// Setup the internal web server and register handlers.
