@@ -4,6 +4,7 @@
 #include "esphome/components/ota/ota_backend_factory.h"
 #include "esphome/core/application.h"
 #include "esphome/core/log.h"
+#include "esphome/core/progmem.h"
 
 #ifdef USE_CAPTIVE_PORTAL
 #include "esphome/components/captive_portal/captive_portal.h"
@@ -285,24 +286,24 @@ void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
     // create response
     AsyncResponseStream *stream = request->beginResponseStream("text/html");
     stream->addHeader("Access-Control-Allow-Origin", "*");
-    stream->print(F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
+    stream->print(ESPHOME_F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
 
-    stream->print(F("Update Failed. -- "));
+    stream->print(ESPHOME_F("Update Failed. -- "));
 
     if ( this->kauf_ota_error_code == 1) {
-      stream->print(F("You appear to be trying to flash tasmota-minimal, which could brick the device. Rename firmware file to not include the word <b>minimal</b> to override."));
+      stream->print(ESPHOME_F("You appear to be trying to flash tasmota-minimal, which could brick the device. Rename firmware file to not include the word <b>minimal</b> to override."));
     }
     if ( this->kauf_ota_error_code == 2) {
-      stream->print(F("You appear to be trying to flash a WLED bin file, which could brick the device. Rename firmware file to not include the word <b>wled</b> or <b>WLED</b> to override."));
+      stream->print(ESPHOME_F("You appear to be trying to flash a WLED bin file, which could brick the device. Rename firmware file to not include the word <b>wled</b> or <b>WLED</b> to override."));
     }
     if ( this->kauf_ota_error_code == 3) {
-      stream->print(F("You appear to be trying to flash a mismatched update file, either -1m over -4m or -4m over -1m. Download the proper update file or remove <b>-1m</b> or <b>-4m</b> from filename to override."));
+      stream->print(ESPHOME_F("You appear to be trying to flash a mismatched update file, either -1m over -4m or -4m over -1m. Download the proper update file or remove <b>-1m</b> or <b>-4m</b> from filename to override."));
     }
     if ( this->kauf_ota_error_code == 4) {
-      stream->print(F("You appear to be trying to flash firmware for a different product. Download the correct firmware or remove the product name from the filename to override."));
+      stream->print(ESPHOME_F("You appear to be trying to flash firmware for a different product. Download the correct firmware or remove the product name from the filename to override."));
     }
 
-    stream->print(F("</body></html>"));
+    stream->print(ESPHOME_F("</body></html>"));
     request->send(stream);
 
     this->kauf_ota_error_code = 0;
@@ -317,10 +318,10 @@ void OTARequestHandler::handleRequest(AsyncWebServerRequest *request) {
     // create response
     AsyncResponseStream *stream = request->beginResponseStream("text/html");
     stream->addHeader("Access-Control-Allow-Origin", "*");
-    stream->print(F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
-    stream->print(F("Update Failed. This device is now restarting itself automatically, which could resolve the error in some cases.<br><br>"));
+    stream->print(ESPHOME_F("<!DOCTYPE html><html><head><meta charset=UTF-8><link rel=icon href=data:></head><body>"));
+    stream->print(ESPHOME_F("Update Failed. This device is now restarting itself automatically, which could resolve the error in some cases.<br><br>"));
 
-    stream->print(F("</body></html>"));
+    stream->print(ESPHOME_F("</body></html>"));
     request->send(stream);
   }
 
