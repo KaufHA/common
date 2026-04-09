@@ -134,6 +134,7 @@ static void parse_color_mode_param_(AsyncWebServerRequest *request, T &call) {
 static constexpr size_t PSTR_LOCAL_SIZE = 18;
 #define PSTR_LOCAL(mode_s) ESPHOME_strncpy_P(buf, (ESPHOME_PGM_P) ((mode_s)), PSTR_LOCAL_SIZE - 1)
 
+// KAUF struct for passing device info to frontend
 struct ProductUiMetadata {
   const char *display_name;
   const char *product_url;
@@ -143,6 +144,7 @@ struct ProductUiMetadata {
   const char *product_id;
 };
 
+// KAUF
 static ProductUiMetadata get_product_ui_metadata() {
 #if defined(KAUF_PRODUCT_PLF12)
   return ProductUiMetadata{
@@ -439,10 +441,11 @@ void DeferredUpdateEventSource::try_send_nodefer(const char *message, const char
   this->send(message, event, id, reconnect);
 }
 
-void DeferredUpdateEventSourceList::loop() {
+bool DeferredUpdateEventSourceList::loop() {
   for (DeferredUpdateEventSource *dues : *this) {
     dues->loop();
   }
+  return !this->empty();
 }
 
 void DeferredUpdateEventSourceList::deferrable_send_state(void *source, const char *event_type,
@@ -471,6 +474,7 @@ void DeferredUpdateEventSourceList::add_new_client(WebServer *ws, AsyncWebServer
   es->onDisconnect([this, es](AsyncEventSourceClient *client) { this->on_client_disconnect_(es); });
 
   es->handleRequest(request);
+  ws->enable_loop_soon_any_context();
 }
 
 void DeferredUpdateEventSourceList::on_client_connect_(DeferredUpdateEventSource *source) {
@@ -494,6 +498,7 @@ void DeferredUpdateEventSourceList::on_client_connect_(DeferredUpdateEventSource
     }
 #endif
 
+// KAUF: show all entities if factory routine is running so button to stop it is visible.
     source->entities_iterator_.begin(ws->include_internal_
 #ifdef KAUF_FACTORY
         || (ws->factory_condition_ != nullptr && *ws->factory_condition_)
@@ -531,6 +536,7 @@ json::SerializationBuffer<> WebServer::get_config_json() {
   json::JsonBuilder builder;
   JsonObject root = builder.root();
 
+  // KAUF: add some new stuff to pass to frontend
 #ifdef ESPHOME_PROJECT_NAME
   const char *project_name = ESPHOME_PROJECT_NAME;
 #else
@@ -539,7 +545,8 @@ json::SerializationBuffer<> WebServer::get_config_json() {
   ProductUiMetadata product_ui = get_product_ui_metadata();
 
   root[ESPHOME_F("title")] = App.get_friendly_name().empty() ? App.get_name().c_str() : App.get_friendly_name().c_str();
-  // Feature entity whose name matches the device-friendly name (compile-time decision)
+
+  // KAUF: Feature entity whose name matches the device-friendly name (compile-time decision)
   if (!this->featured_name_.empty()) {
     root[ESPHOME_F("featured_name")] = this->featured_name_;
   } else {
@@ -626,13 +633,24 @@ void WebServer::setup() {
   // doesn't need defer functionality - if the queue is full, the client JS knows it's alive because it's clearly
   // getting a lot of events
   this->set_interval(10000, [this]() {
+    if (this->events_.empty())
+      return;
     char buf[32];
     auto uptime = static_cast<uint32_t>(millis_64() / 1000);
-    buf_append_printf(buf, sizeof(buf), 0, "{\"uptime\":%u}", uptime);
+    buf_append_printf(buf, sizeof(buf), 0, "{\"uptime\":%" PRIu32 "}", uptime);
     this->events_.try_send_nodefer(buf, "ping", millis(), 30000);
   });
 }
-void WebServer::loop() { this->events_.loop(); }
+void WebServer::loop() {
+  // No SSE clients connected; stop looping until a new client connects via
+  // enable_loop_soon_any_context(). This is safe because:
+  // - set_interval/set_timeout/defer run via the Scheduler, independent of loop()
+  // - deferrable_send_state early-outs when no clients are connected
+  // - try_send_nodefer (log, ping) iterates sessions which are empty
+  // - REST API handlers use defer() which runs via the Scheduler
+  if (!this->events_.loop())
+    this->disable_loop();
+}
 
 #ifdef USE_LOGGER
 void WebServer::on_log(uint8_t level, const char *tag, const char *message, size_t message_len) {
@@ -2423,9 +2441,13 @@ json::SerializationBuffer<> WebServer::update_json_(update::UpdateEntity *obj, J
   if (start_config == DETAIL_ALL) {
     root[ESPHOME_F("current_version")] = obj->update_info.current_version;
     root[ESPHOME_F("title")] = obj->update_info.title;
-    root[ESPHOME_F("summary")] = obj->update_info.summary;
+    // Truncate long changelogs — full text available via release_url
+    constexpr size_t max_summary_len = 256;
+    root[ESPHOME_F("summary")] = obj->update_info.summary.size() <= max_summary_len
+                                     ? obj->update_info.summary
+                                     : obj->update_info.summary.substr(0, max_summary_len);
     root[ESPHOME_F("release_url")] = obj->update_info.release_url;
-    root[ESPHOME_F("firmware_url")] = obj->update_info.firmware_url;
+    root[ESPHOME_F("firmware_url")] = obj->update_info.firmware_url; // KAUF: allow link to download firmware
     this->add_sorting_info_(root, obj);
   }
 

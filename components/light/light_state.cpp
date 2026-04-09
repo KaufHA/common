@@ -40,8 +40,9 @@ void LightState::setup() {
 
   auto call = this->make_call();
   LightStateRTCState recovered{};
-  if (this->initial_state_.has_value()) {
-    recovered = *this->initial_state_;
+  if (this->initial_state_callback_) {
+    this->initial_state_callback_(recovered);
+    this->initial_state_callback_ = nullptr;  // One-shot — no longer needed
   }
 
   // KAUF: The following was added specifically to migrate between old and new light data formats.
@@ -311,7 +312,7 @@ void LightState::set_flash_transition_length(uint32_t flash_transition_length) {
 uint32_t LightState::get_flash_transition_length() const { return this->flash_transition_length_; }
 void LightState::set_gamma_correct(float gamma_correct) { this->gamma_correct_ = gamma_correct; }
 void LightState::set_restore_mode(LightRestoreMode restore_mode) { this->restore_mode_ = restore_mode; }
-void LightState::set_initial_state(const LightStateRTCState &initial_state) { this->initial_state_ = initial_state; }
+void LightState::set_initial_state(void (*callback)(LightStateRTCState &)) { this->initial_state_callback_ = callback; }
 bool LightState::supports_effects() { return !this->effects_.empty(); }
 const FixedVector<LightEffect *> &LightState::get_effects() const { return this->effects_; }
 void LightState::add_effects(const std::initializer_list<LightEffect *> &effects) {
@@ -393,8 +394,10 @@ void LightState::current_values_as_cwww(float *cold_white, float *warm_white, bo
   const float ww_level = this->gamma_correct_lut(v.get_warm_white());
   const float white_level = this->gamma_correct_lut(v.get_state() * v.get_brightness());
   const float sum = cw_level > 0 || ww_level > 0 ? cw_level + ww_level : 1;  // Don't divide by zero.
-  *cold_white = white_level * std::max(cw_level, ww_level) * cw_level / sum;
-  *warm_white = white_level * std::max(cw_level, ww_level) * ww_level / sum;
+  const float max_level = std::max(cw_level, ww_level);
+  const float inv_sum = 1.0f / sum;
+  *cold_white = white_level * max_level * cw_level * inv_sum;
+  *warm_white = white_level * max_level * ww_level * inv_sum;
 }
 void LightState::current_values_as_ct(float *color_temperature, float *white_brightness) {
   auto traits = this->get_traits();
