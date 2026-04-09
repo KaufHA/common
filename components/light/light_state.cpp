@@ -6,7 +6,7 @@
 #include "light_output.h"
 #include "transformers.h"
 #ifdef USE_ESP8266
-#include "esphome/components/esp8266/preferences.h"  // KAUF: included for set_next_forced_addr
+#include "esphome/components/esp8266/preferences.h"  // KAUF: forced_addr support
 #endif
 
 namespace esphome::light {
@@ -62,9 +62,10 @@ void LightState::setup() {
   // KAUF: Try old hash (hash-1) first for migration
   if (this->forced_hash != 0) {
 #ifdef USE_ESP8266
-    esp8266::set_next_forced_addr(this->forced_addr);
-#endif
+    ESPPreferenceObject old_rtc = global_preferences->make_preference<LightStateRTCState>(this->forced_hash - 1, this->forced_addr);
+#else
     ESPPreferenceObject old_rtc = global_preferences->make_preference<LightStateRTCState>(this->forced_hash - 1);
+#endif
 
 #ifdef USE_KAUF_LIGHT_DATA_MIGRATION
     // Binary update: load into struct then reinterpret as old format
@@ -97,9 +98,10 @@ void LightState::setup() {
     // Save with new hash
     if (loaded) {
 #ifdef USE_ESP8266
-      esp8266::set_next_forced_addr(this->forced_addr);
-#endif
+      this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash, this->forced_addr);
+#else
       this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
+#endif
       this->rtc_.save(&recovered);
     }
   }
@@ -113,11 +115,12 @@ void LightState::setup() {
 
     // KAUF: forced addr/hash support
       if (!loaded) {
-#ifdef USE_ESP8266
-        if (this->forced_addr != 12345) esp8266::set_next_forced_addr(this->forced_addr);
-#endif
         if ( this->forced_hash != 0 )
+#ifdef USE_ESP8266
+          this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash, this->forced_addr);
+#else
           this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
+#endif
         else
           this->rtc_ = this->make_entity_preference<LightStateRTCState>();
         loaded = this->rtc_.load(&recovered);
@@ -138,11 +141,12 @@ void LightState::setup() {
 
     // KAUF: forced addr/hash support
       if (!loaded) {
-#ifdef USE_ESP8266
-        if (this->forced_addr != 12345) esp8266::set_next_forced_addr(this->forced_addr);
-#endif
         if ( this->forced_hash != 0 )
+#ifdef USE_ESP8266
+          this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash, this->forced_addr);
+#else
           this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
+#endif
         else
           this->rtc_ = this->make_entity_preference<LightStateRTCState>();
         this->rtc_.load(&recovered);

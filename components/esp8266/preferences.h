@@ -9,7 +9,9 @@ class ESP8266Preferences final : public PreferencesMixin<ESP8266Preferences> {
  public:
   using PreferencesMixin<ESP8266Preferences>::make_preference;
   void setup();
-  ESPPreferenceObject make_preference(size_t length, uint32_t type, bool in_flash);
+
+  // KAUF: Primary implementation — forced_addr=12345 means "no forced address, allocate sequentially"
+  ESPPreferenceObject make_preference(size_t length, uint32_t type, bool in_flash, uint32_t forced_addr = 12345);
   ESPPreferenceObject make_preference(size_t length, uint32_t type) {
 #ifdef USE_ESP8266_PREFERENCES_FLASH
     return this->make_preference(length, type, true);
@@ -17,6 +19,23 @@ class ESP8266Preferences final : public PreferencesMixin<ESP8266Preferences> {
     return this->make_preference(length, type, false);
 #endif
   }
+
+  // KAUF: Typed template — decides in_flash automatically, with forced_addr
+  template<typename T, enable_if_t<is_trivially_copyable<T>::value, bool> = true>
+  ESPPreferenceObject make_preference(uint32_t type, uint32_t forced_addr) {
+#ifdef USE_ESP8266_PREFERENCES_FLASH
+    return this->make_preference(sizeof(T), type, true, forced_addr);
+#else
+    return this->make_preference(sizeof(T), type, false, forced_addr);
+#endif
+  }
+
+  // KAUF: Typed template — explicit in_flash, with forced_addr
+  template<typename T, enable_if_t<is_trivially_copyable<T>::value, bool> = true>
+  ESPPreferenceObject make_preference(uint32_t type, bool in_flash, uint32_t forced_addr) {
+    return this->make_preference(sizeof(T), type, in_flash, forced_addr);
+  }
+
   bool sync();
   bool reset();
 
@@ -31,9 +50,6 @@ class ESP8266Preferences final : public PreferencesMixin<ESP8266Preferences> {
 // KAUF: set start_free in setup_preferences
 void setup_preferences(uint32_t start_free);
 void preferences_prevent_write(bool prevent);
-
-// KAUF: set forced address for next make_preference call
-void set_next_forced_addr(uint32_t addr);
 
 }  // namespace esphome::esp8266
 

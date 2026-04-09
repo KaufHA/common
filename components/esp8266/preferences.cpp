@@ -42,10 +42,6 @@ static constexpr uint32_t ESP8266_FLASH_STORAGE_SIZE = 128;
 static constexpr uint32_t ESP8266_FLASH_STORAGE_SIZE = 64;
 #endif
 
-// KAUF: static variable for forced address (12345 = sentinel/disabled)
-static uint32_t s_next_forced_addr = 12345;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-void set_next_forced_addr(uint32_t addr) { s_next_forced_addr = addr; }
-
 static uint32_t
     s_flash_storage[ESP8266_FLASH_STORAGE_SIZE];  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 static bool s_prevent_write = false;              // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
@@ -180,7 +176,7 @@ void ESP8266Preferences::setup() {
   }
 }
 
-ESPPreferenceObject ESP8266Preferences::make_preference(size_t length, uint32_t type, bool in_flash) {
+ESPPreferenceObject ESP8266Preferences::make_preference(size_t length, uint32_t type, bool in_flash, uint32_t forced_addr) {
   const uint32_t length_words = bytes_to_words(length);
   if (length_words > MAX_PREFERENCE_WORDS) {
     ESP_LOGE(TAG, "Preference too large: %u words", static_cast<unsigned int>(length_words));
@@ -191,10 +187,7 @@ ESPPreferenceObject ESP8266Preferences::make_preference(size_t length, uint32_t 
   uint16_t offset;
 
   if (in_flash) {
-    // KAUF: Check for forced address
-    bool forced = (s_next_forced_addr != 12345);
-
-    if (!forced) {
+    if (forced_addr == 12345) {
       // KAUF: Normal allocation from current_flash_offset, code from stock ESPHome
       ESP_LOGV("KAUF Prefs", "!! Storing in free space");
       if (this->current_flash_offset + total_words > ESP8266_FLASH_STORAGE_SIZE)
@@ -203,7 +196,7 @@ ESPPreferenceObject ESP8266Preferences::make_preference(size_t length, uint32_t 
       this->current_flash_offset += total_words;
     } else {
       // KAUF: Use forced address
-      uint32_t start = s_next_forced_addr;
+      uint32_t start = forced_addr;
       uint32_t end = start + total_words;
 
       if (end > init_flash_offset) {
@@ -215,7 +208,6 @@ ESPPreferenceObject ESP8266Preferences::make_preference(size_t length, uint32_t 
       }
 
       offset = static_cast<uint16_t>(start);
-      s_next_forced_addr = 12345;  // KAUF: served its purpose, reset to default
     }
 
     ESP_LOGCONFIG(TAG, "Making Pref - st: %u: len: %zu, wds:%u tp: %u", offset, length, static_cast<unsigned int>(length_words), type);
