@@ -4,8 +4,7 @@
 #include "esphome/core/hal.h"
 #include "esphome/components/sensor/sensor.h"
 
-namespace esphome {
-namespace kauf_hlw8012 {
+namespace esphome::kauf_hlw8012 {
 
 
 enum HLW8012SensorModels {
@@ -121,5 +120,4 @@ class Kauf_HLW8012Component : public PollingComponent {
   bool current_time_out_{false};
 };
 
-}  // namespace kauf_hlw8012
-}  // namespace esphome
+}  // namespace esphome::kauf_hlw8012

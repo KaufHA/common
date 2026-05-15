@@ -1,8 +1,7 @@
 #include "kauf_hlw8012.h"
 #include "esphome/core/log.h"
 
-namespace esphome {
-namespace kauf_hlw8012 {
+namespace esphome::kauf_hlw8012 {
 
 static const char *const TAG = "kauf_hlw8012";
 
@@ -247,5 +246,4 @@ void Kauf_HLW8012Component::set_early_publish_absolute(float absolute_in) {
 }
 
 
-}  // namespace kauf_hlw8012
-}  // namespace esphome
+}  // namespace esphome::kauf_hlw8012

@@ -11,8 +11,7 @@
 extern "C" void enablePhaseLockedWaveform();
 #endif
 
-namespace esphome {
-namespace esp8266_pwm {
+namespace esphome::esp8266_pwm {
 
 enum QuantizeMode : uint8_t {
   QUANTIZE_NONE = 0,  // Keep default behavior (round to nearest PWM tick)
@@ -84,7 +83,6 @@ template<typename... Ts> class SetFrequencyAction : public Action<Ts...> {
   ESP8266PWM *parent_;
 };
 
-}  // namespace esp8266_pwm
-}  // namespace esphome
+}  // namespace esphome::esp8266_pwm
 
 #endif

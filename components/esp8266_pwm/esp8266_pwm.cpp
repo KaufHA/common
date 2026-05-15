@@ -11,8 +11,7 @@
 #include <core_esp8266_features.h>
 #endif
 
-namespace esphome {
-namespace esp8266_pwm {
+namespace esphome::esp8266_pwm {
 
 static const char *const TAG = "esp8266_pwm";
 
@@ -145,7 +144,6 @@ void HOT ESP8266PWM::write_state(float state) {
   }
 }
 
-}  // namespace esp8266_pwm
-}  // namespace esphome
+}  // namespace esphome::esp8266_pwm
 
 #endif
