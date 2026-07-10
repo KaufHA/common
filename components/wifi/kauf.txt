@@ -1,7 +1,6 @@
 __init__.py:
   - add configuration for forced_addr and forced_hash
   - add configuration options for:
-    - phy mode
     - combine networks with base wifi network
     - disable scanning
   - reduce default power to 17.0 from 20.0

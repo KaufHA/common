@@ -42,7 +42,7 @@ class Kauf_HLWSensorStore {
 
 
 
-class Kauf_HLW8012Component : public PollingComponent {
+class Kauf_HLW8012Component final : public PollingComponent {
  public:
   void setup() override;
   void dump_config() override;

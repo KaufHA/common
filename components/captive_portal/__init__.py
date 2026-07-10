@@ -13,7 +13,7 @@ from esphome.const import (
     PLATFORM_ESP32,
     PLATFORM_ESP8266,
     PLATFORM_LN882X,
-    PLATFORM_RP2040,
+    PLATFORM_RP2,
     PLATFORM_RTL87XX,
     PlatformFramework,
 )
@@ -64,7 +64,7 @@ CONFIG_SCHEMA = cv.All(
             PLATFORM_ESP8266,
             PLATFORM_BK72XX,
             PLATFORM_LN882X,
-            PLATFORM_RP2040,
+            PLATFORM_RP2,
             PLATFORM_RTL87XX,
         ]
     ),
@@ -74,7 +74,7 @@ CONFIG_SCHEMA = cv.All(
 def _final_validate(config: ConfigType) -> ConfigType:
     full_config = fv.full_config.get()
     wifi_conf = full_config.get("wifi")
-    
+
     # KAUF
     web_server_conf = full_config.get("web_server") or {}
     ws_product = web_server_conf.get(CONF_PRODUCT)
@@ -130,7 +130,7 @@ async def to_code(config):
     if (product := config.get(CONF_PRODUCT)) is not None:
         cg.add_define(PRODUCT_DEFINE_MAP[product])
 
-    if CORE.using_arduino and (CORE.is_esp8266 or CORE.is_libretiny or CORE.is_rp2040):
+    if CORE.using_arduino and (CORE.is_esp8266 or CORE.is_libretiny or CORE.is_rp2):
         cg.add_library("DNSServer", None)
 
 
