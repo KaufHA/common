@@ -904,6 +904,16 @@ class ActionRenderer {
 
   render_light() {
     if (!this.entity) return;
+    const defaultMinMireds = Math.round(1000000 / 6600);
+    const defaultMaxMireds = Math.round(1000000 / 2800);
+    const minMireds =
+      this.entity.min_mireds && this.entity.min_mireds > 0
+        ? this.entity.min_mireds
+        : defaultMinMireds;
+    const maxMireds =
+      this.entity.max_mireds && this.entity.max_mireds > 0
+        ? this.entity.max_mireds
+        : defaultMaxMireds;
     return [
       this._switch(this.entity),
       this.entity.brightness
@@ -914,6 +924,17 @@ class ActionRenderer {
             this.entity.brightness,
             0,
             255,
+            1
+          )
+        : "",
+      this.entity.color_temp
+        ? this._range(
+            this.entity,
+            "turn_on",
+            "color_temp",
+            this.entity.color_temp,
+            minMireds,
+            maxMireds,
             1
           )
         : "",
