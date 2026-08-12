@@ -52,7 +52,7 @@ void CaptivePortal::handle_config(AsyncWebServerRequest *request) {
 #endif
   ProductUiMetadata product_ui = get_product_ui_metadata();
 
-  char mac_s[18];
+  char mac_s[MAC_ADDRESS_PRETTY_BUFFER_SIZE];
   const char *mac_str = get_mac_address_pretty_into_buffer(mac_s);
 
   root[ESPHOME_F("mac")] = mac_str;
