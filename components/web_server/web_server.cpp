@@ -369,8 +369,8 @@ void DeferredUpdateEventSource::process_deferred_queue_() {
 
 void DeferredUpdateEventSource::loop() {
   process_deferred_queue_();
-  if (!this->entities_iterator_.completed())
-    this->entities_iterator_.advance();
+  // One step per loop; refusals retry next pass
+  this->entities_iterator_.try_advance(1);
 }
 
 void DeferredUpdateEventSource::deferrable_send_state(void *source, const char *event_type,
@@ -481,12 +481,6 @@ void DeferredUpdateEventSourceList::on_client_connect_(DeferredUpdateEventSource
         || (ws->factory_condition_ != nullptr && *ws->factory_condition_)
 #endif
     );
-
-    // just dump them all up-front and take advantage of the deferred queue
-    //     on second thought that takes too long, but leaving the commented code here for debug purposes
-    // while(!source->entities_iterator_.completed()) {
-    //  source->entities_iterator_.advance();
-    //}
   });
 }
 
