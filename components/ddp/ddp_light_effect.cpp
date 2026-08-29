@@ -71,7 +71,12 @@ void DDPLightEffect::apply() {
 
 }
 
-uint16_t DDPLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_t used) {
+uint16_t DDPLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_t used, uint16_t offset) {
+
+  // Ignore fragments meant for subsequent devices when operating in single bulb mode
+  if (offset > 0) {
+    return (size - used);
+  }
 
   // at least for now, we require 3 bytes of data (r, g, b).
   // If there aren't 3 unused bytes, return 0 to indicate error.

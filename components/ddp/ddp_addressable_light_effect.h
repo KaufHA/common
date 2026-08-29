@@ -31,7 +31,7 @@ class DDPAddressableLightEffect : public DDPLightEffectBase, public light::Addre
 #endif
 
  protected:
-  uint16_t process_(const uint8_t *payload, uint16_t size, uint16_t used) override;
+  uint16_t process_(const uint8_t *payload, uint16_t size, uint16_t used, uint16_t offset = 0) override;
 
   float scan_packet_and_return_multiplier_(const uint8_t *payload, uint16_t start, uint16_t end);
   float multiplier_from_max_val_(uint8_t max_val);
