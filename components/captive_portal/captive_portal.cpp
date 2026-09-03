@@ -2,8 +2,12 @@
 #ifdef USE_CAPTIVE_PORTAL
 #include "esphome/core/log.h"
 #include "esphome/core/application.h"
+#include "esphome/components/wifi/scan_list.h"
 #include "esphome/components/wifi/wifi_component.h"
 #include "esphome/components/json/json_util.h"
+#ifdef USE_PROVISIONING
+#include "esphome/components/provisioning/provisioning.h"
+#endif
 #include "captive_index.h"
 #include "esphome/core/version.h"
 #ifdef USE_ESP32
@@ -89,15 +93,21 @@ void CaptivePortal::handle_config(AsyncWebServerRequest *request) {
   kauf_ui[ESPHOME_F("ota_warning")] = product_ui.ota_warning;
 
   JsonArray aps = root[ESPHOME_F("aps")].to<JsonArray>();
-  for (auto &scan : wifi::global_wifi_component->get_scan_result()) {
-    if (scan.get_is_hidden()) {
-      continue;
-    }
+  {
+    // Invariant: only bounded in-memory work under the lock; the network send
+    // happens later in request->send()
+    wifi::ScanResultsLock lock(wifi::global_wifi_component);
+    const auto &results = wifi::global_wifi_component->get_scan_result();
+    for (const auto &scan : results) {
+      bool with_auth = false;
+      if (!wifi::should_show_scan_entry(results, scan, with_auth))
+        continue;
 
-    JsonObject ap = aps.add<JsonObject>();
-    ap[ESPHOME_F("ssid")] = scan.get_ssid().c_str();
-    ap[ESPHOME_F("rssi")] = scan.get_rssi();
-    ap[ESPHOME_F("lock")] = scan.get_with_auth();
+      JsonObject ap = aps.add<JsonObject>();
+      ap[ESPHOME_F("ssid")] = scan.get_ssid().c_str();
+      ap[ESPHOME_F("rssi")] = scan.get_rssi();
+      ap[ESPHOME_F("lock")] = with_auth;
+    }
   }
 
   std::string payload = builder.serialize();
@@ -114,10 +124,9 @@ void CaptivePortal::handle_wifisave(AsyncWebServerRequest *request) {
            "  SSID='%s'\n"
            "  Password=" LOG_SECRET("'%s'"),
            ssid.c_str(), psk.c_str());
-  request->redirect(ESPHOME_F("/?save"));
 #ifdef USE_ESP8266
-  // Delay reboot briefly so HTTP response/redirect can flush to the client. KAUF adds delay
-  this->set_timeout(250, [ssid, psk]() { wifi::global_wifi_component->save_wifi_sta(ssid.c_str(), psk.c_str()); });
+  // ESP8266 is single-threaded, call directly
+  wifi::global_wifi_component->save_wifi_sta(ssid.c_str(), psk.c_str());
 #else
   // Defer save to main loop thread to avoid NVS operations from HTTP thread
   this->defer([ssid, psk]() { wifi::global_wifi_component->save_wifi_sta(ssid.c_str(), psk.c_str()); });
@@ -128,6 +137,20 @@ void CaptivePortal::handle_wifisave(AsyncWebServerRequest *request) {
 void CaptivePortal::setup() {
   // Disable loop by default - will be enabled when captive portal starts
   this->disable_loop();
+#ifdef USE_PROVISIONING
+  // The captive portal is a provisioning surface: once the provisioning window
+  // has closed, stop serving it. WiFi's own closed-callback shuts down the
+  // access point the portal runs on, and the gated fallback in WiFiComponent's
+  // loop() ensures neither is started again afterwards.
+  if (provisioning::global_provisioning_manager != nullptr) {
+    provisioning::global_provisioning_manager->add_on_closed_callback([this]() {
+      if (this->active_) {
+        ESP_LOGD(TAG, "Provisioning window closed; stopping captive portal");
+        this->end();
+      }
+    });
+  }
+#endif
 }
 void CaptivePortal::start() {
   this->base_->init();

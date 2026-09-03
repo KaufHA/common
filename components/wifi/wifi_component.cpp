@@ -620,8 +620,6 @@ static const char *eap_phase2_to_str(esp_eap_ttls_phase2_types type) {
 }
 #endif
 
-float WiFiComponent::get_setup_priority() const { return setup_priority::WIFI; }
-
 void WiFiComponent::setup() {
   this->wifi_pre_setup_();
 
@@ -635,6 +633,21 @@ void WiFiComponent::setup() {
 
   // Store the configured power save mode as baseline
   this->configured_power_save_ = this->power_save_;
+#endif
+
+#if defined(USE_PROVISIONING) && defined(USE_WIFI_AP)
+  // The access point is a provisioning surface: once the provisioning window has
+  // closed, shut it down (mirrors the teardown done on a successful connection).
+  // The captive portal registers its own closed-callback, and the fallback block
+  // in loop() is gated so neither is started again afterwards.
+  if (provisioning::global_provisioning_manager != nullptr) {
+    provisioning::global_provisioning_manager->add_on_closed_callback([this]() {
+      if (this->ap_setup_) {
+        ESP_LOGD(TAG, "Provisioning window closed; disabling AP");
+        this->wifi_mode_({}, false);
+      }
+    });
+  }
 #endif
 
   if (this->enable_on_boot_) {
@@ -896,7 +909,15 @@ void WiFiComponent::loop() {
     }
 
 #ifdef USE_WIFI_AP
-    if (this->has_ap() && !this->ap_setup_) {
+    bool provisioning_closed = false;
+#ifdef USE_PROVISIONING
+    // Once the provisioning window has closed, don't bring up the fallback AP (or
+    // the captive portal on it) - the device must stay unprovisionable until it is
+    // power-cycled.
+    provisioning_closed =
+        provisioning::global_provisioning_manager != nullptr && provisioning::global_provisioning_manager->closed();
+#endif
+    if (this->has_ap() && !this->ap_setup_ && !provisioning_closed) {
       if (this->ap_timeout_ != 0 && (now - this->last_connected_ > this->ap_timeout_)) {
         ESP_LOGI(TAG, "Starting fallback AP");
         this->setup_ap_config_();
@@ -953,7 +974,7 @@ void WiFiComponent::loop() {
     if (semaphore_count > 0 && !this->is_high_performance_mode_) {
       // Transition to high-performance mode (no power save)
       ESP_LOGV(TAG, "Switching to high-performance mode (%" PRIu32 " active %s)", (uint32_t) semaphore_count,
-               semaphore_count == 1 ? "request" : "requests");
+               semaphore_count == 1 ? LOG_STR_LITERAL("request") : LOG_STR_LITERAL("requests"));
       this->power_save_ = WIFI_POWER_SAVE_NONE;
       if (this->wifi_apply_power_save_()) {
         this->is_high_performance_mode_ = true;
@@ -972,10 +993,6 @@ void WiFiComponent::loop() {
 
 WiFiComponent::WiFiComponent() { global_wifi_component = this; }
 
-#ifdef USE_WIFI_11KV_SUPPORT
-void WiFiComponent::set_btm(bool btm) { this->btm_ = btm; }
-void WiFiComponent::set_rrm(bool rrm) { this->rrm_ = rrm; }
-#endif
 network::IPAddresses WiFiComponent::get_ip_addresses() {
   if (this->has_sta())
     return this->wifi_sta_ip_addresses();
@@ -1188,10 +1205,6 @@ void WiFiComponent::save_wifi_sta(const char *ssid, const char *password) {
   // ensure it's written immediately
   global_preferences->sync();
 
-#ifdef USE_ESP8266
-  // KAUF: Save wifi credentials and reboot immediately without reconfiguring wifi
-  App.safe_reboot();
-#else
   WiFiAP sta{};
   sta.set_ssid(ssid);
   sta.set_password(password);
@@ -1199,7 +1212,6 @@ void WiFiComponent::save_wifi_sta(const char *ssid, const char *password) {
 
   // Trigger connection attempt (exits cooldown if needed, no-op if already connecting/connected)
   this->connect_soon_();
-#endif // KAUF
 }
 
 void WiFiComponent::connect_soon_() {
@@ -1259,8 +1271,9 @@ void WiFiComponent::start_connecting(const WiFiAP &ap) {
              "    CA Cert:     %s\n"
              "    Client Cert: %s\n"
              "    Client Key:  %s",
-             ca_cert_present ? "present" : "not present", client_cert_present ? "present" : "not present",
-             client_key_present ? "present" : "not present");
+             ca_cert_present ? LOG_STR_LITERAL("present") : LOG_STR_LITERAL("not present"),
+             client_cert_present ? LOG_STR_LITERAL("present") : LOG_STR_LITERAL("not present"),
+             client_key_present ? LOG_STR_LITERAL("present") : LOG_STR_LITERAL("not present"));
   } else {
 #endif
     ESP_LOGV(TAG, "  Password: " LOG_SECRET("'%s'"), ap.password_.c_str());
@@ -1394,7 +1407,8 @@ void WiFiComponent::print_connect_params_() {
   ESP_LOGCONFIG(TAG,
                 "  BTM: %s\n"
                 "  RRM: %s",
-                this->btm_ ? "enabled" : "disabled", this->rrm_ ? "enabled" : "disabled");
+                this->btm_ ? LOG_STR_LITERAL("enabled") : LOG_STR_LITERAL("disabled"),
+                this->rrm_ ? LOG_STR_LITERAL("enabled") : LOG_STR_LITERAL("disabled"));
 #endif
 }
 
@@ -1421,8 +1435,6 @@ void WiFiComponent::disable() {
   this->wifi_disconnect_();
   this->wifi_mode_(false, false);
 }
-
-bool WiFiComponent::is_disabled() { return this->state_ == WIFI_COMPONENT_STATE_DISABLED; }
 
 void WiFiComponent::start_scanning() {
   // KAUF: allow a configuration to short circuit out of scanning process.
@@ -2294,15 +2306,12 @@ void WiFiComponent::retry_connect() {
   }
 }
 
-void WiFiComponent::set_reboot_timeout(uint32_t reboot_timeout) { this->reboot_timeout_ = reboot_timeout; }
 void WiFiComponent::set_power_save_mode(WiFiPowerSaveMode power_save) {
   this->power_save_ = power_save;
 #if defined(USE_ESP32) && defined(USE_WIFI_RUNTIME_POWER_SAVE)
   this->configured_power_save_ = power_save;
 #endif
 }
-
-void WiFiComponent::set_passive_scan(bool passive) { this->passive_scan_ = passive; }
 
 bool WiFiComponent::is_captive_portal_active_() {
 #ifdef USE_CAPTIVE_PORTAL
@@ -2450,32 +2459,6 @@ bool WiFiComponent::get_initial_ap() {
   return false;
 }
 
-void WiFiAP::set_ssid(const std::string &ssid) { this->ssid_ = CompactString(ssid.c_str(), ssid.size()); }
-void WiFiAP::set_ssid(const char *ssid) { this->ssid_ = CompactString(ssid, strlen(ssid)); }
-void WiFiAP::set_bssid(const bssid_t &bssid) { this->bssid_ = bssid; }
-void WiFiAP::clear_bssid() { this->bssid_ = {}; }
-void WiFiAP::set_password(const std::string &password) {
-  this->password_ = CompactString(password.c_str(), password.size());
-}
-void WiFiAP::set_password(const char *password) { this->password_ = CompactString(password, strlen(password)); }
-#ifdef USE_WIFI_WPA2_EAP
-void WiFiAP::set_eap(optional<EAPAuth> eap_auth) { this->eap_ = std::move(eap_auth); }
-#endif
-void WiFiAP::set_channel(uint8_t channel) { this->channel_ = channel; }
-void WiFiAP::clear_channel() { this->channel_ = 0; }
-#ifdef USE_WIFI_MANUAL_IP
-void WiFiAP::set_manual_ip(optional<ManualIP> manual_ip) { this->manual_ip_ = manual_ip; }
-#endif
-void WiFiAP::set_hidden(bool hidden) { this->hidden_ = hidden; }
-const bssid_t &WiFiAP::get_bssid() const { return this->bssid_; }
-bool WiFiAP::has_bssid() const { return this->bssid_ != bssid_t{}; }
-#ifdef USE_WIFI_WPA2_EAP
-const optional<EAPAuth> &WiFiAP::get_eap() const { return this->eap_; }
-#endif
-#ifdef USE_WIFI_MANUAL_IP
-const optional<ManualIP> &WiFiAP::get_manual_ip() const { return this->manual_ip_; }
-#endif
-bool WiFiAP::get_hidden() const { return this->hidden_; }
 
 WiFiScanResult::WiFiScanResult(const bssid_t &bssid, const char *ssid, size_t ssid_len, uint8_t channel, int8_t rssi,
                                bool with_auth, bool is_hidden)
@@ -2522,14 +2505,6 @@ bool WiFiScanResult::matches(const WiFiAP &config) const {
   }
   return true;
 }
-bool WiFiScanResult::get_matches() const { return this->matches_; }
-void WiFiScanResult::set_matches(bool matches) { this->matches_ = matches; }
-const bssid_t &WiFiScanResult::get_bssid() const { return this->bssid_; }
-uint8_t WiFiScanResult::get_channel() const { return this->channel_; }
-int8_t WiFiScanResult::get_rssi() const { return this->rssi_; }
-bool WiFiScanResult::get_with_auth() const { return this->with_auth_; }
-bool WiFiScanResult::get_is_hidden() const { return this->is_hidden_; }
-
 bool WiFiScanResult::operator==(const WiFiScanResult &rhs) const { return this->bssid_ == rhs.bssid_; }
 
 void WiFiComponent::clear_roaming_state_() {

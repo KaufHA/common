@@ -2,6 +2,8 @@ import esphome.codegen as cg
 from esphome.components import update
 import esphome.config_validation as cv
 from esphome.const import CONF_SOURCE
+from esphome.types import ConfigType
+
 from esphome.components.http_request import CONF_HTTP_REQUEST_ID, HttpRequestComponent
 
 AUTO_LOAD = ["json"]
@@ -31,7 +33,7 @@ CONFIG_SCHEMA = cv.All(
 )
 
 
-async def to_code(config):
+async def to_code(config: ConfigType) -> None:
     var = await update.new_update(config)
     request_parent = await cg.get_variable(config[CONF_HTTP_REQUEST_ID])
     cg.add(var.set_request_parent(request_parent))

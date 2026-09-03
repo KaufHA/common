@@ -224,7 +224,8 @@ void Kauf_HLW8012Component::actually_publish() {
 
 void Kauf_HLW8012Component::change_mode() {
     this->current_mode_ = !this->current_mode_;
-    ESP_LOGVV(TAG, "Changing mode to %s mode", this->current_mode_ ? "CURRENT" : "VOLTAGE");
+    ESP_LOGVV(TAG, "Changing mode to %s mode",
+             this->current_mode_ ? LOG_STR_LITERAL("CURRENT") : LOG_STR_LITERAL("VOLTAGE"));
     this->sel_pin_->digital_write(this->current_mode_);
     this->cf1_store_.reset();
 }

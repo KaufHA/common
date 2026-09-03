@@ -21,6 +21,7 @@ from esphome.const import (
     UNIT_WATT,
     UNIT_WATT_HOURS,
 )
+from esphome.types import ConfigType
 
 kauf_hlw8012_ns = cg.esphome_ns.namespace("kauf_hlw8012")
 Kauf_HLW8012Component = kauf_hlw8012_ns.class_("Kauf_HLW8012Component", cg.PollingComponent)
@@ -69,7 +70,7 @@ CONFIG_SCHEMA = cv.Schema(
 ).extend(cv.polling_component_schema("60s"))
 
 
-async def to_code(config):
+async def to_code(config: ConfigType) -> None:
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
 
