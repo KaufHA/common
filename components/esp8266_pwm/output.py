@@ -30,6 +30,10 @@ SetFrequencyAction = esp8266_pwm_ns.class_("SetFrequencyAction", automation.Acti
 QuantizeMode = esp8266_pwm_ns.enum("QuantizeMode")
 validate_frequency = cv.All(cv.frequency, cv.float_range(min=1.0e-6))
 
+# Schema default that also matches the C++ initializer in esp8266_pwm.h; codegen
+# skips the setter when the config equals it.
+DEFAULT_FREQUENCY = 250.0
+
 QUANTIZE_MODES = {
     "none": QuantizeMode.QUANTIZE_NONE,
     "up": QuantizeMode.QUANTIZE_UP,
@@ -43,7 +47,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Required(CONF_PIN): cv.All(
                 pins.internal_gpio_output_pin_schema, valid_pwm_pin
             ),
-            cv.Optional(CONF_FREQUENCY, default="1kHz"): validate_frequency,
+            cv.Optional(CONF_FREQUENCY, default=DEFAULT_FREQUENCY): validate_frequency,
             cv.Optional(CONF_ALIGN_PIN): cv.use_id(ESP8266PWM),
             cv.Optional(CONF_PHASE_OFFSET): cv.float_range(min=0.0, max=1.0),
             cv.Optional(CONF_ADAPT_DELAY, default="2s"): cv.positive_time_period_milliseconds,
@@ -88,7 +92,9 @@ async def to_code(config: ConfigType) -> None:
     pin = await cg.gpio_pin_expression(config[CONF_PIN])
     cg.add(var.set_pin(pin))
 
-    cg.add(var.set_frequency(config[CONF_FREQUENCY]))
+    # Skip the setter when the config matches the C++ initializer (DEFAULT_FREQUENCY).
+    if (frequency := config[CONF_FREQUENCY]) != DEFAULT_FREQUENCY:
+        cg.add(var.set_frequency(frequency))
     cg.add(var.set_quantize_mode(config[CONF_QUANTIZE]))
     if config[CONF_SERVO]:
         cg.add_define("KAUF_ESP8266_PWM_SERVO_COMPAT")
