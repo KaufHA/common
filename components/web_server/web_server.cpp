@@ -152,7 +152,7 @@ static ProductUiMetadata get_product_ui_metadata() {
   return ProductUiMetadata{
       "Plug (PLF12)",
       "https://kaufha.com/plf12",
-      "https://github.com/KaufHA/PLF12/releases",
+      "https://github.com/KaufHA/kauf-plugs/releases",
       "",
 #if defined(KAUF_FACTORY_FIRMWARE)
       "For factory images, with version suffix (f), /reset will place the firmware into factory test mode. "
@@ -166,7 +166,7 @@ static ProductUiMetadata get_product_ui_metadata() {
   return ProductUiMetadata{
       "Plug (PLF10)",
       "https://kaufha.com/plf10",
-      "https://github.com/KaufHA/PLF10/releases",
+      "https://github.com/KaufHA/kauf-plugs/releases",
       "",
 #if defined(KAUF_FACTORY_FIRMWARE)
       "For factory images, with version suffix (f), /reset will place the firmware into factory test mode. "
