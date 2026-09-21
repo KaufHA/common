@@ -40,7 +40,10 @@ def _any_value(value):
     return value
 
 
-# Added: 2026-03-10. Switch to cv.Invalid after 2026-09-10. Delete file after 2027-03-10.
+# Deprecation warning schedule for legacy yaml_file triggers below:
+#   RGBS_* (switches):     added 2026-03-10, switch to cv.Invalid after 2027-03-10, delete branches after 2028-03-10.
+#   PLF10*/PLF12* (plugs): added 2026-09-21, switch to cv.Invalid after 2027-09-21. No delete date set; plan is
+#     to keep these as permanent errors and archive the PLF10/PLF12 repos on GitHub instead of removing the branches.
 def _validate_yaml_file(value):
     if value == YAML_FILE_TRIGGER_RGBS_1M:
         LOGGER.warning(
@@ -154,7 +157,6 @@ def _validate_yaml_file(value):
             "See: https://github.com/KaufHA/kauf-rgb-switch#yaml-migration\n"
             "============================================================"
         )
-    # Added: 2026-09-21. Switch to cv.Invalid after 2027-03-21. Delete branches after 2027-09-21.
     elif value == YAML_FILE_TRIGGER_PLF10:
         LOGGER.warning(
             "\n"
