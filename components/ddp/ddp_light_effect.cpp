@@ -167,16 +167,31 @@ uint16_t DDPLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_
   }
 
   const auto traits = this->state_->get_traits();
-  const bool has_rgb = traits.supports_color_mode(light::ColorMode::RGB) ||
-                       traits.supports_color_mode(light::ColorMode::RGB_WHITE) ||
-                       traits.supports_color_mode(light::ColorMode::RGB_COLOR_TEMPERATURE) ||
-                       traits.supports_color_mode(light::ColorMode::RGB_COLD_WARM_WHITE);
-  const bool has_cwww = traits.supports_color_mode(light::ColorMode::COLD_WARM_WHITE) ||
-                        traits.supports_color_mode(light::ColorMode::RGB_COLD_WARM_WHITE);
-  const bool has_white = traits.supports_color_mode(light::ColorMode::WHITE) ||
-                         traits.supports_color_mode(light::ColorMode::RGB_WHITE);
+  const bool has_rgb = traits.supports_color_capability(light::ColorCapability::RGB);
+  const bool has_ct = traits.supports_color_capability(light::ColorCapability::COLOR_TEMPERATURE);
+  const bool has_cwww = traits.supports_color_capability(light::ColorCapability::COLD_WARM_WHITE);
+  const bool has_white = traits.supports_color_capability(light::ColorCapability::WHITE);
 
-  if (is_rgbw && has_rgb && has_cwww) {
+  if (is_rgbw && has_rgb && has_ct) {
+    // RGBCT hardware uses one PWM for white brightness and a separate PWM for
+    // color temperature. Preserve the ESPHome/HA-selected CCT and use the DDP
+    // W byte as the white brightness. As with RGBWW below, force the combined
+    // mode only in current_values so color_interlock:true can remain enabled
+    // for ordinary HA / IR / Device Group control.
+    values.set_color_mode(light::ColorMode::RGB_COLOR_TEMPERATURE);
+
+    const float min_mireds = traits.get_min_mireds();
+    const float max_mireds = traits.get_max_mireds();
+    float color_temperature = this->state_->remote_values.get_color_temperature();
+
+    if (min_mireds > 0.0f && max_mireds > min_mireds &&
+        (color_temperature < min_mireds || color_temperature > max_mireds)) {
+      color_temperature = (min_mireds + max_mireds) * 0.5f;
+    }
+
+    values.set_color_temperature(color_temperature);
+    values.set_white(master_brightness > 0.0f ? white / master_brightness : 0.0f);
+  } else if (is_rgbw && has_rgb && has_cwww) {
     // RGBWW, including color_interlock:true devices. DDP is a realtime physical
     // override, so force the combined physical mode in current_values without
     // changing the modes advertised to Home Assistant/Device Groups.
