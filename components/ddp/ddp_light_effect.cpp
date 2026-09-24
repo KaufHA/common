@@ -4,6 +4,8 @@
 #include "ddp_light_effect.h"
 #include "esphome/core/log.h"
 
+#include <algorithm>
+
 namespace esphome {
 namespace ddp {
 
@@ -13,12 +15,16 @@ DDPLightEffect::DDPLightEffect(const char *name) : LightEffect(name) {}
 
 esphome::StringRef DDPLightEffect::get_name() const { return LightEffect::get_name(); }
 
-void DDPLightEffect::start() {
-
+void DDPLightEffect::init() {
 #ifdef USE_LIGHT_GAMMA_LUT
-  // backup gamma LUT for restoring when effect ends
+  // Capture the normal gamma table once the parent light state exists. This is
+  // needed even when listen_when_off keeps the DDP receiver active without the
+  // effect itself being selected.
   this->gamma_table_backup_ = this->state_->get_gamma_table();
 #endif
+}
+
+void DDPLightEffect::start() {
   this->next_packet_will_be_first_ = true;
 
   LightEffect::start();
@@ -26,64 +32,66 @@ void DDPLightEffect::start() {
 }
 
 void DDPLightEffect::stop() {
-
 #ifdef USE_LIGHT_GAMMA_LUT
-  // restore gamma LUT.
   this->state_->set_gamma_table(this->gamma_table_backup_);
 #endif
   this->next_packet_will_be_first_ = true;
 
-  DDPLightEffectBase::stop();
+  // A listen_when_off effect stays registered with the DDP component even when
+  // the ESPHome effect is not selected, allowing DDP to wake an otherwise-off
+  // light without persisting an effect selection in flash.
+  if (!this->listen_when_off_) {
+    DDPLightEffectBase::stop();
+  }
   LightEffect::stop();
 }
 
-void DDPLightEffect::apply() {
+void DDPLightEffect::restore_remote_state_() {
+  this->next_packet_will_be_first_ = true;
 
-  // if receiving DDP packets times out, reset to home assistant color.
-  // apply function is not needed normally to display changes to the light
-  // from Home Assistant, but it is needed to restore value on timeout.
-  if ( this->timeout_check() ) {
-    ESP_LOGD(TAG,"DDP stream for '%s->%s' timed out.", this->state_->get_name().c_str(), this->get_name());
-    this->next_packet_will_be_first_ = true;
-
-    auto call = this->state_->turn_on();
-
-    call.set_color_mode_if_supported(this->state_->remote_values.get_color_mode());
-    call.set_red_if_supported(this->state_->remote_values.get_red());
-    call.set_green_if_supported(this->state_->remote_values.get_green());
-    call.set_blue_if_supported(this->state_->remote_values.get_blue());
-    call.set_brightness_if_supported(this->state_->remote_values.get_brightness());
-    call.set_color_brightness_if_supported(this->state_->remote_values.get_color_brightness());
-
-    call.set_white_if_supported(this->state_->remote_values.get_white());
-    call.set_cold_white_if_supported(this->state_->remote_values.get_cold_white());
-    call.set_warm_white_if_supported(this->state_->remote_values.get_warm_white());
-
-    call.set_publish(false);
-    call.set_save(false);
-
-    // restore backed up gamma LUT
 #ifdef USE_LIGHT_GAMMA_LUT
-    this->state_->set_gamma_table(this->gamma_table_backup_);
+  this->state_->set_gamma_table(this->gamma_table_backup_);
 #endif
-    call.perform();
-   }
 
+  // DDP only overrides current_values, never remote_values. Restoring therefore
+  // returns to the latest Home Assistant / IR / Device Group state without any
+  // state publication or preference write.
+  this->state_->current_values = this->state_->remote_values;
+  auto *output = this->state_->get_output();
+  output->update_state(this->state_);
+  output->write_state(this->state_);
+}
+
+void DDPLightEffect::apply() {
+  if (this->timeout_check()) {
+    ESP_LOGD(TAG, "DDP stream for '%s->%s' timed out.", this->state_->get_name().c_str(), this->get_name());
+    this->restore_remote_state_();
+  }
+}
+
+void DDPLightEffect::poll_() {
+  // When listen_when_off is enabled, the effect may not be the currently
+  // selected ESPHome effect, so apply() will not be called by LightState.
+  if (this->listen_when_off_ && this->timeout_check()) {
+    ESP_LOGD(TAG, "DDP stream for '%s->%s' timed out.", this->state_->get_name().c_str(), this->get_name());
+    this->restore_remote_state_();
+  }
 }
 
 uint16_t DDPLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_t used) {
+  const uint8_t channels = ddp_channels_per_pixel(payload, size);
+  const bool is_rgbw = channels == 4;
 
-  // at least for now, we require 3 bytes of data (r, g, b).
-  // If there aren't 3 unused bytes, return 0 to indicate error.
-  if ( size < (used + 3) ) { return 0; }
+  // One complete pixel is required for a non-addressable light.
+  if (size < (used + channels)) {
+    return 0;
+  }
 
-  // disable gamma on first received packet, not just based on effect being enabled.
-  // that way home assistant light can still be used as normal when DDP packets are not
-  // being received but effect is still enabled.
-  // gamma will be enabled again when effect disabled or on timeout.
-  if ( this->next_packet_will_be_first_ && this->disable_gamma_ ) {
+  // Disable gamma only while a DDP stream is actually active. DDP values are
+  // already explicit channel values and should be written without ESPHome's
+  // normal light gamma curve.
+  if (this->next_packet_will_be_first_ && this->disable_gamma_) {
 #ifdef USE_LIGHT_GAMMA_LUT
-    // disable gamma by removing LUT
     this->state_->set_gamma_table(nullptr);
 #endif
   }
@@ -91,73 +99,136 @@ uint16_t DDPLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_
   this->next_packet_will_be_first_ = false;
   this->last_ddp_time_ms_ = millis();
 
-  ESP_LOGV(TAG, "Applying DDP data for '%s->%s': (%02x,%02x,%02x) size = %d, used = %d",
-           this->state_->get_name().c_str(), this->get_name(),
-           payload[used], payload[used + 1], payload[used + 2], size, used);
+  ESP_LOGV(TAG, "Applying DDP %s data for '%s->%s': R=%02x G=%02x B=%02x W=%02x size=%d used=%d",
+           is_rgbw ? "RGBW" : "RGB", this->state_->get_name().c_str(), this->get_name(), payload[used],
+           payload[used + 1], payload[used + 2], is_rgbw ? payload[used + 3] : 0, size, used);
 
-  float red   = static_cast<float>(payload[used]) / 255.0f;
+  float red = static_cast<float>(payload[used]) / 255.0f;
   float green = static_cast<float>(payload[used + 1]) / 255.0f;
-  float blue  = static_cast<float>(payload[used + 2]) / 255.0f;
+  float blue = static_cast<float>(payload[used + 2]) / 255.0f;
+  float white = is_rgbw ? static_cast<float>(payload[used + 3]) / 255.0f : 0.0f;
 
   float multiplier = this->state_->remote_values.get_brightness();
-  float max_val = 0;
+  float max_val = 0.0f;
 
-  // for DDP_PACKET mode, find largest r,g, or b value in packet and scale that value to brightness
-  if ( this->scaling_mode_ == DDP_SCALE_PACKET ) {
-    // find largest rgb value in packet
+  if (this->scaling_mode_ == DDP_SCALE_PACKET) {
     uint8_t packet_max = 0;
-    for ( int i = 10; i < size; i++ ) {
-      if ( payload[i] > packet_max ) { packet_max = payload[i]; }
+    for (int i = 10; i < size; i++) {
+      packet_max = std::max(packet_max, payload[i]);
     }
     max_val = static_cast<float>(packet_max) / 255.0f;
   }
 
-  // DDP_PIXEL and DDP_STRIP are the same with bulbs since a "strip" is one pixel.
-  if ( (this->scaling_mode_ == DDP_SCALE_STRIP) || (this->scaling_mode_ == DDP_SCALE_PIXEL)) {
-    if ( (red >= green) && (red >= blue ) ) { max_val = red;   }
-    else if             ( green >= blue )   { max_val = green; }
-    else                                    { max_val = blue;  }
+  // A non-addressable light is one pixel, so PIXEL and STRIP are equivalent.
+  if (this->scaling_mode_ == DDP_SCALE_STRIP || this->scaling_mode_ == DDP_SCALE_PIXEL) {
+    max_val = std::max(std::max(red, green), std::max(blue, white));
   }
 
-  // if we got a max_val, update multiplier
-  if ( max_val != 0 ) { multiplier /= max_val; }
+  if (max_val != 0.0f) {
+    multiplier /= max_val;
+  }
 
-  // if we are in any scaling mode, multiply the pixel rgb values by the multiplier.
-  if ( this->scaling_mode_ != DDP_NO_SCALING) {
-    red   *= multiplier;
+  if (this->scaling_mode_ != DDP_NO_SCALING) {
+    red *= multiplier;
     green *= multiplier;
-    blue  *= multiplier;
+    blue *= multiplier;
+    white *= multiplier;
   }
 
-  auto call = this->state_->turn_on();
+  // Clamp after optional scaling; LightCall normally does this for us, but DDP
+  // deliberately bypasses LightCall so remote_values and preferences remain untouched.
+  red = std::min(1.0f, std::max(0.0f, red));
+  green = std::min(1.0f, std::max(0.0f, green));
+  blue = std::min(1.0f, std::max(0.0f, blue));
+  white = std::min(1.0f, std::max(0.0f, white));
 
-  call.set_color_mode_if_supported(light::ColorMode::RGB_COLD_WARM_WHITE);
-  call.set_color_mode_if_supported(light::ColorMode::RGB_COLOR_TEMPERATURE);
-  call.set_color_mode_if_supported(light::ColorMode::RGB_WHITE);
-  call.set_color_mode_if_supported(light::ColorMode::RGB);
-  call.set_red_if_supported(red);
-  call.set_green_if_supported(green);
-  call.set_blue_if_supported(blue);
-  call.set_brightness_if_supported(std::max(red, std::max(green, blue)) );
-  call.set_color_brightness_if_supported(1.0f);
+  const float rgb_max = std::max(red, std::max(green, blue));
+  const float master_brightness = std::max(rgb_max, white);
 
-  // disable white channels
-  call.set_white_if_supported(0.0f);
-  call.set_cold_white_if_supported(0.0f);
-  call.set_warm_white_if_supported(0.0f);
+  auto values = this->state_->remote_values;
+  values.set_state(true);
+  values.set_brightness(master_brightness);
+  values.set_white(0.0f);
+  values.set_cold_white(0.0f);
+  values.set_warm_white(0.0f);
 
-  call.set_transition_length_if_supported(0);
-  call.set_publish(false);
-  call.set_save(false);
+  // RGB color values are stored normalized in LightColorValues. Use
+  // color_brightness to retain the RGB intensity independently of W.
+  if (rgb_max > 0.0f) {
+    values.set_red(red / rgb_max);
+    values.set_green(green / rgb_max);
+    values.set_blue(blue / rgb_max);
+    values.set_color_brightness(master_brightness > 0.0f ? rgb_max / master_brightness : 0.0f);
+  } else {
+    values.set_red(1.0f);
+    values.set_green(1.0f);
+    values.set_blue(1.0f);
+    values.set_color_brightness(0.0f);
+  }
 
-  call.perform();
+  const auto traits = this->state_->get_traits();
+  const bool has_rgb = traits.supports_color_mode(light::ColorMode::RGB) ||
+                       traits.supports_color_mode(light::ColorMode::RGB_WHITE) ||
+                       traits.supports_color_mode(light::ColorMode::RGB_COLOR_TEMPERATURE) ||
+                       traits.supports_color_mode(light::ColorMode::RGB_COLD_WARM_WHITE);
+  const bool has_cwww = traits.supports_color_mode(light::ColorMode::COLD_WARM_WHITE) ||
+                        traits.supports_color_mode(light::ColorMode::RGB_COLD_WARM_WHITE);
+  const bool has_white = traits.supports_color_mode(light::ColorMode::WHITE) ||
+                         traits.supports_color_mode(light::ColorMode::RGB_WHITE);
 
-  // manually calling loop otherwise we just go straight into processing the next DDP
-  // packet without executing the light loop to display the just-processed packet.
-  // Not totally sure why or if there is a better way to fix, but this works.
-  this->state_->loop();
+  if (is_rgbw && has_rgb && has_cwww) {
+    // RGBWW, including color_interlock:true devices. DDP is a realtime physical
+    // override, so force the combined physical mode in current_values without
+    // changing the modes advertised to Home Assistant/Device Groups.
+    values.set_color_mode(light::ColorMode::RGB_COLD_WARM_WHITE);
 
-  return 3;
+    const float min_mireds = traits.get_min_mireds();
+    const float max_mireds = traits.get_max_mireds();
+    float color_temperature = this->state_->remote_values.get_color_temperature();
+
+    if (min_mireds > 0.0f && max_mireds > min_mireds) {
+      if (color_temperature < min_mireds || color_temperature > max_mireds) {
+        color_temperature = (min_mireds + max_mireds) * 0.5f;
+      }
+
+      const float ww_fraction = (color_temperature - min_mireds) / (max_mireds - min_mireds);
+      const float cw_fraction = 1.0f - ww_fraction;
+      const float mix_max = std::max(cw_fraction, ww_fraction);
+      const float white_scale = master_brightness > 0.0f ? white / master_brightness : 0.0f;
+
+      values.set_color_temperature(color_temperature);
+      values.set_cold_white(white_scale * cw_fraction / mix_max);
+      values.set_warm_white(white_scale * ww_fraction / mix_max);
+    } else {
+      const float white_scale = master_brightness > 0.0f ? white / master_brightness : 0.0f;
+      values.set_cold_white(white_scale);
+      values.set_warm_white(white_scale);
+    }
+  } else if (is_rgbw && has_rgb && has_white) {
+    // Native RGBW output, including a color-interlocked RGBW light. As above,
+    // force the combined current mode only for the realtime DDP output.
+    values.set_color_mode(light::ColorMode::RGB_WHITE);
+    values.set_white(master_brightness > 0.0f ? white / master_brightness : 0.0f);
+  } else if (has_rgb) {
+    // Existing RGB behavior. An RGBW W byte is ignored when the target has no
+    // white-capable output.
+    values.set_color_mode(light::ColorMode::RGB);
+    values.set_brightness(rgb_max);
+    values.set_color_brightness(rgb_max > 0.0f ? 1.0f : 0.0f);
+  } else {
+    ESP_LOGV(TAG, "DDP target '%s' has no RGB-capable color mode", this->state_->get_name().c_str());
+    return channels;
+  }
+
+  // DDP is a realtime override: write current_values directly. This deliberately
+  // does not modify/publish remote_values and cannot schedule a light preference
+  // save, regardless of packet rate.
+  this->state_->current_values = values;
+  auto *output = this->state_->get_output();
+  output->update_state(this->state_);
+  output->write_state(this->state_);
+
+  return channels;
 }
 
 }  // namespace ddp

@@ -16,6 +16,20 @@ DDPComponent::DDPComponent() {}
 DDPComponent::~DDPComponent() {}
 void DDPComponent::setup() {}
 
+void DDPComponent::ensure_always_effects_() {
+  for (auto *effect : this->always_effects_) {
+    if (!this->light_effects_.count(effect)) {
+      this->add_effect(effect);
+    }
+  }
+}
+
+void DDPComponent::poll_effects_() {
+  for (auto *effect : this->light_effects_) {
+    effect->poll_();
+  }
+}
+
 void DDPComponent::note_packet_(const char *source, uint16_t size) {
   if (this->stats_interval_ms_ == 0) {
     return;

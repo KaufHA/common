@@ -39,6 +39,7 @@ class DDPComponent : public esphome::Component {
 
   void add_effect(DDPLightEffectBase *light_effect);
   void remove_effect(DDPLightEffectBase *light_effect);
+  void add_always_effect(DDPLightEffectBase *light_effect) { this->always_effects_.insert(light_effect); }
   void set_stats_interval(uint32_t interval_ms) {
     this->stats_interval_ms_ = interval_ms;
     this->stats_last_ms_ = 0;
@@ -54,8 +55,11 @@ class DDPComponent : public esphome::Component {
 #endif
 
   std::set<DDPLightEffectBase *> light_effects_;
+  std::set<DDPLightEffectBase *> always_effects_;
 
   bool process_(const uint8_t *payload, uint16_t size);
+  void ensure_always_effects_();
+  void poll_effects_();
   void note_packet_(const char *source, uint16_t size);
 
   uint32_t stats_interval_ms_{0};

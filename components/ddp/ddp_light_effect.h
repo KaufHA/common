@@ -16,12 +16,17 @@ class DDPLightEffect : public DDPLightEffectBase, public light::LightEffect {
 
   virtual esphome::StringRef get_name() const;
 
+  void init() override;
   void start() override;
   void stop() override;
   void apply() override;
+  void set_listen_when_off(bool listen_when_off) { this->listen_when_off_ = listen_when_off; }
 
  protected:
   uint16_t process_(const uint8_t *payload, uint16_t size, uint16_t used) override;
+  void poll_() override;
+  void restore_remote_state_();
+  bool listen_when_off_{false};
 };
 
 }  // namespace ddp
