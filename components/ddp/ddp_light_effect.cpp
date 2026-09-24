@@ -168,16 +168,21 @@ uint16_t DDPLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_
 
   const auto traits = this->state_->get_traits();
   const bool has_rgb = traits.supports_color_capability(light::ColorCapability::RGB);
-  const bool has_ct = traits.supports_color_capability(light::ColorCapability::COLOR_TEMPERATURE);
-  const bool has_cwww = traits.supports_color_capability(light::ColorCapability::COLD_WARM_WHITE);
-  const bool has_white = traits.supports_color_capability(light::ColorCapability::WHITE);
+  const bool has_rgbct = has_rgb && traits.supports_color_capability(light::ColorCapability::COLOR_TEMPERATURE);
+  const bool has_rgbww = has_rgb && traits.supports_color_capability(light::ColorCapability::COLD_WARM_WHITE);
+  const bool has_rgbw = has_rgb && traits.supports_color_capability(light::ColorCapability::WHITE);
 
-  if (is_rgbw && has_rgb && has_ct) {
-    // RGBCT hardware uses one PWM for white brightness and a separate PWM for
-    // color temperature. Preserve the ESPHome/HA-selected CCT and use the DDP
-    // W byte as the white brightness. As with RGBWW below, force the combined
-    // mode only in current_values so color_interlock:true can remain enabled
-    // for ordinary HA / IR / Device Group control.
+  // ESPHome exposes RGBCT and RGBWW as different capabilities even when
+  // color_interlock is enabled:
+  //   RGBCT -> RGB + COLOR_TEMPERATURE
+  //   RGBWW -> RGB + COLD_WARM_WHITE
+  // Keep the mappings separate so the same DDP receiver works with either
+  // physical topology.
+  if (is_rgbw && has_rgbct) {
+    // RGBCT: W is the white-brightness channel. Preserve the current CCT and
+    // use DDP W only to control the white intensity. Force the combined mode
+    // in current_values so a realtime DDP packet may contain RGB + W even when
+    // the normal light has color_interlock:true.
     values.set_color_mode(light::ColorMode::RGB_COLOR_TEMPERATURE);
 
     const float min_mireds = traits.get_min_mireds();
@@ -191,10 +196,10 @@ uint16_t DDPLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_
 
     values.set_color_temperature(color_temperature);
     values.set_white(master_brightness > 0.0f ? white / master_brightness : 0.0f);
-  } else if (is_rgbw && has_rgb && has_cwww) {
-    // RGBWW, including color_interlock:true devices. DDP is a realtime physical
-    // override, so force the combined physical mode in current_values without
-    // changing the modes advertised to Home Assistant/Device Groups.
+  } else if (is_rgbw && has_rgbww) {
+    // RGBWW: W is split across the physical cold- and warm-white channels
+    // according to the currently selected CCT. This remains distinct from the
+    // RGBCT path above, where the hardware has a separate CCT control PWM.
     values.set_color_mode(light::ColorMode::RGB_COLD_WARM_WHITE);
 
     const float min_mireds = traits.get_min_mireds();
@@ -219,7 +224,7 @@ uint16_t DDPLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_
       values.set_cold_white(white_scale);
       values.set_warm_white(white_scale);
     }
-  } else if (is_rgbw && has_rgb && has_white) {
+  } else if (is_rgbw && has_rgbw) {
     // Native RGBW output, including a color-interlocked RGBW light. As above,
     // force the combined current mode only for the realtime DDP output.
     values.set_color_mode(light::ColorMode::RGB_WHITE);
