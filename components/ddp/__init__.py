@@ -68,6 +68,7 @@ CONF_DDP_ID = "ddp_id"
 CONF_DDP_TIMEOUT = "timeout"
 CONF_DDP_DIS_GAMMA = "disable_gamma"
 CONF_DDP_SCALING = "brightness_scaling"
+CONF_DDP_LISTEN_WHEN_OFF = "listen_when_off"
 CONF_ACTIVE_SENSOR = "active_sensor"
 CONF_STATS_INTERVAL = "stats_interval"
 
@@ -108,6 +109,7 @@ async def to_code(config):
         cv.Optional(CONF_DDP_TIMEOUT): cv.positive_time_period_milliseconds,
         cv.Optional(CONF_DDP_DIS_GAMMA): cv.boolean,
         cv.Optional(CONF_DDP_SCALING): cv.one_of(*DDP_SCALING, upper=True),
+        cv.Optional(CONF_DDP_LISTEN_WHEN_OFF, default=False): cv.boolean,
     },
 )
 @register_addressable_effect(
@@ -141,6 +143,12 @@ async def ddp_light_effect_to_code(config, effect_id):
 
     if CONF_DDP_SCALING in config:
         cg.add(effect.set_scaling_mode(DDP_SCALING[config[CONF_DDP_SCALING]]))
+
+    if CONF_DDP_LISTEN_WHEN_OFF in config:
+        listen_when_off = config[CONF_DDP_LISTEN_WHEN_OFF]
+        cg.add(effect.set_listen_when_off(listen_when_off))
+        if listen_when_off:
+            cg.add(parent.add_always_effect(effect))
 
     if config.get(CONF_ACTIVE_SENSOR):
         sensor = await binary_sensor.new_binary_sensor(config[CONF_ACTIVE_SENSOR])

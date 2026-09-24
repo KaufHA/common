@@ -17,7 +17,9 @@ The components which might be particularly interesting to you are described belo
 
 ## DDP
 
-The DDP component will allow your light to accept DDP packets from WLED, xLights, etc.  Currently, only RGB (3 channels per pixel) is supported.
+The DDP component will allow your light to accept DDP packets from WLED, xLights, etc. RGB (3 channels per pixel) and WLED-style RGBW (4 channels per pixel) are supported. The packet data type is auto-detected: WLED RGB24 (`0x0B`) is treated as RGB and RGBW32 (`0x1B`) as RGBW. Unknown and legacy data types retain the historical RGB behavior for compatibility.
+
+For a non-addressable ESPHome `rgbww` light, an incoming RGBW white channel is mapped through the light's current color temperature and split across cold-white and warm-white outputs. If no valid color temperature has been selected yet, the midpoint of the configured CCT range is used. DDP writes only the light's runtime/current output state: it does not modify or publish the ESPHome remote state and does not request a preference save. This also allows DDP to drive RGB and CCT channels simultaneously even when the normal ESPHome light is configured with `color_interlock: true`.
 
 ### Installation and Usage
 
@@ -49,6 +51,7 @@ Either effect can optionally utilize the following configuration variables:
   - `PIXEL` - Each pixel will individually be scaled up or down to the brightness of the Home Assistant light entity.
   - `STRIP` - Each strip will be scaled up or down so that the brightest pixel of the strip is at the brightness of the Home Assistant light entity.  `PIXEL` and `STRIP` are the same for bulbs.
   - `PACKET` - Each entire packet will be scaled so that the brightest pixel of the packet is at the brightness of the Home Assistant light entity.  `PACKET` and `STRIP` are the same for devices with one LED strip.  
+- **listen_when_off** (*Optional*, ddp only, boolean): Keep the DDP UDP listener registered even when the DDP effect is not selected and the ESPHome light is off. Defaults to `false`. This is useful for WLED-controlled fixtures that must boot logically/physically OFF but still accept a DDP frame that turns the output on. DDP remains a runtime override; after `timeout`, the most recent ESPHome/Home Assistant state is restored.
 - **active_sensor** (*Optional*, addressable_ddp only, boolean or mapping): Creates a binary sensor to show if the Addressable DDP effect is actively driving the output (ON) or if no DDP packets have been received and the state is reverted to the ESPHome/Home Assistant color (OFF - after optional timeout above). Set to `true` to create the binary sensor, or set to a mapping with `name: My Custom Sensor Name` to customize the name of the sensor. 
 
 DDP example:
@@ -69,6 +72,7 @@ light:
           timeout: 10s
           disable_gamma: true
           brightness_scaling: none
+          listen_when_off: true
 ```
 
 Addressable DDP example:
@@ -110,7 +114,7 @@ If anyone can explain the specific definition of the data offset field and how i
 
 ### Additional Notes on Header Fields
 
-Currently, neither xLights nor WLED appear to follow the DDP header specification.  In particular, when sending RGB data, the data type field is not set properly.  Therefore, this component does not look at the data type field to determine number of channels and instead always just presumes RGB data.  There is no plan to modify this behavior until someone lets us know that it is needed.
+Current WLED releases identify RGB24 packets with data type `0x0B` and RGBW32 packets with `0x1B`; this component uses that field to select three or four channels per pixel. Other values, including legacy/undefined senders, are intentionally treated as RGB to preserve compatibility with senders that historically did not populate the field consistently.
 
 The timecode field is not handled, and all received packets are presumed to not have a timecode field without checking.  Neither WLED nor xLights utilize the timecode field and since they don't follow the header spec in other ways we don't want to depend on the timecode flag being accurate.  Therefore, if data packets are sent with timecodes, the RGB data will be misinterpreted.  If this behavior becomes a problem for someone, let us know.
 

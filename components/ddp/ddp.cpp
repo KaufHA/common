@@ -2,6 +2,7 @@
 
 #include "ddp.h"
 #include "ddp_light_effect_base.h"
+#include "esphome/components/network/util.h"
 #include "esphome/core/hal.h"
 #include "esphome/core/log.h"
 
@@ -15,6 +16,51 @@ static const char *const TAG = "ddp";
 DDPComponent::DDPComponent() {}
 DDPComponent::~DDPComponent() {}
 void DDPComponent::setup() {}
+
+void DDPComponent::ensure_always_effects_() {
+  // On WiFi-backed Arduino targets (including LibreTiny/BK72xx), binding a
+  // WiFiUDP socket before the station interface is actually connected can fail
+  // badly enough to disrupt boot. The component setup priority is AFTER_WIFI,
+  // but WiFi association is asynchronous, so setup ordering alone is not enough.
+  // Defer the always-listening DDP registration until ESPHome reports a usable
+  // network connection. Existing effect-start behavior is unchanged.
+  if (!network::is_connected()) {
+    return;
+  }
+
+  for (auto *effect : this->always_effects_) {
+    if (!effect->is_suspended() && !this->light_effects_.count(effect)) {
+      this->add_effect(effect);
+    }
+  }
+}
+
+void DDPComponent::suspend_always_effects() {
+  for (auto *effect : this->always_effects_) {
+    effect->suspend();
+  }
+}
+
+void DDPComponent::resume_always_effects() {
+  for (auto *effect : this->always_effects_) {
+    effect->resume();
+  }
+}
+
+bool DDPComponent::has_active_stream() const {
+  for (auto *effect : this->always_effects_) {
+    if (!effect->is_suspended() && effect->is_stream_active()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void DDPComponent::poll_effects_() {
+  for (auto *effect : this->light_effects_) {
+    effect->poll_();
+  }
+}
 
 void DDPComponent::note_packet_(const char *source, uint16_t size) {
   if (this->stats_interval_ms_ == 0) {

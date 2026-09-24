@@ -13,6 +13,9 @@ static const int PORT = 4048;
 
 void DDPComponent::loop() {
 
+  this->ensure_always_effects_();
+  this->poll_effects_();
+
   if ( !this->udp_ ) { return; }
 
   std::vector<uint8_t> payload;
