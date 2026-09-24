@@ -40,6 +40,9 @@ class DDPComponent : public esphome::Component {
   void add_effect(DDPLightEffectBase *light_effect);
   void remove_effect(DDPLightEffectBase *light_effect);
   void add_always_effect(DDPLightEffectBase *light_effect) { this->always_effects_.insert(light_effect); }
+  void suspend_always_effects();
+  void resume_always_effects();
+  bool has_active_stream() const;
   void set_stats_interval(uint32_t interval_ms) {
     this->stats_interval_ms_ = interval_ms;
     this->stats_last_ms_ = 0;

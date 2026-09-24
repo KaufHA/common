@@ -34,6 +34,10 @@ class DDPLightEffectBase {
 
   virtual void start();
   virtual void stop();
+  virtual void suspend();
+  virtual void resume();
+  bool is_suspended() const { return this->suspended_; }
+  bool is_stream_active() const { return !this->next_packet_will_be_first_; }
   bool timeout_check();
 
   void set_ddp(DDPComponent *ddp) { this->ddp_ = ddp; }
@@ -52,6 +56,7 @@ class DDPLightEffectBase {
   const uint16_t *gamma_table_backup_{nullptr};
 #endif
   bool next_packet_will_be_first_{true};
+  bool suspended_{false};
 
   DDPScalingMode scaling_mode_{DDP_NO_SCALING};
 

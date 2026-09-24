@@ -29,10 +29,31 @@ void DDPComponent::ensure_always_effects_() {
   }
 
   for (auto *effect : this->always_effects_) {
-    if (!this->light_effects_.count(effect)) {
+    if (!effect->is_suspended() && !this->light_effects_.count(effect)) {
       this->add_effect(effect);
     }
   }
+}
+
+void DDPComponent::suspend_always_effects() {
+  for (auto *effect : this->always_effects_) {
+    effect->suspend();
+  }
+}
+
+void DDPComponent::resume_always_effects() {
+  for (auto *effect : this->always_effects_) {
+    effect->resume();
+  }
+}
+
+bool DDPComponent::has_active_stream() const {
+  for (auto *effect : this->always_effects_) {
+    if (!effect->is_suspended() && effect->is_stream_active()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void DDPComponent::poll_effects_() {

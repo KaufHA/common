@@ -16,6 +16,9 @@ DDPLightEffect::DDPLightEffect(const char *name) : LightEffect(name) {}
 esphome::StringRef DDPLightEffect::get_name() const { return LightEffect::get_name(); }
 
 void DDPLightEffect::init() {
+  // Observe frontend/local state changes so an always-listening DDP stream can
+  // yield immediately when another controller takes ownership of the light.
+  this->state_->add_remote_values_listener(this);
 #ifdef USE_LIGHT_GAMMA_LUT
   // Capture the normal gamma table once the parent light state exists. This is
   // needed even when listen_when_off keeps the DDP receiver active without the
@@ -26,6 +29,9 @@ void DDPLightEffect::init() {
 
 void DDPLightEffect::start() {
   this->next_packet_will_be_first_ = true;
+  // Selecting the DDP effect is itself a remote-values update. Do not interpret
+  // that one update as local-control takeover; it is the explicit resume action.
+  this->ignore_next_ddp_selection_update_ = true;
 
   LightEffect::start();
   DDPLightEffectBase::start();
@@ -39,11 +45,43 @@ void DDPLightEffect::stop() {
 
   // A listen_when_off effect stays registered with the DDP component even when
   // the ESPHome effect is not selected, allowing DDP to wake an otherwise-off
-  // light without persisting an effect selection in flash.
-  if (!this->listen_when_off_) {
+  // light without persisting an effect selection in flash. An explicit suspend()
+  // overrides this behavior until DDP is resumed or selected again.
+  if (!this->listen_when_off_ || this->suspended_) {
     DDPLightEffectBase::stop();
   }
   LightEffect::stop();
+}
+
+void DDPLightEffect::suspend() {
+  // Give control back to the latest HA / IR / Device Group state immediately,
+  // then unregister from DDP so a continuous WLED stream cannot take it back.
+  this->restore_remote_state_();
+  DDPLightEffectBase::suspend();
+}
+
+
+void DDPLightEffect::on_light_remote_values_update() {
+  // Selecting this effect is the explicit way to hand control back to DDP.
+  // LightState publishes that selection like any other remote-values change,
+  // so consume exactly that update without suspending ourselves again.
+  if (this->ignore_next_ddp_selection_update_ && this->state_->get_effect_name() == this->get_name()) {
+    this->ignore_next_ddp_selection_update_ = false;
+    return;
+  }
+  this->ignore_next_ddp_selection_update_ = false;
+
+  if (!this->listen_when_off_ || this->suspended_ || !this->is_stream_active()) {
+    return;
+  }
+
+  // DDP never changes remote_values, so any remote-values update while a DDP
+  // stream is active came from HA, IR, Device Groups, or another local control.
+  // Local control wins immediately and DDP remains suspended until explicitly
+  // resumed (for example by selecting the DDP effect again).
+  ESP_LOGD(TAG, "Local control took ownership of '%s'; suspending DDP listener.",
+           this->state_->get_name().c_str());
+  this->suspend();
 }
 
 void DDPLightEffect::restore_remote_state_() {
