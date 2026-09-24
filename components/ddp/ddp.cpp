@@ -59,18 +59,19 @@ bool DDPComponent::process_(const uint8_t *payload, uint16_t size) {
     return false;
   }
 
-  // ignore packet if data offset != [00 00 00 00].  This likely means the device is receiving a DDP packet not meant for it.
-  // There may be a better way to handle this header field.  One user was receiving packets with non-zero data offset that were
-  // screwing up the light effect (flickering).
-  if (payload[4] || payload[5] || payload[6] || payload[7]) {
-    ESP_LOGE(TAG, "Ignoring DDP Packet with non-zero data offset.");
-    return false;
-  }
+  // Extract 32-bit data offset from header bytes 4-7 (Big Endian)
+  uint32_t data_offset = ((uint32_t)payload[4] << 24) | 
+                         ((uint32_t)payload[5] << 16) | 
+                         ((uint32_t)payload[6] << 8)  | 
+                         (uint32_t)payload[7];
+
+  // Convert byte offset to LED index (3 bytes per RGB pixel)
+  uint16_t led_offset = data_offset / 3;
 
   ESP_LOGV(TAG,
-           "DDP packet received (size=%d): - %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x [%02x %02x %02x]",
-           size, payload[0], payload[1], payload[2], payload[3], payload[4], payload[5], payload[6], payload[7], payload[8],
-           payload[9], payload[10], payload[11], payload[12]);
+           "DDP packet received (size=%d, led_offset=%u): - %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x [%02x %02x %02x]",
+           size, led_offset, payload[0], payload[1], payload[2], payload[3], payload[4], payload[5], payload[6], payload[7], 
+           payload[8], payload[9], payload[10], payload[11], payload[12]);
 
   // first 10 bytes are the header, so consider them used from the get-go
   // if timecode field is used, takes up an additional 4 bytes of header.
@@ -85,7 +86,7 @@ bool DDPComponent::process_(const uint8_t *payload, uint16_t size) {
     if (used >= size) {
       return false;
     }
-    uint16_t new_used = light_effect->process_(payload, size, used);
+    uint16_t new_used = light_effect->process_(payload, size, used, led_offset);
     if (new_used == 0) {
       return false;
     } else {
