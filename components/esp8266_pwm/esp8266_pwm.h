@@ -4,7 +4,6 @@
 
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
-#include "esphome/core/automation.h"
 #include "esphome/components/output/float_output.h"
 
 #ifdef KAUF_ESP8266_PHASE_LOCKED_PWM
@@ -21,6 +20,9 @@ enum QuantizeMode : uint8_t {
 
 class ESP8266PWM final : public output::FloatOutput, public Component {
  public:
+  // User provided, not "= default": `new(p) ESP8266PWM()` would zero-fill .bss that is already zero.
+  ESP8266PWM() {}
+
   void set_pin(InternalGPIOPin *pin) { pin_ = pin; }
   void set_frequency(float frequency) { this->frequency_ = frequency; }
   void set_quantize_mode(QuantizeMode mode) { this->quantize_mode_ = mode; }
@@ -50,7 +52,7 @@ class ESP8266PWM final : public output::FloatOutput, public Component {
  protected:
   void write_state(float state) override;
 
-  InternalGPIOPin *pin_;
+  InternalGPIOPin *pin_{nullptr};
 
   // KAUF change default 1000.0 -> 250.0; try to keep in sync with bulb yaml
   float frequency_{250.0};  // Keep in sync with DEFAULT_FREQUENCY in output.py
@@ -70,19 +72,6 @@ class ESP8266PWM final : public output::FloatOutput, public Component {
   float phase_hardware_{0.5f};      // phase actually sent to hardware at last INIT; never changes while on
   ESP8266PWM *align_output_{nullptr};
 #endif
-};
-
-template<typename... Ts> class SetFrequencyAction final : public Action<Ts...> {
- public:
-  SetFrequencyAction(ESP8266PWM *parent) : parent_(parent) {}
-  TEMPLATABLE_VALUE(float, frequency);
-
-  void play(const Ts &...x) {
-    float freq = this->frequency_.value(x...);
-    this->parent_->update_frequency(freq);
-  }
-
-  ESP8266PWM *parent_;
 };
 
 }  // namespace esphome::esp8266_pwm

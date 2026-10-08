@@ -12,7 +12,8 @@
 
 namespace esphome::template_ {
 
-struct Empty {};
+// Distinct per member: two empty members of the same type cannot share an address
+template<int N> struct Empty {};
 class BaseTemplateSelect : public select::Select, public PollingComponent {
  public:
   // KAUF: forced addr/hash stuff (sentinel: 0 = use default hash, 12345 = don't force addr)
@@ -33,6 +34,8 @@ void update_lambda(BaseTemplateSelect *sel_comp, const optional<std::string> &va
 template<bool HAS_LAMBDA, bool OPTIMISTIC, bool RESTORE_VALUE, size_t INITIAL_OPTION_INDEX>
 class TemplateSelect : public BaseTemplateSelect {
  public:
+  // User provided, not "= default": `new(p) TemplateSelect()` would zero-fill .bss that is already zero.
+  TemplateSelect() {}
   template<typename F> void set_lambda(F &&f) {
     if constexpr (HAS_LAMBDA) {
       this->f_.set(std::forward<F>(f));
@@ -75,8 +78,8 @@ class TemplateSelect : public BaseTemplateSelect {
     if constexpr (RESTORE_VALUE)
       this->pref_.save(&index);
   }
-  [[no_unique_address]] std::conditional_t<HAS_LAMBDA, TemplateLambda<std::string>, Empty> f_{};
-  [[no_unique_address]] std::conditional_t<RESTORE_VALUE, ESPPreferenceObject, Empty> pref_{};
+  [[no_unique_address]] std::conditional_t<HAS_LAMBDA, TemplateLambda<std::string>, Empty<0>> f_{};
+  [[no_unique_address]] std::conditional_t<RESTORE_VALUE, ESPPreferenceObject, Empty<1>> pref_{};
 };
 
 /// Template select with set_action trigger - only instantiated when set_action is configured

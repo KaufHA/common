@@ -1,10 +1,16 @@
 #include "light_state.h"
 #include "esp_color_correction.h"
 #include "esphome/core/defines.h"
+#ifdef USE_LIGHT_TRANSITION_PUBLISH_INTERVAL
+#include "esphome/core/application.h"
+#endif
 #include "esphome/core/controller_registry.h"
 #include "esphome/core/log.h"
 #include "light_output.h"
 #include "transformers.h"
+
+#include <limits>
+
 #ifdef USE_ESP8266
 #include "esphome/components/esp8266/preferences.h"  // KAUF: forced_addr support
 #endif
@@ -12,6 +18,20 @@
 namespace esphome::light {
 
 static const char *const TAG = "light";
+
+// Colour modes are bitmasks of capabilities. A mode the light doesn't support may be a bare set of
+// required capabilities (see restore_state.py's colour mode inference): use the first supported
+// mode that provides all of them, or leave it unchanged if there is none.
+static ColorMode resolve_color_mode(const LightTraits &traits, ColorMode requested) {
+  if (requested == ColorMode::UNKNOWN || traits.supports_color_mode(requested))
+    return requested;
+  auto wanted = static_cast<uint8_t>(requested);
+  for (ColorMode mode : traits.get_supported_color_modes()) {
+    if ((static_cast<uint8_t>(mode) & wanted) == wanted)
+      return mode;
+  }
+  return requested;
+}
 
 LightState::LightState(LightOutput *output) : output_(output) {}
 
@@ -40,126 +60,77 @@ void LightState::setup() {
 
   auto call = this->make_call();
   LightStateRTCState recovered{};
-  if (this->initial_state_callback_) {
-    this->initial_state_callback_(recovered);
-    this->initial_state_callback_ = nullptr;  // One-shot — no longer needed
-  }
-
-  // KAUF: The following was added specifically to migrate between old and new light data formats.
-  // The format was changed in https://github.com/esphome/esphome/pull/9260.  The result of that PR
-  // is that light values stored before that update won't load after the update.  This happened long
-  // enough ago that I don't care that much for most things, but for the RGB Switch binary update
-  // files there are six lights that are losing their configuration and I would be pretty annoyed
-  // at that myself.  So this code will convert the data format of all the lights on the RGB Switch.
-  // For dashboard updaters, this update happened 6 months ago so I assume everyone already had to
-  // deal with this.  Sorry.  I still have to increment the hashes for those people on the dashboard.
-  // For the plugs, I don't think there are any lights so this shouldn't run.  For the lights, they
-  // have their own separate external light component in that repo.
-
-  bool loaded = false;
-
+  bool restored = false;
+  if (this->save_enabled_) {
 #ifdef USE_KAUF_LIGHT_HASH_MIGRATION
-  // KAUF: Try old hash (hash-1) first for migration
-  if (this->forced_hash != 0) {
+    // KAUF: Upgrade the state stored under the previous forced hash before
+    // applying ESPHome's generated restore-state callback.
+    if (this->forced_hash != 0) {
 #ifdef USE_ESP8266
-    ESPPreferenceObject old_rtc = global_preferences->make_preference<LightStateRTCState>(this->forced_hash - 1, this->forced_addr);
+      ESPPreferenceObject old_rtc =
+          global_preferences->make_preference<LightStateRTCState>(this->forced_hash - 1,
+                                                                  this->forced_addr);
 #else
-    ESPPreferenceObject old_rtc = global_preferences->make_preference<LightStateRTCState>(this->forced_hash - 1);
+      ESPPreferenceObject old_rtc = global_preferences->make_preference<LightStateRTCState>(this->forced_hash - 1);
 #endif
 
 #ifdef USE_KAUF_LIGHT_DATA_MIGRATION
-    // Binary update: load into struct then reinterpret as old format
-    LightStateRTCState raw_struct;
-    if (old_rtc.load(&raw_struct)) {
-      ESP_LOGI(TAG, "'%s': migrating from old hash, converting format", this->get_name().c_str());
-      const auto *old = reinterpret_cast<const LightStateRTCStateOld *>(&raw_struct);
-      recovered.brightness = old->brightness;
-      recovered.color_brightness = old->color_brightness;
-      recovered.red = old->red;
-      recovered.green = old->green;
-      recovered.blue = old->blue;
-      recovered.white = old->white;
-      recovered.color_temp = old->color_temp;
-      recovered.cold_white = old->cold_white;
-      recovered.warm_white = old->warm_white;
-      recovered.effect = old->effect;
-      recovered.color_mode = old->color_mode;
-      recovered.state = old->state;
-      loaded = true;
-    }
+      // Binary update: load into the current-size buffer, then interpret it
+      // using the pre-2025.7.0 member layout.
+      LightStateRTCState raw_struct;
+      if (old_rtc.load(&raw_struct)) {
+        ESP_LOGI(TAG, "'%s': migrating from old hash, converting format", this->get_name().c_str());
+        const auto *old = reinterpret_cast<const LightStateRTCStateOld *>(&raw_struct);
+        recovered.brightness = old->brightness;
+        recovered.color_brightness = old->color_brightness;
+        recovered.red = old->red;
+        recovered.green = old->green;
+        recovered.blue = old->blue;
+        recovered.white = old->white;
+        recovered.color_temp = old->color_temp;
+        recovered.cold_white = old->cold_white;
+        recovered.warm_white = old->warm_white;
+        recovered.effect = old->effect;
+        recovered.color_mode = old->color_mode;
+        recovered.state = old->state;
+        restored = true;
+      }
 #else
-    // Dashboard: load directly
-    if (old_rtc.load(&recovered)) {
-      ESP_LOGI(TAG, "'%s': migrating from old hash", this->get_name().c_str());
-      loaded = true;
-    }
+      if (old_rtc.load(&recovered)) {
+        ESP_LOGI(TAG, "'%s': migrating from old hash", this->get_name().c_str());
+        restored = true;
+      }
 #endif  // USE_KAUF_LIGHT_DATA_MIGRATION
 
-    // Save with new hash
-    if (loaded) {
+      if (restored) {
 #ifdef USE_ESP8266
-      this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash, this->forced_addr);
+        this->rtc_ =
+            global_preferences->make_preference<LightStateRTCState>(this->forced_hash, this->forced_addr);
 #else
-      this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
+        this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
 #endif
-      this->rtc_.save(&recovered);
+        this->rtc_.save(&recovered);
+      }
     }
-  }
 #endif  // USE_KAUF_LIGHT_HASH_MIGRATION
 
-  switch (this->restore_mode_) {
-    case LIGHT_RESTORE_DEFAULT_OFF:
-    case LIGHT_RESTORE_DEFAULT_ON:
-    case LIGHT_RESTORE_INVERTED_DEFAULT_OFF:
-    case LIGHT_RESTORE_INVERTED_DEFAULT_ON:
-
-    // KAUF: forced addr/hash support
-      if (!loaded) {
-        if ( this->forced_hash != 0 )
+    if (!restored) {
+      if (this->forced_hash != 0) {
 #ifdef USE_ESP8266
-          this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash, this->forced_addr);
+        this->rtc_ =
+            global_preferences->make_preference<LightStateRTCState>(this->forced_hash, this->forced_addr);
 #else
-          this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
+        this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
 #endif
-        else
-          this->rtc_ = this->make_entity_preference<LightStateRTCState>();
-        loaded = this->rtc_.load(&recovered);
+      } else {
+        this->rtc_ = this->make_entity_preference<LightStateRTCState>();
       }
-
-      // Attempt to load from preferences, else fall back to default values
-      if (!loaded) {
-        recovered.state = (this->restore_mode_ == LIGHT_RESTORE_DEFAULT_ON ||
-                           this->restore_mode_ == LIGHT_RESTORE_INVERTED_DEFAULT_ON);
-      } else if (this->restore_mode_ == LIGHT_RESTORE_INVERTED_DEFAULT_OFF ||
-                 this->restore_mode_ == LIGHT_RESTORE_INVERTED_DEFAULT_ON) {
-        // Inverted restore state
-        recovered.state = !recovered.state;
-      }
-      break;
-    case LIGHT_RESTORE_AND_OFF:
-    case LIGHT_RESTORE_AND_ON:
-
-    // KAUF: forced addr/hash support
-      if (!loaded) {
-        if ( this->forced_hash != 0 )
-#ifdef USE_ESP8266
-          this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash, this->forced_addr);
-#else
-          this->rtc_ = global_preferences->make_preference<LightStateRTCState>(this->forced_hash);
-#endif
-        else
-          this->rtc_ = this->make_entity_preference<LightStateRTCState>();
-        this->rtc_.load(&recovered);
-      }
-
-      recovered.state = (this->restore_mode_ == LIGHT_RESTORE_AND_ON);
-      break;
-    case LIGHT_ALWAYS_OFF:
-      recovered.state = false;
-      break;
-    case LIGHT_ALWAYS_ON:
-      recovered.state = true;
-      break;
+      restored = this->rtc_.load(&recovered);
+    }
+  }
+  if (this->state_callback_) {
+    this->state_callback_(recovered, restored);
+    this->state_callback_ = nullptr;  // One-shot — no longer needed
   }
 
   // A light coming up on boot must never end up on-but-invisible: if the resolved restore
@@ -170,7 +141,7 @@ void LightState::setup() {
     recovered.brightness = 1.0f;
   }
 
-  call.set_color_mode_if_supported(recovered.color_mode);
+  call.set_color_mode_if_supported(resolve_color_mode(traits, recovered.color_mode));
   call.set_state(recovered.state);
   call.set_brightness_if_supported(recovered.brightness);
   call.set_color_brightness_if_supported(recovered.color_brightness);
@@ -186,45 +157,31 @@ void LightState::setup() {
   } else {
     call.set_transition_length_if_supported(0);
   }
-  call.set_save(false);  // Don't re-save, we're restoring saved values
   call.perform();
 }
 
-// KAUF: Restore light state from saved preferences
-void LightState::restore_from_preferences() {
-  LightStateRTCState recovered{};
-  if (!this->rtc_.load(&recovered)) {
-    return;  // No saved state to restore
-  }
-
-  auto call = this->make_call();
-  call.set_color_mode_if_supported(recovered.color_mode);
-  call.set_state(recovered.state);
-  call.set_brightness_if_supported(recovered.brightness);
-  call.set_color_brightness_if_supported(recovered.color_brightness);
-  call.set_red_if_supported(recovered.red);
-  call.set_green_if_supported(recovered.green);
-  call.set_blue_if_supported(recovered.blue);
-  call.set_white_if_supported(recovered.white);
-  call.set_color_temperature_if_supported(recovered.color_temp);
-  call.set_cold_white_if_supported(recovered.cold_white);
-  call.set_warm_white_if_supported(recovered.warm_white);
-  if (recovered.effect != 0) {
-    call.set_effect(recovered.effect);
-  } else {
-    call.set_transition_length_if_supported(0);
-  }
-  call.set_save(false);  // Don't re-save, we're restoring saved values
-  call.perform();
-}
 void LightState::dump_config() {
   ESP_LOGCONFIG(TAG, "Light '%s'", this->get_name().c_str());
   auto traits = this->get_traits();
   if (traits.supports_color_capability(ColorCapability::BRIGHTNESS)) {
+#ifdef USE_LIGHT_GAMMA_LUT
+    // Read the stored gamma * 100 directly so dump_config does not pull in get_gamma_correct()
+    const unsigned gamma_x100 =
+        this->gamma_table_ != nullptr ? progmem_read_uint16(&this->gamma_table_->gamma_x100) : 0;
+#else
+    const unsigned gamma_x100 = 0;
+#endif
     ESP_LOGCONFIG(TAG,
                   "  Default Transition Length: %.1fs\n"
-                  "  Gamma Correct: %.2f",
-                  this->default_transition_length_ / 1e3f, this->gamma_correct_);
+                  "  Gamma Correct: %u.%02u",
+                  this->default_transition_length_ / 1e3f, gamma_x100 / 100, gamma_x100 % 100);
+#ifdef USE_LIGHT_TRANSITION_PUBLISH_INTERVAL
+    // The define is build wide; only lights that set the option have an interval
+    if (this->transition_state_publish_interval_ != 0) {
+      ESP_LOGCONFIG(TAG, "  Transition State Publish Interval: %" PRIu32 "ms",
+                    this->transition_state_publish_interval_);
+    }
+#endif
   }
   if (traits.supports_color_capability(ColorCapability::COLOR_TEMPERATURE)) {
     ESP_LOGCONFIG(TAG,
@@ -250,13 +207,30 @@ void LightState::loop() {
       this->next_write_ = true;
     }
 
-    if (this->transformer_->is_finished()) {
+    const bool finished = this->transformer_->is_finished();
+#ifdef USE_LIGHT_TRANSITION_PUBLISH_INTERVAL
+    if (this->transition_publish_enabled_ && !finished) {
+      const uint32_t now = App.get_loop_component_start_time();
+      if (now - this->last_transition_state_publish_ >= this->transition_state_publish_interval_) {
+        this->publish_state();
+        this->last_transition_state_publish_ = now;
+      }
+    }
+#endif
+
+    if (finished) {
       // if the transition has written directly to the output, current_values is outdated, so update it
       this->current_values = this->transformer_->get_target_values();
-
       this->transformer_->stop();
       this->is_transformer_active_ = false;
       this->transformer_ = nullptr;
+#ifdef USE_LIGHT_TRANSITION_PUBLISH_INTERVAL
+      if (this->transition_publish_enabled_) {
+        // Report the end state from remote_values; a flash's stop() left publishing to us
+        this->transition_publish_enabled_ = false;
+        this->publish_state();
+      }
+#endif
       if (this->target_state_reached_listeners_) {
         for (auto *listener : *this->target_state_reached_listeners_) {
           listener->on_light_target_state_reached();
@@ -390,15 +364,21 @@ void LightState::current_values_as_cwww(float *cold_white, float *warm_white, bo
   const float ww_level = this->gamma_correct_lut(v.get_warm_white());
   const float white_level = this->gamma_correct_lut(v.get_state() * v.get_brightness());
   const float sum = cw_level > 0 || ww_level > 0 ? cw_level + ww_level : 1;  // Don't divide by zero.
-  const float max_level = std::max(cw_level, ww_level);
-  const float inv_sum = 1.0f / sum;
-  *cold_white = white_level * max_level * cw_level * inv_sum;
-  *warm_white = white_level * max_level * ww_level * inv_sum;
+  *cold_white = white_level * std::max(cw_level, ww_level) * cw_level / sum;
+  *warm_white = white_level * std::max(cw_level, ww_level) * ww_level / sum;
 }
 void LightState::current_values_as_ct(float *color_temperature, float *white_brightness) {
   auto traits = this->get_traits();
   this->current_values.as_ct(traits.get_min_mireds(), traits.get_max_mireds(), color_temperature, white_brightness);
   *white_brightness = this->gamma_correct_lut(*white_brightness);
+}
+
+float LightState::get_gamma_correct() const {
+#ifdef USE_LIGHT_GAMMA_LUT
+  if (this->gamma_table_ != nullptr)
+    return progmem_read_uint16(&this->gamma_table_->gamma_x100) * 0.01f;
+#endif  // USE_LIGHT_GAMMA_LUT
+  return 0.0f;
 }
 
 #ifdef USE_LIGHT_GAMMA_LUT
@@ -412,10 +392,10 @@ float LightState::gamma_correct_lut(float value) const {
   float scaled = value * 255.0f;
   auto idx = static_cast<uint8_t>(scaled);
   if (idx >= 255)
-    return progmem_read_uint16(&this->gamma_table_[255]) / 65535.0f;
+    return progmem_read_uint16(&this->gamma_table_->lut[255]) / 65535.0f;
   float frac = scaled - idx;
-  float a = progmem_read_uint16(&this->gamma_table_[idx]);
-  float b = progmem_read_uint16(&this->gamma_table_[idx + 1]);
+  float a = progmem_read_uint16(&this->gamma_table_->lut[idx]);
+  float b = progmem_read_uint16(&this->gamma_table_->lut[idx + 1]);
   return (a + frac * (b - a)) / 65535.0f;
 }
 float LightState::gamma_uncorrect_lut(float value) const {
@@ -426,12 +406,12 @@ float LightState::gamma_uncorrect_lut(float value) const {
   if (this->gamma_table_ == nullptr)
     return value;
   uint16_t target = static_cast<uint16_t>(value * 65535.0f);
-  uint8_t lo = gamma_table_reverse_search(this->gamma_table_, target);
+  uint8_t lo = gamma_table_reverse_search(this->gamma_table_->lut, target);
   if (lo >= 255)
     return 1.0f;
   // Interpolate between lo and lo+1
-  uint16_t a = progmem_read_uint16(&this->gamma_table_[lo]);
-  uint16_t b = progmem_read_uint16(&this->gamma_table_[lo + 1]);
+  uint16_t a = progmem_read_uint16(&this->gamma_table_->lut[lo]);
+  uint16_t b = progmem_read_uint16(&this->gamma_table_->lut[lo + 1]);
   if (b == a)
     return lo / 255.0f;
   float frac = static_cast<float>(target - a) / static_cast<float>(b - a);
@@ -440,11 +420,14 @@ float LightState::gamma_uncorrect_lut(float value) const {
 #endif  // USE_LIGHT_GAMMA_LUT
 
 void LightState::start_effect_(uint32_t effect_index) {
+  // An external add_effects() can exceed the codegen cap; ignore an index the uint16_t can't hold
+  if (effect_index > std::numeric_limits<uint16_t>::max())
+    return;
   this->stop_effect_();
   if (effect_index == 0)
     return;
 
-  this->active_effect_index_ = effect_index;
+  this->active_effect_index_ = static_cast<uint16_t>(effect_index);
   auto *effect = this->get_active_effect_();
   effect->start_internal();
   // Enable loop while effect is active
@@ -470,10 +453,7 @@ void LightState::stop_effect_() {
 void LightState::start_transition_(const LightColorValues &target, uint32_t length, bool set_remote_values) {
   this->transformer_ = this->output_->create_default_transition();
   this->transformer_->setup(this->current_values, target, length);
-
-  if (set_remote_values) {
-    this->remote_values = target;
-  }
+  this->set_transformer_remote_values_(target, set_remote_values);
   // Enable loop while transition is active
   this->enable_loop();
 }
@@ -487,10 +467,7 @@ void LightState::start_flash_(const LightColorValues &target, uint32_t length, b
 
   this->transformer_ = make_unique<LightFlashTransformer>(*this);
   this->transformer_->setup(end_colors, target, length);
-
-  if (set_remote_values) {
-    this->remote_values = target;
-  };
+  this->set_transformer_remote_values_(target, set_remote_values);
   // Enable loop while flash is active
   this->enable_loop();
 }
@@ -498,6 +475,9 @@ void LightState::start_flash_(const LightColorValues &target, uint32_t length, b
 void LightState::set_immediately_(const LightColorValues &target, bool set_remote_values) {
   this->is_transformer_active_ = false;
   this->transformer_ = nullptr;
+#ifdef USE_LIGHT_TRANSITION_PUBLISH_INTERVAL
+  this->transition_publish_enabled_ = false;
+#endif
   this->current_values = target;
   if (set_remote_values) {
     this->remote_values = target;
@@ -513,11 +493,26 @@ void LightState::disable_loop_if_idle_() {
   }
 }
 
+#ifdef USE_LIGHT_TRANSITION_PUBLISH_INTERVAL
+void LightState::set_transformer_remote_values_(const LightColorValues &target, bool set_remote_values) {
+  this->transition_publish_enabled_ = set_remote_values && this->transition_state_publish_interval_ > 0;
+  if (this->transition_publish_enabled_) {
+    this->last_transition_state_publish_ = App.get_loop_component_start_time();
+  }
+  if (set_remote_values) {
+    this->remote_values = target;
+  }
+}
+#endif
+
 void LightState::save_remote_values_() {
+  if (!this->save_enabled_)
+    return;
   LightStateRTCState saved;
   saved.color_mode = this->remote_values.get_color_mode();
-
-  // KAUF: We never incorporated this PR becaused we just don't like the functionality.
+  // Always the real on/off status (RESTORE_AND_ON/OFF used to persist a hardcoded
+  // true/false here instead; harmless, since those modes force `state` again on
+  // every load regardless of what was saved -- see _legacy_restore_statements).
   saved.state = this->remote_values.is_on();
   saved.brightness = this->remote_values.get_brightness();
   saved.color_brightness = this->remote_values.get_color_brightness();
@@ -528,7 +523,7 @@ void LightState::save_remote_values_() {
   saved.color_temp = this->remote_values.get_color_temperature();
   saved.cold_white = this->remote_values.get_cold_white();
   saved.warm_white = this->remote_values.get_warm_white();
-  saved.effect = this->active_effect_index_;
+  saved.effect = static_cast<uint32_t>(this->active_effect_index_);  // the saved layout stays uint32_t
   this->rtc_.save(&saved);
 }
 

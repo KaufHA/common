@@ -81,15 +81,10 @@ async def to_code(config: ConfigType) -> None:
     cf1 = await cg.gpio_pin_expression(config[CONF_CF1_PIN])
     cg.add(var.set_cf1_pin(cf1))
 
-    if CONF_VOLTAGE in config:
-        sens = await sensor.new_sensor(config[CONF_VOLTAGE])
-        cg.add(var.set_voltage_sensor(sens))
-    if CONF_CURRENT in config:
-        sens = await sensor.new_sensor(config[CONF_CURRENT])
-        cg.add(var.set_current_sensor(sens))
-    if CONF_POWER in config:
-        sens = await sensor.new_sensor(config[CONF_POWER])
-        cg.add(var.set_power_sensor(sens))
+    sensors = sensor.sub_sensors(config)
+    await sensors(CONF_VOLTAGE, var.set_voltage_sensor)
+    await sensors(CONF_CURRENT, var.set_current_sensor)
+    await sensors(CONF_POWER, var.set_power_sensor)
 
     if "early_publish_percent" in config:
         cg.add(var.set_early_publish_percent(config["early_publish_percent"]))

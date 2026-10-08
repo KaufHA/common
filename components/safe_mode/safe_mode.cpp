@@ -6,7 +6,9 @@
 #include "esphome/core/util.h"
 
 // KAUF: import wifi component for setting AP timeout
+#ifdef USE_WIFI
 #include "esphome/components/wifi/wifi_component.h"
+#endif
 
 #include <cerrno>
 #include <cinttypes>
@@ -217,7 +219,9 @@ bool SafeModeComponent::should_enter_safe_mode(uint8_t num_attempts, uint32_t en
   }
 
     // KAUF: force wifi ap in safe mode
+#ifdef USE_WIFI
     wifi::global_wifi_component->set_ap_timeout(15000);
+#endif
 
 #if defined(USE_ESP32) && defined(USE_OTA_ROLLBACK) && !defined(USE_OTA_PARTITIONS)
   // Allow recovery of soft-bricked devices

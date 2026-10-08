@@ -138,6 +138,8 @@ void Kauf_HLW8012Component::loop() {
   // check for early publish //
   /////////////////////////////
 
+  if ( this->power_sensor_ == nullptr ) return;
+
   // percent
   if ( this->do_early_publish_percent_ && this->enable_early_publish_ && (this->power_sensor_->state >= this->early_publish_percent_min_power_)) {
 
