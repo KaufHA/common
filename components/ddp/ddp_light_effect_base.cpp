@@ -9,6 +9,7 @@ namespace ddp {
 DDPLightEffectBase::DDPLightEffectBase() {}
 
 void DDPLightEffectBase::start() {
+  this->suspended_ = false;
   if (this->ddp_) {
     this->ddp_->add_effect(this);
   }
@@ -17,6 +18,22 @@ void DDPLightEffectBase::start() {
 void DDPLightEffectBase::stop() {
   if (this->ddp_) {
     this->ddp_->remove_effect(this);
+  }
+}
+
+void DDPLightEffectBase::suspend() {
+  this->suspended_ = true;
+  this->next_packet_will_be_first_ = true;
+  if (this->ddp_) {
+    this->ddp_->remove_effect(this);
+  }
+}
+
+void DDPLightEffectBase::resume() {
+  this->suspended_ = false;
+  this->next_packet_will_be_first_ = true;
+  if (this->ddp_) {
+    this->ddp_->add_effect(this);
   }
 }
 

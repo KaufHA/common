@@ -17,6 +17,9 @@ static const char *const TAG = "ddp";
 static const int PORT = 4048;
 
 void DDPComponent::loop() {
+  this->ensure_always_effects_();
+  this->poll_effects_();
+
   if (this->socket_ == nullptr || !this->socket_->ready()) { return; }
 
   int fd = this->socket_->get_fd();

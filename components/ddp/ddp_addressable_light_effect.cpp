@@ -3,6 +3,8 @@
 #include "ddp.h"
 #include "ddp_addressable_light_effect.h"
 #include "esphome/core/log.h"
+
+#include <algorithm>
 #ifdef USE_BINARY_SENSOR
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #endif
@@ -118,7 +120,9 @@ uint16_t DDPAddressableLightEffect::process_(const uint8_t *payload, uint16_t si
   this->set_effect_active_(it, true);
 
 
-  uint16_t num_pixels = std::min<int>(it->size(), (size - used) / 3);
+  const uint8_t channels = ddp_channels_per_pixel(payload, size);
+  const bool is_rgbw = channels == 4;
+  uint16_t num_pixels = std::min<int>(it->size(), (size - used) / channels);
 
   if ( num_pixels < 1 ) { return 0; }
 
@@ -135,7 +139,7 @@ uint16_t DDPAddressableLightEffect::process_(const uint8_t *payload, uint16_t si
       set_max_brightness_();
       break;
     case DDP_SCALE_STRIP:
-      multiplier = this->scan_packet_and_return_multiplier_(payload, used, used + (num_pixels*3));
+      multiplier = this->scan_packet_and_return_multiplier_(payload, used, used + (num_pixels*channels));
       set_max_brightness_();
       break;
     case DDP_NO_SCALING:  // no scaling requires brightness maxed so that ddp values will be displayed raw.
@@ -146,21 +150,20 @@ uint16_t DDPAddressableLightEffect::process_(const uint8_t *payload, uint16_t si
   }
 
   // loop through all pixels being displayed now.
-  for (uint16_t i = used; i < used+(num_pixels*3); i+=3) {
+  for (uint16_t i = used; i < used+(num_pixels*channels); i+=channels) {
 
-    // get RGB value of current pixel.
+    // get RGB/RGBW value of current pixel.
     uint8_t red   = payload[i];
     uint8_t green = payload[i+1];
     uint8_t blue  = payload[i+2];
+    uint8_t white = is_rgbw ? payload[i+3] : 0;
 
     // set multiplier for this pixel if in pixel scaling mode
     if ( this->scaling_mode_ == DDP_SCALE_PIXEL ) {
         uint8_t max_val = 0;
 
-        // find largest value of this pixel's rgb
-        if ( (red >= green) && (red >= blue ) ) { max_val = red;   }
-        else if             ( green >= blue )   { max_val = green; }
-        else                                    { max_val = blue;  }
+        // find largest value of this pixel's RGB/RGBW channels
+        max_val = std::max(std::max(red, green), std::max(blue, white));
 
         // calculate multiplier based on max value
         multiplier = multiplier_from_max_val_(max_val);
@@ -177,18 +180,20 @@ uint16_t DDPAddressableLightEffect::process_(const uint8_t *payload, uint16_t si
           red   = static_cast<uint8_t>(static_cast<float>(red) * multiplier);
           green = static_cast<uint8_t>(static_cast<float>(green) * multiplier);
           blue  = static_cast<uint8_t>(static_cast<float>(blue) * multiplier);
+          white = static_cast<uint8_t>(static_cast<float>(white) * multiplier);
         }
       default:
         break;
     }
 
-    // assign pixel color; clear white channel for RGBW strips
-    auto output = (*it)[(i-used)/3];
-    output.set_rgbw(red, green, blue, 0);
+    // assign pixel color. RGB packets preserve the historical behavior of
+    // clearing white; RGBW packets drive the fourth channel directly.
+    auto output = (*it)[(i-used)/channels];
+    output.set_rgbw(red, green, blue, white);
   }
 
   it->schedule_show();
-  return (num_pixels*3);
+  return (num_pixels*channels);
 }
 
 float DDPAddressableLightEffect::scan_packet_and_return_multiplier_(const uint8_t *payload, uint16_t start, uint16_t end) {

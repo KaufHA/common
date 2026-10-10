@@ -11,6 +11,15 @@ namespace ddp {
 
 class DDPComponent;
 
+// DDP data type values used by current WLED for 8-bit RGB and RGBW streams.
+// Unknown/legacy types intentionally fall back to RGB for compatibility.
+static constexpr uint8_t DDP_TYPE_RGB24 = 0x0B;
+static constexpr uint8_t DDP_TYPE_RGBW32 = 0x1B;
+
+inline uint8_t ddp_channels_per_pixel(const uint8_t *payload, uint16_t size) {
+  return (size > 2 && payload[2] == DDP_TYPE_RGBW32) ? 4 : 3;
+}
+
 enum DDPScalingMode { DDP_NO_SCALING     = 0,
                       DDP_SCALE_PIXEL    = 1,
                       DDP_SCALE_STRIP    = 2,
@@ -25,6 +34,10 @@ class DDPLightEffectBase {
 
   virtual void start();
   virtual void stop();
+  virtual void suspend();
+  virtual void resume();
+  bool is_suspended() const { return this->suspended_; }
+  bool is_stream_active() const { return !this->next_packet_will_be_first_; }
   bool timeout_check();
 
   void set_ddp(DDPComponent *ddp) { this->ddp_ = ddp; }
@@ -43,10 +56,12 @@ class DDPLightEffectBase {
   const uint16_t *gamma_table_backup_{nullptr};
 #endif
   bool next_packet_will_be_first_{true};
+  bool suspended_{false};
 
   DDPScalingMode scaling_mode_{DDP_NO_SCALING};
 
   virtual uint16_t process_(const uint8_t *payload, uint16_t size, uint16_t used) = 0;
+  virtual void poll_() {}
 
   friend class DDPComponent;
 };
