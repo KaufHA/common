@@ -46,7 +46,7 @@ class DDPLightEffectBase {
 
   DDPScalingMode scaling_mode_{DDP_NO_SCALING};
 
-  virtual uint16_t process_(const uint8_t *payload, uint16_t size, uint16_t used) = 0;
+  virtual uint16_t process_(const uint8_t *payload, uint16_t size, uint16_t used, uint16_t offset = 0) = 0;
 
   friend class DDPComponent;
 };
