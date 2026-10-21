@@ -17,7 +17,7 @@ void DDPLightEffect::start() {
 
 #ifdef USE_LIGHT_GAMMA_LUT
   // backup gamma LUT for restoring when effect ends
-  this->gamma_table_backup_ = this->state_->get_gamma_table();
+  this->gamma_table_backup_ = this->state_->get_gamma_table_object();
 #endif
   this->next_packet_will_be_first_ = true;
 

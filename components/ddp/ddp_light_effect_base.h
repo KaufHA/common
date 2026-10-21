@@ -3,6 +3,7 @@
 #if defined(USE_ARDUINO) || defined(USE_ESP32)
 
 #include "esphome/core/component.h"
+#include "esphome/components/light/esp_color_correction.h"
 #include "esphome/components/light/light_effect.h"
 #include "esphome/components/light/light_output.h"
 
@@ -40,7 +41,7 @@ class DDPLightEffectBase {
 
   bool disable_gamma_{true};
 #ifdef USE_LIGHT_GAMMA_LUT
-  const uint16_t *gamma_table_backup_{nullptr};
+  const light::GammaTable *gamma_table_backup_{nullptr};
 #endif
   bool next_packet_will_be_first_{true};
 
