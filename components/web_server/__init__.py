@@ -69,6 +69,7 @@ CONF_FEATURED_ENTITY = "featured_entity"
 PRODUCT_DEFINE_MAP = {
     "plf10": "KAUF_PRODUCT_PLF10",
     "plf12": "KAUF_PRODUCT_PLF12",
+    "plf14": "KAUF_PRODUCT_PLF14",
     "bulb": "KAUF_PRODUCT_BULB",
     "srf10": "KAUF_PRODUCT_SRF10",
 }

@@ -157,7 +157,7 @@ static ProductUiMetadata get_product_ui_metadata() {
 #if defined(KAUF_PRODUCT_PLF12)
   return ProductUiMetadata{
       "Plug (PLF12)",
-      "https://kaufha.com/plf12",
+      "https://kaufha.com/kauf-plugs",
       "https://github.com/KaufHA/kauf-plugs/releases",
       "",
 #if defined(KAUF_FACTORY_FIRMWARE)
@@ -168,10 +168,24 @@ static ProductUiMetadata get_product_ui_metadata() {
       ""
 #endif
       , "plf12"};
+#elif defined(KAUF_PRODUCT_PLF14)
+  return ProductUiMetadata{
+      "Plug (PLF14)",
+      "https://kaufha.com/kauf-plugs",
+      "https://github.com/KaufHA/kauf-plugs/releases",
+      "",
+#if defined(KAUF_FACTORY_FIRMWARE)
+      "For factory images, with version suffix (f), /reset will place the firmware into factory test mode. "
+      "Factory test mode can be cleared easily by pressing the button on the device after a few seconds. "
+      "Flash one of our precompiled binaries from the github releases page to instantly stop and completely remove the factory routine. "
+#else
+      ""
+#endif
+      , "plf14"};
 #elif defined(KAUF_PRODUCT_PLF10)
   return ProductUiMetadata{
       "Plug (PLF10)",
-      "https://kaufha.com/plf10",
+      "https://kaufha.com/kauf-plugs",
       "https://github.com/KaufHA/kauf-plugs/releases",
       "",
 #if defined(KAUF_FACTORY_FIRMWARE)

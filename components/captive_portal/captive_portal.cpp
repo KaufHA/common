@@ -26,10 +26,12 @@ struct ProductUiMetadata {
 };
 
 static ProductUiMetadata get_product_ui_metadata() {
-#if defined(KAUF_PRODUCT_PLF12)
-  return ProductUiMetadata{"Plug (PLF12)", "https://kaufha.com/plf12", "https://github.com/KaufHA/kauf-plugs/releases", ""};
+#if defined(KAUF_PRODUCT_PLF14)
+  return ProductUiMetadata{"Plug (PLF14)", "https://kaufha.com/kauf-plugs", "https://github.com/KaufHA/kauf-plugs/releases", ""};
+#elif defined(KAUF_PRODUCT_PLF12)
+  return ProductUiMetadata{"Plug (PLF12)", "https://kaufha.com/kauf-plugs", "https://github.com/KaufHA/kauf-plugs/releases", ""};
 #elif defined(KAUF_PRODUCT_PLF10)
-  return ProductUiMetadata{"Plug (PLF10)", "https://kaufha.com/plf10", "https://github.com/KaufHA/kauf-plugs/releases", ""};
+  return ProductUiMetadata{"Plug (PLF10)", "https://kaufha.com/kauf-plugs", "https://github.com/KaufHA/kauf-plugs/releases", ""};
 #elif defined(KAUF_PRODUCT_BULB)
   return ProductUiMetadata{
       "RGBWW Bulb",

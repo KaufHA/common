@@ -165,9 +165,11 @@ void OTARequestHandler::handleUpload(AsyncWebServerRequest *request, const Platf
 #endif // SENSOR_4M
 
   // check filename does not contain a different product's string
-  static const char *const all_products[] = {"plf10", "plf12", "srf10", "rgbsw", "bulb", "plug"};
+  static const char *const all_products[] = {"plf10", "plf12", "plf14", "srf10", "rgbsw", "bulb", "plug"};
 #if defined(KAUF_PRODUCT_PLF12)
   static const char *const my_product = "plf12";
+#elif defined(KAUF_PRODUCT_PLF14)
+  static const char *const my_product = "plf14";
 #elif defined(KAUF_PRODUCT_PLF10)
   static const char *const my_product = "plf10";
 #elif defined(KAUF_PRODUCT_BULB)

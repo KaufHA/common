@@ -23,13 +23,13 @@ const LEGACY_PRODUCT_UI_BY_PROJECT: Record<string, ProductUi> =
     ? {
         "Kauf.PLF10": {
           display_name: "Plug (PLF10)",
-          product_url: "https://kaufha.com/plf10",
+          product_url: "https://kaufha.com/kauf-plugs",
           update_url: "https://github.com/KaufHA/PLF10/releases",
           ota_warning: "",
         },
         "Kauf.PLF12": {
           display_name: "Plug (PLF12)",
-          product_url: "https://kaufha.com/plf12",
+          product_url: "https://kaufha.com/kauf-plugs",
           update_url: "https://github.com/KaufHA/PLF12/releases",
           ota_warning: "",
         },
@@ -290,7 +290,7 @@ export default class EspApp extends LitElement {
     </p>`;
   }
 
-  static readonly ALL_PRODUCTS = ["plf10", "plf12", "srf10", "rgbsw", "bulb", "plug"];
+  static readonly ALL_PRODUCTS = ["plf10", "plf12", "plf14", "srf10", "rgbsw", "bulb", "plug"];
 
   handleOtaFileChange = (e: Event) => {
     const input = e.target as HTMLInputElement;
