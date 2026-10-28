@@ -410,7 +410,8 @@ export default class EspApp extends LitElement {
           </h1>
           <p><b>KAUF${displayName}</b> by <a href="${productUrl}" target="_blank" rel="noopener noreferrer">Kaufman Home Automation</a>
           <br>Firmware version ${this.config.proj_v} made using <a href="https://esphome.io" target="_blank" rel="noopener noreferrer">ESPHome</a> version ${this.config.esph_v}. ${this.renderUpdateLink()}</p>
-          <p>See <a href="https://esphome.io/web-api/" target="_blank" rel="noopener noreferrer">ESPHome Web Server API</a> for REST API documentation.</p>
+          <p>See <a href="https://esphome.io/web-api/" target="_blank" rel="noopener noreferrer">ESPHome Web Server API</a> for REST API documentation.
+          Each control you use on this page shows its equivalent request under <b>Last API Call</b> in the Device Parameters table below.</p>
           ${this.renderComment()}
           ${featuredName
             ? html`<h2>Main Control Entity</h2>
