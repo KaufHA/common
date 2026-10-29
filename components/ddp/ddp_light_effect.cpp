@@ -17,7 +17,8 @@ void DDPLightEffect::start() {
 
 #ifdef USE_LIGHT_GAMMA_LUT
   // backup gamma LUT for restoring when effect ends
-  this->gamma_table_backup_ = this->state_->get_gamma_table_object();
+  // upstream light only exposes the LUT pointer; lut is GammaTable's first member, so it converts back to the table.
+  this->gamma_table_backup_ = reinterpret_cast<const light::GammaTable *>(this->state_->get_gamma_table());
 #endif
   this->next_packet_will_be_first_ = true;
 
