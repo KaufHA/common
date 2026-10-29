@@ -15,23 +15,37 @@ DDPLightEffect::DDPLightEffect(const char *name) : LightEffect(name) {}
 
 esphome::StringRef DDPLightEffect::get_name() const { return LightEffect::get_name(); }
 
+#ifdef USE_DDP_BACKGROUND_LISTEN
 void DDPLightEffect::init() {
-  // Observe frontend/local state changes so an always-listening DDP stream can
-  // yield immediately when another controller takes ownership of the light.
-  this->state_->add_remote_values_listener(this);
+  if (this->listen_mode_ == DDP_LISTEN_YIELD_ON_CONTROL) {
+    this->state_->add_remote_values_listener(this);
+  }
 #ifdef USE_LIGHT_GAMMA_LUT
   // Capture the normal gamma table once the parent light state exists. This is
-  // needed even when listen_when_off keeps the DDP receiver active without the
+  // needed even when background listening keeps the DDP receiver active without the
   // effect itself being selected.
-  this->gamma_table_backup_ = this->state_->get_gamma_table();
+  // upstream light only exposes the LUT pointer; lut is GammaTable's first member, so it converts back to the table.
+  this->gamma_table_backup_ = reinterpret_cast<const light::GammaTable *>(this->state_->get_gamma_table());
 #endif
 }
+#endif
 
 void DDPLightEffect::start() {
+#ifdef USE_DDP_BACKGROUND_LISTEN
+  if (this->listen_mode_ == DDP_LISTEN_YIELD_ON_CONTROL) {
+    // Explicitly selecting DDP hands control back to it.
+    this->suspended_ = false;
+  }
+#endif
+#ifndef USE_DDP_BACKGROUND_LISTEN
+#ifdef USE_LIGHT_GAMMA_LUT
+  // Without always-listening support, preserve the original lifecycle and
+  // capture gamma state only when the effect is selected.
+  // upstream light only exposes the LUT pointer; lut is GammaTable's first member, so it converts back to the table.
+  this->gamma_table_backup_ = reinterpret_cast<const light::GammaTable *>(this->state_->get_gamma_table());
+#endif
+#endif
   this->next_packet_will_be_first_ = true;
-  // Selecting the DDP effect is itself a remote-values update. Do not interpret
-  // that one update as local-control takeover; it is the explicit resume action.
-  this->ignore_next_ddp_selection_update_ = true;
 
   LightEffect::start();
   DDPLightEffectBase::start();
@@ -41,47 +55,28 @@ void DDPLightEffect::stop() {
 #ifdef USE_LIGHT_GAMMA_LUT
   this->state_->set_gamma_table(this->gamma_table_backup_);
 #endif
+#ifdef USE_DDP_BACKGROUND_LISTEN
+  // Turning the light off or choosing another effect while DDP is streaming is
+  // a control command. stop() runs before that command is published, so the
+  // remote-values listener would see DDP as idle; yield here instead.
+  if (this->listen_mode_ == DDP_LISTEN_YIELD_ON_CONTROL && !this->next_packet_will_be_first_) {
+    ESP_LOGD(TAG, "DDP effect '%s' stopped while streaming; yielding DDP background control.",
+             this->get_name().c_str());
+    this->suspended_ = true;
+  }
+#endif
   this->next_packet_will_be_first_ = true;
 
-  // A listen_when_off effect stays registered with the DDP component even when
-  // the ESPHome effect is not selected, allowing DDP to wake an otherwise-off
-  // light without persisting an effect selection in flash. An explicit suspend()
-  // overrides this behavior until DDP is resumed or selected again.
-  if (!this->listen_when_off_ || this->suspended_) {
+#ifdef USE_DDP_BACKGROUND_LISTEN
+  // Background modes are reconciled in the DDP component loop after the new
+  // requested light state/effect has been applied.
+  if (this->listen_mode_ == DDP_LISTEN_EFFECT_ONLY) {
     DDPLightEffectBase::stop();
   }
+#else
+  DDPLightEffectBase::stop();
+#endif
   LightEffect::stop();
-}
-
-void DDPLightEffect::suspend() {
-  // Give control back to the latest HA / IR / Device Group state immediately,
-  // then unregister from DDP so a continuous WLED stream cannot take it back.
-  this->restore_remote_state_();
-  DDPLightEffectBase::suspend();
-}
-
-
-void DDPLightEffect::on_light_remote_values_update() {
-  // Selecting this effect is the explicit way to hand control back to DDP.
-  // LightState publishes that selection like any other remote-values change,
-  // so consume exactly that update without suspending ourselves again.
-  if (this->ignore_next_ddp_selection_update_ && this->state_->get_effect_name() == this->get_name()) {
-    this->ignore_next_ddp_selection_update_ = false;
-    return;
-  }
-  this->ignore_next_ddp_selection_update_ = false;
-
-  if (!this->listen_when_off_ || this->suspended_ || !this->is_stream_active()) {
-    return;
-  }
-
-  // DDP never changes remote_values, so any remote-values update while a DDP
-  // stream is active came from HA, IR, Device Groups, or another local control.
-  // Local control wins immediately and DDP remains suspended until explicitly
-  // resumed (for example by selecting the DDP effect again).
-  ESP_LOGD(TAG, "Local control took ownership of '%s'; suspending DDP listener.",
-           this->state_->get_name().c_str());
-  this->suspend();
 }
 
 void DDPLightEffect::restore_remote_state_() {
@@ -102,19 +97,61 @@ void DDPLightEffect::restore_remote_state_() {
 
 void DDPLightEffect::apply() {
   if (this->timeout_check()) {
-    ESP_LOGD(TAG, "DDP stream for '%s->%s' timed out.", this->state_->get_name().c_str(), this->get_name());
+    ESP_LOGD(TAG, "DDP stream for '%s->%s' timed out.", this->state_->get_name().c_str(), this->get_name().c_str());
+    this->restore_remote_state_();
+  }
+}
+
+#ifdef USE_DDP_BACKGROUND_LISTEN
+bool DDPLightEffect::background_listen_required_() const {
+  if (this->listen_mode_ == DDP_LISTEN_YIELD_ON_CONTROL) {
+    return !this->suspended_;
+  }
+  if (this->is_active()) {
+    return true;
+  }
+  if (this->listen_mode_ == DDP_LISTEN_ALWAYS) {
+    return true;
+  }
+  return this->listen_mode_ == DDP_LISTEN_WHEN_OFF && this->state_ != nullptr &&
+         !this->state_->remote_values.is_on();
+}
+
+void DDPLightEffect::on_light_remote_values_update() {
+  // An explicitly selected DDP effect owns the light; brightness and other
+  // changes made while it is selected must not suspend it.
+  if (this->listen_mode_ != DDP_LISTEN_YIELD_ON_CONTROL || this->suspended_ ||
+      this->next_packet_will_be_first_ || this->is_active()) {
+    return;
+  }
+
+  // A published HA/API/IR/Device Group/automation update arrived while DDP was
+  // actively driving the output. Yield immediately and remain suspended until
+  // the DDP effect is explicitly selected again or the device reboots.
+  ESP_LOGD(TAG, "Control update received for '%s'; yielding DDP background control.",
+           this->state_->get_name().c_str());
+  this->restore_remote_state_();
+  this->suspended_ = true;
+  DDPLightEffectBase::stop();
+}
+
+void DDPLightEffect::on_background_listen_stopped_() {
+  // If a WHEN_OFF listener is disabled by an HA/local ON request while DDP is
+  // driving the physical output, immediately apply the requested state.
+  if (!this->next_packet_will_be_first_) {
     this->restore_remote_state_();
   }
 }
 
 void DDPLightEffect::poll_() {
-  // When listen_when_off is enabled, the effect may not be the currently
+  // In a background mode, the effect may not be the currently
   // selected ESPHome effect, so apply() will not be called by LightState.
-  if (this->listen_when_off_ && this->timeout_check()) {
-    ESP_LOGD(TAG, "DDP stream for '%s->%s' timed out.", this->state_->get_name().c_str(), this->get_name());
+  if (this->listen_mode_ != DDP_LISTEN_EFFECT_ONLY && this->timeout_check()) {
+    ESP_LOGD(TAG, "DDP stream for '%s->%s' timed out.", this->state_->get_name().c_str(), this->get_name().c_str());
     this->restore_remote_state_();
   }
 }
+#endif
 
 uint16_t DDPLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_t used) {
   const uint8_t channels = ddp_channels_per_pixel(payload, size);
@@ -138,7 +175,7 @@ uint16_t DDPLightEffect::process_(const uint8_t *payload, uint16_t size, uint16_
   this->last_ddp_time_ms_ = millis();
 
   ESP_LOGV(TAG, "Applying DDP %s data for '%s->%s': R=%02x G=%02x B=%02x W=%02x size=%d used=%d",
-           is_rgbw ? "RGBW" : "RGB", this->state_->get_name().c_str(), this->get_name(), payload[used],
+           is_rgbw ? "RGBW" : "RGB", this->state_->get_name().c_str(), this->get_name().c_str(), payload[used],
            payload[used + 1], payload[used + 2], is_rgbw ? payload[used + 3] : 0, size, used);
 
   float red = static_cast<float>(payload[used]) / 255.0f;

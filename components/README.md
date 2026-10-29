@@ -37,7 +37,7 @@ external_components:
 (2) Invoke the ddp component by adding `ddp:` at the top level of your yaml file.  Top level means that `ddp:` is at the beginning of its line and not tabbed over at all.  This can be seen in the first line of both examples below.
 
 Optional ddp component configuration:
-- **stats_interval** (*Optional*, [Time](https://esphome.io/guides/configuration-types.html#config-time)): Log debug stats (packets/sec, last packet size, source) with the specified interval. Defaults to `0s` which disables stats collection/logging.
+- **stats_interval** (*Optional*, [Time](https://esphome.io/guides/configuration-types.html#config-time)): Log debug stats (packets/sec, last packet size, source) with the specified interval. Defaults to `0s`, which compiles stats collection and logging out entirely.
 
 (3) Add either ddp or addressable_ddp as an effect to any light entity.  The ddp effect is for single lights such as bulbs.  The addressable_ddp effect is for addressable lights such as RGB strips.
 
@@ -51,7 +51,12 @@ Either effect can optionally utilize the following configuration variables:
   - `PIXEL` - Each pixel will individually be scaled up or down to the brightness of the Home Assistant light entity.
   - `STRIP` - Each strip will be scaled up or down so that the brightest pixel of the strip is at the brightness of the Home Assistant light entity.  `PIXEL` and `STRIP` are the same for bulbs.
   - `PACKET` - Each entire packet will be scaled so that the brightest pixel of the packet is at the brightness of the Home Assistant light entity.  `PACKET` and `STRIP` are the same for devices with one LED strip.  
-- **listen_when_off** (*Optional*, ddp only, boolean): Keep the DDP UDP listener registered even when the DDP effect is not selected and the ESPHome light is off. Defaults to `false`. This is useful for WLED-controlled fixtures that must boot logically/physically OFF but still accept a DDP frame that turns the output on. DDP remains a runtime override; after `timeout`, the most recent ESPHome/Home Assistant state is restored.
+- **listen_mode** (*Optional*, ddp only): Controls when the DDP UDP listener accepts packets. Defaults to `EFFECT_ONLY`.
+  - `EFFECT_ONLY` - Listen only while the DDP effect is selected. This preserves the original behavior.
+  - `WHEN_OFF` - Also listen while the requested ESPHome/Home Assistant state is OFF, allowing DDP to wake the output without selecting an effect. When another controller requests ON without the DDP effect, background listening stops.
+  - `ALWAYS` - Keep listening regardless of the requested state or selected effect. DDP writes the output whenever a packet arrives, but a transition or another selected effect also keeps writing the output, so the two will alternate (flicker) until the transition ends or the other effect is deselected.
+  - `YIELD_ON_CONTROL` - Listen in the background until a published light-state command arrives while DDP is actively driving the output. DDP then yields and remains suspended until its effect is explicitly selected again or the device reboots. Commands received while DDP is idle do not suspend listening. While the DDP effect itself is selected, changes such as brightness do not suspend it; turning the light off or selecting another effect while a stream is active does.
+  - In every mode, DDP is a runtime override. After `timeout`, the most recent ESPHome/Home Assistant state is restored.
 - **active_sensor** (*Optional*, addressable_ddp only, boolean or mapping): Creates a binary sensor to show if the Addressable DDP effect is actively driving the output (ON) or if no DDP packets have been received and the state is reverted to the ESPHome/Home Assistant color (OFF - after optional timeout above). Set to `true` to create the binary sensor, or set to a mapping with `name: My Custom Sensor Name` to customize the name of the sensor. 
 
 DDP example:
@@ -72,7 +77,7 @@ light:
           timeout: 10s
           disable_gamma: true
           brightness_scaling: none
-          listen_when_off: true
+          listen_mode: when_off
 ```
 
 Addressable DDP example:

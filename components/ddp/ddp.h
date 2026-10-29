@@ -39,15 +39,14 @@ class DDPComponent : public esphome::Component {
 
   void add_effect(DDPLightEffectBase *light_effect);
   void remove_effect(DDPLightEffectBase *light_effect);
-  void add_always_effect(DDPLightEffectBase *light_effect) { this->always_effects_.insert(light_effect); }
-  void suspend_always_effects();
-  void resume_always_effects();
-  bool has_active_stream() const;
+#ifdef USE_DDP_BACKGROUND_LISTEN
+  void add_background_effect(DDPLightEffectBase *light_effect) { this->background_effects_.insert(light_effect); }
+#endif
+#ifdef USE_DDP_STATS
   void set_stats_interval(uint32_t interval_ms) {
     this->stats_interval_ms_ = interval_ms;
-    this->stats_last_ms_ = 0;
-    this->stats_packets_ = 0;
   }
+#endif
 
  protected:
 
@@ -58,19 +57,32 @@ class DDPComponent : public esphome::Component {
 #endif
 
   std::set<DDPLightEffectBase *> light_effects_;
-  std::set<DDPLightEffectBase *> always_effects_;
+#ifdef USE_DDP_BACKGROUND_LISTEN
+  std::set<DDPLightEffectBase *> background_effects_;
+#endif
 
   bool process_(const uint8_t *payload, uint16_t size);
-  void ensure_always_effects_();
+  bool ensure_listening_();
+  bool start_listening_();
+  void stop_listening_();
+#ifdef USE_ESP32
+  bool is_listening_() const { return this->socket_ != nullptr; }
+#else
+  bool is_listening_() const { return this->udp_ != nullptr; }
+#endif
+#ifdef USE_DDP_BACKGROUND_LISTEN
+  void update_background_effects_();
   void poll_effects_();
+#endif
+#ifdef USE_DDP_STATS
   void note_packet_(const char *source, uint16_t size);
-
-  uint32_t stats_interval_ms_{0};
+  uint32_t stats_interval_ms_;
   uint32_t stats_last_ms_{0};
   uint32_t stats_packets_{0};
   uint16_t last_packet_size_{0};
   char last_source_[64]{};
   bool have_source_{false};
+#endif
 };
 
 }  // namespace ddp

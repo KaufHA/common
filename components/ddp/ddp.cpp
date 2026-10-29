@@ -6,7 +6,9 @@
 #include "esphome/core/hal.h"
 #include "esphome/core/log.h"
 
+#ifdef USE_DDP_STATS
 #include <cstring>
+#endif
 
 namespace esphome {
 namespace ddp {
@@ -17,43 +19,50 @@ DDPComponent::DDPComponent() {}
 DDPComponent::~DDPComponent() {}
 void DDPComponent::setup() {}
 
-void DDPComponent::ensure_always_effects_() {
-  // On WiFi-backed Arduino targets (including LibreTiny/BK72xx), binding a
-  // WiFiUDP socket before the station interface is actually connected can fail
-  // badly enough to disrupt boot. The component setup priority is AFTER_WIFI,
-  // but WiFi association is asynchronous, so setup ordering alone is not enough.
-  // Defer the always-listening DDP registration until ESPHome reports a usable
-  // network connection. Existing effect-start behavior is unchanged.
+// add_effect() only registers the effect; the socket is opened here from loop().
+// An effect restored at boot starts during light setup, before WiFi/lwIP is up,
+// and creating a socket then asserts in lwIP (common#25). On WiFi-backed Arduino
+// targets (including LibreTiny/BK72xx), binding a WiFiUDP socket before the
+// station interface is connected can also disrupt boot. WiFi association is
+// asynchronous, so wait until ESPHome reports a usable network connection.
+bool DDPComponent::ensure_listening_() {
+  if (this->light_effects_.empty()) {
+    return false;
+  }
+  if (this->is_listening_()) {
+    return true;
+  }
   if (!network::is_connected()) {
+    return false;
+  }
+  return this->start_listening_();
+}
+
+void DDPComponent::add_effect(DDPLightEffectBase *light_effect) { this->light_effects_.insert(light_effect); }
+
+void DDPComponent::remove_effect(DDPLightEffectBase *light_effect) {
+  if (!this->light_effects_.erase(light_effect)) {
     return;
   }
 
-  for (auto *effect : this->always_effects_) {
-    if (!effect->is_suspended() && !this->light_effects_.count(effect)) {
+  // if no more effects left, stop udp listening
+  if (this->light_effects_.empty() && this->is_listening_()) {
+    this->stop_listening_();
+  }
+}
+
+#ifdef USE_DDP_BACKGROUND_LISTEN
+void DDPComponent::update_background_effects_() {
+  for (auto *effect : this->background_effects_) {
+    const bool registered = this->light_effects_.count(effect);
+    const bool required = effect->background_listen_required_();
+    if (required && !registered) {
       this->add_effect(effect);
+    } else if (!required && registered) {
+      effect->on_background_listen_stopped_();
+      this->remove_effect(effect);
     }
   }
-}
-
-void DDPComponent::suspend_always_effects() {
-  for (auto *effect : this->always_effects_) {
-    effect->suspend();
-  }
-}
-
-void DDPComponent::resume_always_effects() {
-  for (auto *effect : this->always_effects_) {
-    effect->resume();
-  }
-}
-
-bool DDPComponent::has_active_stream() const {
-  for (auto *effect : this->always_effects_) {
-    if (!effect->is_suspended() && effect->is_stream_active()) {
-      return true;
-    }
-  }
-  return false;
 }
 
 void DDPComponent::poll_effects_() {
@@ -61,11 +70,10 @@ void DDPComponent::poll_effects_() {
     effect->poll_();
   }
 }
+#endif
 
+#ifdef USE_DDP_STATS
 void DDPComponent::note_packet_(const char *source, uint16_t size) {
-  if (this->stats_interval_ms_ == 0) {
-    return;
-  }
   this->stats_packets_++;
   this->last_packet_size_ = size;
   if (source != nullptr && source[0] != '\0') {
@@ -87,14 +95,16 @@ void DDPComponent::note_packet_(const char *source, uint16_t size) {
 
   uint32_t pps = (this->stats_packets_ * 1000) / elapsed;
   if (this->have_source_) {
-    ESP_LOGD(TAG, "DDP stats: %u pps, last %u bytes from %s", pps, this->last_packet_size_, this->last_source_);
+    ESP_LOGD(TAG, "DDP stats: %lu pps, last %u bytes from %s", static_cast<unsigned long>(pps),
+             this->last_packet_size_, this->last_source_);
   } else {
-    ESP_LOGD(TAG, "DDP stats: %u pps, last %u bytes", pps, this->last_packet_size_);
+    ESP_LOGD(TAG, "DDP stats: %lu pps, last %u bytes", static_cast<unsigned long>(pps), this->last_packet_size_);
   }
 
   this->stats_packets_ = 0;
   this->stats_last_ms_ = now;
 }
+#endif
 
 bool DDPComponent::process_(const uint8_t *payload, uint16_t size) {
 

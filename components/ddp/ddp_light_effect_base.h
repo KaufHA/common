@@ -3,6 +3,7 @@
 #if defined(USE_ARDUINO) || defined(USE_ESP32)
 
 #include "esphome/core/component.h"
+#include "esphome/components/light/esp_color_correction.h"
 #include "esphome/components/light/light_effect.h"
 #include "esphome/components/light/light_output.h"
 
@@ -34,10 +35,6 @@ class DDPLightEffectBase {
 
   virtual void start();
   virtual void stop();
-  virtual void suspend();
-  virtual void resume();
-  bool is_suspended() const { return this->suspended_; }
-  bool is_stream_active() const { return !this->next_packet_will_be_first_; }
   bool timeout_check();
 
   void set_ddp(DDPComponent *ddp) { this->ddp_ = ddp; }
@@ -53,15 +50,18 @@ class DDPLightEffectBase {
 
   bool disable_gamma_{true};
 #ifdef USE_LIGHT_GAMMA_LUT
-  const uint16_t *gamma_table_backup_{nullptr};
+  const light::GammaTable *gamma_table_backup_{nullptr};
 #endif
   bool next_packet_will_be_first_{true};
-  bool suspended_{false};
 
   DDPScalingMode scaling_mode_{DDP_NO_SCALING};
 
   virtual uint16_t process_(const uint8_t *payload, uint16_t size, uint16_t used) = 0;
+#ifdef USE_DDP_BACKGROUND_LISTEN
+  virtual bool background_listen_required_() const { return false; }
+  virtual void on_background_listen_stopped_() {}
   virtual void poll_() {}
+#endif
 
   friend class DDPComponent;
 };

@@ -11,26 +11,47 @@
 namespace esphome {
 namespace ddp {
 
-class DDPLightEffect : public DDPLightEffectBase, public light::LightEffect, public light::LightRemoteValuesListener {
+enum DDPListenMode {
+  DDP_LISTEN_EFFECT_ONLY = 0,
+  DDP_LISTEN_WHEN_OFF = 1,
+  DDP_LISTEN_ALWAYS = 2,
+  DDP_LISTEN_YIELD_ON_CONTROL = 3,
+};
+
+class DDPLightEffect : public DDPLightEffectBase,
+                       public light::LightEffect
+#ifdef USE_DDP_BACKGROUND_LISTEN
+                       , public light::LightRemoteValuesListener
+#endif
+{
  public:
   DDPLightEffect(const char *name);
 
   virtual esphome::StringRef get_name() const;
 
+#ifdef USE_DDP_BACKGROUND_LISTEN
   void init() override;
+#endif
   void start() override;
   void stop() override;
-  void suspend() override;
   void apply() override;
+#ifdef USE_DDP_BACKGROUND_LISTEN
+  void set_listen_mode(DDPListenMode listen_mode) { this->listen_mode_ = listen_mode; }
   void on_light_remote_values_update() override;
-  void set_listen_when_off(bool listen_when_off) { this->listen_when_off_ = listen_when_off; }
+#endif
 
  protected:
   uint16_t process_(const uint8_t *payload, uint16_t size, uint16_t used) override;
+#ifdef USE_DDP_BACKGROUND_LISTEN
+  bool background_listen_required_() const override;
+  void on_background_listen_stopped_() override;
   void poll_() override;
+#endif
   void restore_remote_state_();
-  bool listen_when_off_{false};
-  bool ignore_next_ddp_selection_update_{false};
+#ifdef USE_DDP_BACKGROUND_LISTEN
+  DDPListenMode listen_mode_{DDP_LISTEN_EFFECT_ONLY};
+  bool suspended_{false};
+#endif
 };
 
 }  // namespace ddp

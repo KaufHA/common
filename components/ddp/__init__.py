@@ -68,9 +68,16 @@ CONF_DDP_ID = "ddp_id"
 CONF_DDP_TIMEOUT = "timeout"
 CONF_DDP_DIS_GAMMA = "disable_gamma"
 CONF_DDP_SCALING = "brightness_scaling"
-CONF_DDP_LISTEN_WHEN_OFF = "listen_when_off"
+CONF_DDP_LISTEN_MODE = "listen_mode"
 CONF_ACTIVE_SENSOR = "active_sensor"
 CONF_STATS_INTERVAL = "stats_interval"
+
+DDP_LISTEN_MODES = {
+    "EFFECT_ONLY": ddp_ns.DDP_LISTEN_EFFECT_ONLY,
+    "WHEN_OFF": ddp_ns.DDP_LISTEN_WHEN_OFF,
+    "ALWAYS": ddp_ns.DDP_LISTEN_ALWAYS,
+    "YIELD_ON_CONTROL": ddp_ns.DDP_LISTEN_YIELD_ON_CONTROL,
+}
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
@@ -97,7 +104,10 @@ CONFIG_SCHEMA = cv.All(
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
-    cg.add(var.set_stats_interval(config[CONF_STATS_INTERVAL]))
+    stats_interval = config[CONF_STATS_INTERVAL]
+    if stats_interval.total_milliseconds != 0:
+        cg.add_define("USE_DDP_STATS")
+        cg.add(var.set_stats_interval(stats_interval))
 
 
 @register_rgb_effect(
@@ -109,7 +119,9 @@ async def to_code(config):
         cv.Optional(CONF_DDP_TIMEOUT): cv.positive_time_period_milliseconds,
         cv.Optional(CONF_DDP_DIS_GAMMA): cv.boolean,
         cv.Optional(CONF_DDP_SCALING): cv.one_of(*DDP_SCALING, upper=True),
-        cv.Optional(CONF_DDP_LISTEN_WHEN_OFF, default=False): cv.boolean,
+        cv.Optional(CONF_DDP_LISTEN_MODE, default="EFFECT_ONLY"): cv.one_of(
+            *DDP_LISTEN_MODES, upper=True
+        ),
     },
 )
 @register_addressable_effect(
@@ -144,11 +156,12 @@ async def ddp_light_effect_to_code(config, effect_id):
     if CONF_DDP_SCALING in config:
         cg.add(effect.set_scaling_mode(DDP_SCALING[config[CONF_DDP_SCALING]]))
 
-    if CONF_DDP_LISTEN_WHEN_OFF in config:
-        listen_when_off = config[CONF_DDP_LISTEN_WHEN_OFF]
-        cg.add(effect.set_listen_when_off(listen_when_off))
-        if listen_when_off:
-            cg.add(parent.add_always_effect(effect))
+    if CONF_DDP_LISTEN_MODE in config:
+        listen_mode = config[CONF_DDP_LISTEN_MODE]
+        if listen_mode != "EFFECT_ONLY":
+            cg.add_define("USE_DDP_BACKGROUND_LISTEN")
+            cg.add(effect.set_listen_mode(DDP_LISTEN_MODES[listen_mode]))
+            cg.add(parent.add_background_effect(effect))
 
     if config.get(CONF_ACTIVE_SENSOR):
         sensor = await binary_sensor.new_binary_sensor(config[CONF_ACTIVE_SENSOR])

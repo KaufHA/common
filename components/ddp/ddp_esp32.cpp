@@ -4,10 +4,14 @@
 #include "esphome/core/log.h"
 
 #include <lwip/sockets.h>
+#ifdef USE_DDP_STATS
 #include <lwip/inet.h>
+#endif
 
 #include <array>
+#ifdef USE_DDP_STATS
 #include <cstdio>
+#endif
 #include <cerrno>
 
 namespace esphome {
@@ -17,10 +21,12 @@ static const char *const TAG = "ddp";
 static const int PORT = 4048;
 
 void DDPComponent::loop() {
-  this->ensure_always_effects_();
+#ifdef USE_DDP_BACKGROUND_LISTEN
+  this->update_background_effects_();
   this->poll_effects_();
+#endif
 
-  if (this->socket_ == nullptr || !this->socket_->ready()) { return; }
+  if (!this->ensure_listening_() || !this->socket_->ready()) { return; }
 
   int fd = this->socket_->get_fd();
   if (fd < 0) {
@@ -49,73 +55,53 @@ void DDPComponent::loop() {
       continue;
     }
 
-    if (this->stats_interval_ms_ != 0) {
-      char source[64];
-      source[0] = '\0';
-      if (client_addr.ss_family == AF_INET) {
-        auto *addr = reinterpret_cast<struct sockaddr_in *>(&client_addr);
-        const char *ip = inet_ntoa(addr->sin_addr);
-        uint16_t port = ntohs(addr->sin_port);
-        if (ip != nullptr) {
-          snprintf(source, sizeof(source), "%s:%u", ip, port);
-        }
+#ifdef USE_DDP_STATS
+    char source[64];
+    source[0] = '\0';
+    if (client_addr.ss_family == AF_INET) {
+      auto *addr = reinterpret_cast<struct sockaddr_in *>(&client_addr);
+      const char *ip = inet_ntoa(addr->sin_addr);
+      uint16_t port = ntohs(addr->sin_port);
+      if (ip != nullptr) {
+        snprintf(source, sizeof(source), "%s:%u", ip, port);
       }
-      this->note_packet_(source, static_cast<uint16_t>(len));
     }
+    this->note_packet_(source, static_cast<uint16_t>(len));
+#endif
   }
 }
 
-void DDPComponent::add_effect(DDPLightEffectBase *light_effect) {
-  if (light_effects_.count(light_effect)) {
-    return;
+bool DDPComponent::start_listening_() {
+  this->socket_ = socket::socket_ip_loop_monitored(SOCK_DGRAM, IPPROTO_UDP);
+  if (this->socket_ == nullptr) {
+    ESP_LOGE(TAG, "Socket create failed");
+    mark_failed();
+    return false;
   }
 
-  // only the first effect added needs to start udp listening
-  // but we still need to add the effect to the set so it can be applied.
-  if (this->light_effects_.empty()) {
-    if (this->socket_ == nullptr) {
-      this->socket_ = socket::socket_ip_loop_monitored(SOCK_DGRAM, IPPROTO_UDP);
-    }
-    if (this->socket_ == nullptr) {
-      ESP_LOGE(TAG, "Socket create failed");
-      mark_failed();
-      return;
-    }
+  int enable = 1;
+  this->socket_->setsockopt(SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
 
-    int enable = 1;
-    this->socket_->setsockopt(SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
+  struct sockaddr_storage server_addr = {};
+  socklen_t addr_len =
+      socket::set_sockaddr_any((struct sockaddr *) &server_addr, sizeof(server_addr), PORT);
 
-    struct sockaddr_storage server_addr = {};
-    socklen_t addr_len =
-        socket::set_sockaddr_any((struct sockaddr *) &server_addr, sizeof(server_addr), PORT);
-
-    int err = this->socket_->bind((struct sockaddr *) &server_addr, addr_len);
-    if (err != 0) {
-      ESP_LOGE(TAG, "Cannot bind DDP to port %d (err=%d).", PORT, errno);
-      this->socket_ = nullptr;
-      mark_failed();
-      return;
-    }
-
-    ESP_LOGD(TAG, "Starting UDP listening for DDP.");
-  }
-
-  this->light_effects_.insert(light_effect);
-}
-
-void DDPComponent::remove_effect(DDPLightEffectBase *light_effect) {
-  if (!this->light_effects_.count(light_effect)) {
-    return;
-  }
-
-  this->light_effects_.erase(light_effect);
-
-  // if no more effects left, stop udp listening
-  if (this->light_effects_.empty() && this->socket_ != nullptr) {
-    ESP_LOGD(TAG, "Stopping UDP listening for DDP.");
-    this->socket_->close();
+  int err = this->socket_->bind((struct sockaddr *) &server_addr, addr_len);
+  if (err != 0) {
+    ESP_LOGE(TAG, "Cannot bind DDP to port %d (err=%d).", PORT, errno);
     this->socket_ = nullptr;
+    mark_failed();
+    return false;
   }
+
+  ESP_LOGD(TAG, "Starting UDP listening for DDP.");
+  return true;
+}
+
+void DDPComponent::stop_listening_() {
+  ESP_LOGD(TAG, "Stopping UDP listening for DDP.");
+  this->socket_->close();
+  this->socket_ = nullptr;
 }
 
 }  // namespace ddp

@@ -31,7 +31,8 @@ void DDPAddressableLightEffect::start() {
 
 #ifdef USE_LIGHT_GAMMA_LUT
   // backup gamma LUT for restoring when effect ends
-  this->gamma_table_backup_ = this->state_->get_gamma_table();
+  // upstream light only exposes the LUT pointer; lut is GammaTable's first member, so it converts back to the table.
+  this->gamma_table_backup_ = reinterpret_cast<const light::GammaTable *>(this->state_->get_gamma_table());
 #endif
   this->next_packet_will_be_first_ = true;
 
@@ -64,7 +65,7 @@ void DDPAddressableLightEffect::apply(light::AddressableLight &it, const Color &
   // apply function is not needed normally to display changes to the light
   // from Home Assistant, but it is needed to restore value on timeout.
   if ( this->timeout_check() ) {
-    ESP_LOGD(TAG,"DDP stream for '%s->%s' timed out.", this->state_->get_name().c_str(), this->get_name());
+    ESP_LOGD(TAG, "DDP stream for '%s->%s' timed out.", this->state_->get_name().c_str(), this->get_name().c_str());
     this->next_packet_will_be_first_ = true;
 
     auto call = this->state_->turn_on();
