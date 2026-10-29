@@ -71,6 +71,7 @@ CONFIG_SCHEMA = cv.Schema(
 
 
 async def to_code(config: ConfigType) -> None:
+    cg.add_define("USE_KAUF_HLW8012")
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
 
