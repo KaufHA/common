@@ -3,8 +3,7 @@
 
 namespace esphome::kauf_hlw8012 {
 
-static const char *const TAG = "kauf_hlw8012";
-
+ESPHOME_LOG_TAG(TAG, "kauf_hlw8012");
 
 void IRAM_ATTR Kauf_HLWSensorStore::gpio_intr(Kauf_HLWSensorStore *arg) {
   const bool new_level = arg->pin_.digital_read();
@@ -206,22 +205,14 @@ void Kauf_HLW8012Component::update() {
 }
 
 void Kauf_HLW8012Component::actually_publish() {
-  // publish power if power sensor exists
-  if ( this->power_sensor_ != nullptr ) {
-    this->power_sensor_->publish_state(this->last_sensed_power_);
-    this->last_published_power_ = this->last_sensed_power_;
-    ESP_LOGV(TAG, "Raw power value being published: %f", this->last_published_power_);
-  }
 
-  // publish current if current sensor exists
-  if ( this->current_sensor_ != nullptr ) {
-    this->current_sensor_->publish_state(this->last_sensed_current_);
-  }
+  PUBLISH_STATE(this->power_sensor_, this->last_sensed_power_);
+  PUBLISH_STATE(this->current_sensor_, this->last_sensed_current_);
+  PUBLISH_STATE(this->voltage_sensor_, this->last_sensed_voltage_);
 
-  // publish voltage if voltage sensor exists
-  if ( this->voltage_sensor_ != nullptr ) {
-    this->voltage_sensor_->publish_state(this->last_sensed_voltage_);
-  }
+  this->last_published_power_ = this->last_sensed_power_;
+  ESP_LOGV(TAG, "Raw power value being published: %f", this->last_published_power_);
+
 }
 
 void Kauf_HLW8012Component::change_mode() {

@@ -4,6 +4,8 @@ from pathlib import Path
 import esphome
 import esphome.codegen as cg
 
+DOMAIN = "template"
+
 # Stock ESPHome template component path
 _esphome_root = Path(esphome.__file__).parent
 _stock_template_path = str(_esphome_root / "components" / "template")

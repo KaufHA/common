@@ -3,6 +3,7 @@ import logging
 import esphome.config_validation as cv
 
 LOGGER = logging.getLogger(__name__)
+DOMAIN = "kauf_deprecations"
 
 CONF_YAML_FILE = "yaml_file"
 YAML_FILE_TRIGGER_RGBS_1M     = "__KAUF_RGBS_LEGACY_YAML_1M__"

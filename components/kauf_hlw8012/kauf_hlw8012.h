@@ -43,7 +43,11 @@ class Kauf_HLWSensorStore {
 
 
 class Kauf_HLW8012Component final : public PollingComponent {
- public:
+  SUB_SENSOR(voltage)
+  SUB_SENSOR(current)
+  SUB_SENSOR(power)
+
+  public:
   void setup() override;
   void dump_config() override;
   void update() override;
@@ -54,9 +58,6 @@ class Kauf_HLW8012Component final : public PollingComponent {
   void set_sel_pin(GPIOPin *sel_pin) { sel_pin_ = sel_pin; }
   void set_cf_pin(InternalGPIOPin *cf_pin) { cf_pin_ = cf_pin; }
   void set_cf1_pin(InternalGPIOPin *cf1_pin) { cf1_pin_ = cf1_pin; }
-  void set_voltage_sensor(sensor::Sensor *voltage_sensor) { voltage_sensor_ = voltage_sensor; }
-  void set_current_sensor(sensor::Sensor *current_sensor) { current_sensor_ = current_sensor; }
-  void set_power_sensor(sensor::Sensor *power_sensor) { power_sensor_ = power_sensor; }
   void set_timeout(uint32_t timeout) { timeout_us_ = timeout * 1000; }
 
   void set_early_publish_percent(float percent_in);
@@ -88,9 +89,6 @@ class Kauf_HLW8012Component final : public PollingComponent {
   Kauf_HLWSensorStore cf_store_;
   InternalGPIOPin *cf1_pin_;
   Kauf_HLWSensorStore cf1_store_;
-  sensor::Sensor *voltage_sensor_{nullptr};
-  sensor::Sensor *current_sensor_{nullptr};
-  sensor::Sensor *power_sensor_{nullptr};
 
   float voltage_multiplier_{0.0f};
   float current_multiplier_{0.0f};

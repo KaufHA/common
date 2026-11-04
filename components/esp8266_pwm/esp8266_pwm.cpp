@@ -13,7 +13,7 @@
 
 namespace esphome::esp8266_pwm {
 
-static const char *const TAG = "esp8266_pwm";
+ESPHOME_LOG_TAG(TAG, "esp8266_pwm");
 
 static const char *quantize_mode_to_str(QuantizeMode mode) {
   switch (mode) {

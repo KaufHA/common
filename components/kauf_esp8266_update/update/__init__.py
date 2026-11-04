@@ -35,12 +35,10 @@ CONFIG_SCHEMA = cv.All(
 
 async def to_code(config: ConfigType) -> None:
     var = await update.new_update(config)
-    request_parent = await cg.get_variable(config[CONF_HTTP_REQUEST_ID])
-    cg.add(var.set_request_parent(request_parent))
+    await cg.add_variable(var.set_request_parent, config[CONF_HTTP_REQUEST_ID])
 
     cg.add(var.set_source_url(config[CONF_SOURCE]))
     cg.add(var.set_release_url(config[CONF_RELEASE_URL]))
-    if CONF_FIRMWARE_URL in config:
-        cg.add(var.set_firmware_url(config[CONF_FIRMWARE_URL]))
+    cg.add_optional(var.set_firmware_url, config.get(CONF_FIRMWARE_URL))
 
     await cg.register_component(var, config)

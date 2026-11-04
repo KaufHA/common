@@ -24,6 +24,7 @@ static const size_t MAX_READ_SIZE = 256;
 static constexpr uint32_t INITIAL_CHECK_INTERVAL_ID = 0;
 static constexpr uint32_t INITIAL_CHECK_INTERVAL_MS = 10000;
 static constexpr uint8_t INITIAL_CHECK_MAX_ATTEMPTS = 6;
+static constexpr uint32_t RETRY_TIMEOUT_ID = 1;
 static constexpr uint32_t RETRY_INTERVAL_MS = 10 * 60 * 1000; // minutes * seconds * ms
 static constexpr uint8_t MAX_RETRIES = 3;
 static constexpr uint32_t MIN_INTERVAL_FOR_RETRY_MS = 24 * 60 * 60 * 1000UL; // hours * minutes * seconds * ms
@@ -54,7 +55,7 @@ void KaufEsp8266Update::update() {
   // Cancel early-boot interval (no-op if already cancelled by the interval callback itself).
   // Must be after the network check so a boot-time call with no network doesn't kill the interval.
   this->cancel_interval(INITIAL_CHECK_INTERVAL_ID);
-  this->cancel_timeout("retry");
+  this->cancel_timeout(RETRY_TIMEOUT_ID);
   this->update_task(this);
 }
 
@@ -170,7 +171,7 @@ defer:
           this_update->retry_count_ < MAX_RETRIES) {
         this_update->retry_count_++;
         ESP_LOGD(TAG, "Scheduling retry %d/%d in 10 minutes", this_update->retry_count_, MAX_RETRIES);
-        this_update->set_timeout("retry", RETRY_INTERVAL_MS, [this_update]() { this_update->update(); });
+        this_update->set_timeout(RETRY_TIMEOUT_ID, RETRY_INTERVAL_MS, [this_update]() { this_update->update(); });
       }
       return;
     }

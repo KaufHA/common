@@ -27,11 +27,9 @@ kauf_hlw8012_ns = cg.esphome_ns.namespace("kauf_hlw8012")
 Kauf_HLW8012Component = kauf_hlw8012_ns.class_("Kauf_HLW8012Component", cg.PollingComponent)
 HLW8012SensorModels = kauf_hlw8012_ns.enum("HLW8012SensorModels")
 
-MODELS = {
-    "HLW8012": HLW8012SensorModels.HLW8012_SENSOR_MODEL_HLW8012,
-    "CSE7759": HLW8012SensorModels.HLW8012_SENSOR_MODEL_CSE7759,
-    "BL0937": HLW8012SensorModels.HLW8012_SENSOR_MODEL_BL0937,
-}
+MODELS = HLW8012SensorModels.options(
+    "HLW8012", "CSE7759", "BL0937", prefix="HLW8012_SENSOR_MODEL_"
+)
 
 CONF_CF1_PIN = "cf1_pin"
 CONF_CF_PIN = "cf_pin"
@@ -75,24 +73,18 @@ async def to_code(config: ConfigType) -> None:
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
 
-    sel = await cg.gpio_pin_expression(config[CONF_SEL_PIN])
-    cg.add(var.set_sel_pin(sel))
-    cf = await cg.gpio_pin_expression(config[CONF_CF_PIN])
-    cg.add(var.set_cf_pin(cf))
-    cf1 = await cg.gpio_pin_expression(config[CONF_CF1_PIN])
-    cg.add(var.set_cf1_pin(cf1))
+    await cg.add_pin(var.set_sel_pin, config[CONF_SEL_PIN])
+    await cg.add_pin(var.set_cf_pin, config[CONF_CF_PIN])
+    await cg.add_pin(var.set_cf1_pin, config[CONF_CF1_PIN])
 
     sensors = sensor.sub_sensors(config)
     await sensors(CONF_VOLTAGE, var.set_voltage_sensor)
     await sensors(CONF_CURRENT, var.set_current_sensor)
     await sensors(CONF_POWER, var.set_power_sensor)
 
-    if "early_publish_percent" in config:
-        cg.add(var.set_early_publish_percent(config["early_publish_percent"]))
-    if "early_publish_percent_min_power" in config:
-        cg.add(var.set_early_publish_percent_min_power(config["early_publish_percent_min_power"]))
-    if "early_publish_absolute" in config:
-        cg.add(var.set_early_publish_absolute(config["early_publish_absolute"]))
+    cg.add_optional(var.set_early_publish_percent, config.get("early_publish_percent"))
+    cg.add_optional(var.set_early_publish_percent_min_power, config.get("early_publish_percent_min_power"))
+    cg.add_optional(var.set_early_publish_absolute, config.get("early_publish_absolute"))
 
     cg.add(var.set_current_resistor(config[CONF_CURRENT_RESISTOR]))
     cg.add(var.set_voltage_divider(config[CONF_VOLTAGE_DIVIDER]))
