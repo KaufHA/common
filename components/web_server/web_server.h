@@ -13,6 +13,9 @@
 #ifdef USE_LOGGER
 #include "esphome/components/logger/logger.h"
 #endif
+#if defined(USE_ESP32) && defined(USE_KAUF_NVS)
+#include "esphome/components/kauf_nvs/kauf_nvs.h"  // KAUF
+#endif
 
 #include <functional>
 #include <list>
@@ -171,9 +174,12 @@ class DeferredUpdateEventSource final : public AsyncEventSource {
 };
 
 class DeferredUpdateEventSourceList final : public std::list<DeferredUpdateEventSource *> {
+  friend class HeadAckedEventSourceResponse;  // ESPAsyncWebServer 3.12.1 workaround, remove with it
+
  protected:
   void on_client_connect_(DeferredUpdateEventSource *source);
   void on_client_disconnect_(DeferredUpdateEventSource *source);
+  void add_client_(WebServer *ws, AsyncClient *client);  // ESPAsyncWebServer 3.12.1 workaround, remove with it
 
  public:
   /// Returns true if there are event sources remaining (including pending cleanup).
@@ -545,6 +551,9 @@ class WebServer final : public Component, public AsyncWebHandler {
   // KAUF: define functions for new functionality
   void reset_flash(AsyncWebServerRequest *request);
   void clear_wifi(AsyncWebServerRequest *request);
+#if defined(USE_ESP32) && defined(USE_KAUF_NVS)
+  void handle_kauf_nvs_request(AsyncWebServerRequest *request);
+#endif
   void save_wifi(AsyncWebServerRequest *request);
 
  protected:

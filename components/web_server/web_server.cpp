@@ -207,9 +207,9 @@ static ProductUiMetadata get_product_ui_metadata() {
       "https://github.com/KaufHA/kauf-plugs/releases",
       "",
 #if defined(KAUF_FACTORY_FIRMWARE)
-      "For factory images, with version suffix (f), /reset will place the firmware into factory test mode. "
-      "Factory test mode can be cleared easily by pressing the button on the device after a few seconds. "
-      "Flash one of our precompiled binaries from the github releases page to instantly stop and completely remove the factory routine. "
+      "For factory images, with version suffix (f), the factory test runs until it passes once. "
+      "The result is kept in a separate flash partition, so /reset does not re-run it. "
+      "Flash one of our precompiled binaries from the github releases page to completely remove the factory routine. "
 #else
       ""
 #endif
@@ -388,6 +388,34 @@ EntityMatchResult UrlMatch::match_entity(EntityBase *entity) const {
 }
 
 #if !defined(USE_ESP32) && defined(USE_ARDUINO)
+// BEGIN ESPAsyncWebServer 3.12.1 workaround: remove once a release containing upstream commit
+// 880c97068abb0f0e63f803cd3c0cac84fa5cd7bb is out and we bump to it.
+// 3.12.1 creates the SSE client before the head is ACKed and credits the head's ACK to its first queued messages,
+// dropping or truncating them. Create the client once the head is ACKed instead, as 3.9.6 did.
+class HeadAckedEventSourceResponse final : public AsyncEventSourceResponse {
+ public:
+  HeadAckedEventSourceResponse(DeferredUpdateEventSourceList *list, WebServer *ws)
+      : AsyncEventSourceResponse(nullptr), list_(list), ws_(ws) {}
+  void _respond(AsyncWebServerRequest *request) override {
+    String head;
+    this->_assembleHead(head, request->version());
+    request->client()->write(head.c_str(), this->_headLength);
+  }
+  // Every ACK until clientRelease() is the head's, and clientRelease() unhooks this. _state must stay
+  // RESPONSE_SETUP: past RESPONSE_WAIT_ACK the request would close its released (null) client after this returns.
+  size_t _ack(AsyncWebServerRequest *request, size_t len, uint32_t time) override {
+    this->_ackedLength += len;
+    if (this->_ackedLength >= this->_headLength)
+      this->list_->add_client_(this->ws_, request->clientRelease());
+    return 0;
+  }
+
+ private:
+  DeferredUpdateEventSourceList *list_;
+  WebServer *ws_;
+};
+// END ESPAsyncWebServer 3.12.1 workaround
+
 // helper for allowing only unique entries in the queue
 void __attribute__((flatten)) DeferredUpdateEventSource::deq_push_back_with_dedup_(
     void *source, message_generator_t *message_generator) {
@@ -496,7 +524,13 @@ void DeferredUpdateEventSourceList::try_send_nodefer(const char *message, size_t
   }
 }
 
+// BEGIN ESPAsyncWebServer 3.12.1 workaround (see HeadAckedEventSourceResponse): once removed, add_new_client creates
+// the source as add_client_ does and ends with es->handleRequest(request); add_client_ goes away.
 void DeferredUpdateEventSourceList::add_new_client(WebServer *ws, AsyncWebServerRequest *request) {
+  request->send(new HeadAckedEventSourceResponse(this, ws));  // NOLINT
+}
+
+void DeferredUpdateEventSourceList::add_client_(WebServer *ws, AsyncClient *client) {
   DeferredUpdateEventSource *es = new DeferredUpdateEventSource(ws, ESPHOME_F("/events"));
   this->push_back(es);
 
@@ -504,9 +538,10 @@ void DeferredUpdateEventSourceList::add_new_client(WebServer *ws, AsyncWebServer
 
   es->onDisconnect([this, es](AsyncEventSourceClient *client) { this->on_client_disconnect_(es); });
 
-  es->handleRequest(request);
+  new AsyncEventSourceClient(client, es);  // NOLINT: owned by es
   ws->enable_loop_soon_any_context();
 }
+// END ESPAsyncWebServer 3.12.1 workaround
 
 void DeferredUpdateEventSourceList::on_client_connect_(DeferredUpdateEventSource *source) {
   WebServer *ws = source->web_server_;
@@ -2493,6 +2528,10 @@ bool WebServer::canHandle(AsyncWebServerRequest *request) const {
     return true;
   if (url == ESPHOME_F("/wifisave"))
     return true;
+#if defined(USE_ESP32) && defined(USE_KAUF_NVS)
+  if (url == ESPHOME_F("/kauf_nvs") && (method == HTTP_GET || method == HTTP_POST))
+    return true;
+#endif
 
 #ifdef USE_WEBSERVER_CSS_INCLUDE
   if (url == ESPHOME_F("/0.css"))
@@ -2670,6 +2709,13 @@ void WebServer::handleRequest(AsyncWebServerRequest *request) {
     this->clear_wifi(request);
     return;
   }
+
+#if defined(USE_ESP32) && defined(USE_KAUF_NVS)
+  if (url == ESPHOME_F("/kauf_nvs")) {
+    this->handle_kauf_nvs_request(request);
+    return;
+  }
+#endif
 
   if (url == "/wifisave") {
     if ( wifi::global_wifi_component->get_initial_ap() ) {
@@ -2862,6 +2908,120 @@ void WebServer::reset_flash(AsyncWebServerRequest *request) {
   this->set_timeout(100, []() { App.safe_reboot(); });
 
 }
+
+#if defined(USE_ESP32) && defined(USE_KAUF_NVS)
+static std::string kauf_html_escape(const std::string &str) {
+  std::string out;
+  out.reserve(str.size());
+  for (char c : str) {
+    switch (c) {
+      case '&': out += "&amp;"; break;
+      case '<': out += "&lt;"; break;
+      case '>': out += "&gt;"; break;
+      case '"': out += "&quot;"; break;
+      case '\'': out += "&#39;"; break;
+      default: out += c;
+    }
+  }
+  return out;
+}
+
+// KAUF: page showing everything in the kauf_nvs partition (factory calibration, etc.).  Only compiled in with the
+// kauf_nvs component (ESP32 only), which adds the partition to the build.
+//
+// The component's restore_fields are write once: if any is missing or invalid (e.g. converting to Tasmota and back
+// recreated an empty partition) they're all shown as inputs, prefilled with what's stored, and POST saves them
+// together then reboots.  Once all are valid they're read only.
+void WebServer::handle_kauf_nvs_request(AsyncWebServerRequest *request) {
+  AsyncResponseStream *stream = request->beginResponseStream(ESPHOME_F("text/html"));
+  stream->addHeader(ESPHOME_F("Access-Control-Allow-Origin"), ESPHOME_F("*"));
+  stream->print(ESPHOME_F("<!DOCTYPE html><html><head><meta charset=UTF-8><meta name=viewport "
+                          "content=\"width=device-width,initial-scale=1\"><link rel=icon href=data:>"
+                          "<title>Factory Data</title><style>body{font-family:sans-serif;max-width:640px;"
+                          "margin:16px auto;padding:0 16px}td{padding:4px 16px 4px 0}input{width:9em}"
+                          ".err{color:#c00}.note{color:#666}</style></head><body><h2>Factory Data</h2>"));
+
+  auto *nvs = kauf_nvs::global_kauf_nvs;
+  if (nvs == nullptr || !nvs->is_ready()) {
+    stream->print(ESPHOME_F("<p>No kauf_nvs partition detected.</p></body></html>"));
+    request->send(stream);
+    return;
+  }
+
+  const auto &fields = nvs->get_restore_fields();
+  std::vector<std::string> values(fields.size());
+  std::string error;
+
+  if (request->method() == HTTP_POST) {
+    char name[16];
+    for (size_t i = 0; i < fields.size(); i++) {
+      snprintf(name, sizeof(name), "f%u", (unsigned) i);
+      values[i] = request->arg(name);
+    }
+    error = nvs->save_restore_fields(values);
+    if (error.empty()) {
+      stream->print(ESPHOME_F("<p>Saved.  This device is now restarting so the new values take effect.</p>"
+                              "</body></html>"));
+      request->send(stream);
+      this->set_timeout(500, []() { App.safe_reboot(); });
+      return;
+    }
+  } else {
+    // prefill with whatever is stored, even if invalid, so the user can see it
+    for (size_t i = 0; i < fields.size(); i++)
+      nvs->get_string(fields[i].ns, fields[i].key, values[i]);
+  }
+
+  if (!fields.empty()) {
+    if (nvs->restore_fields_locked()) {
+      stream->print(ESPHOME_F("<table>"));
+      std::string value;
+      for (const auto &field : fields) {
+        nvs->get_restore_field(field, value);
+        stream->printf("<tr><td>%s</td><td>%s</td></tr>", kauf_html_escape(field.label).c_str(),
+                       kauf_html_escape(value).c_str());
+      }
+      stream->print(ESPHOME_F("</table><p class=note>Save these values before converting to other firmware.  "
+                              "They can be entered here again if they go missing.</p>"));
+    } else {
+      stream->print(ESPHOME_F("<p>Some factory values are missing.  If you saved them before, enter them below.  "
+                              "Values can only be saved once, so double check them.</p>"));
+      if (!error.empty())
+        stream->printf("<p class=err>%s</p>", kauf_html_escape(error).c_str());
+      stream->print(ESPHOME_F("<form method=post action=/kauf_nvs><table>"));
+      for (size_t i = 0; i < fields.size(); i++) {
+        stream->printf("<tr><td>%s</td><td><input name=f%u inputmode=decimal required value=\"%s\"></td>"
+                       "<td class=note>%g to %g</td></tr>",
+                       kauf_html_escape(fields[i].label).c_str(), (unsigned) i,
+                       kauf_html_escape(values[i]).c_str(), fields[i].min, fields[i].max);
+      }
+      stream->print(ESPHOME_F("</table><p><button type=submit>Save</button></p></form>"));
+    }
+  }
+
+  // anything else stored, e.g. factory test status
+  bool header = false;
+  nvs->for_each([&](const char *ns, const char *key, const std::string &value) {
+    for (const auto &field : fields) {
+      if (strcmp(field.ns, ns) == 0 && strcmp(field.key, key) == 0)
+        return;
+    }
+    if (!header) {
+      stream->print(ESPHOME_F("<h3>Other stored values</h3><table>"));
+      header = true;
+    }
+    stream->printf("<tr><td>%s.%s</td><td>%s</td></tr>", kauf_html_escape(ns).c_str(),
+                   kauf_html_escape(key).c_str(), kauf_html_escape(value).c_str());
+  });
+  if (header)
+    stream->print(ESPHOME_F("</table>"));
+  else if (fields.empty())
+    stream->print(ESPHOME_F("<p>Nothing stored.</p>"));
+
+  stream->print(ESPHOME_F("</body></html>"));
+  request->send(stream);
+}
+#endif
 
 // KAUF: function to clear wifi credentials
 void WebServer::clear_wifi(AsyncWebServerRequest *request) {

@@ -361,7 +361,9 @@ void WebServerOTAComponent::handleRequest(AsyncWebServerRequest *request) {
   static const char CONNECTION_STR[] PROGMEM = "Connection";
   static const char CLOSE_STR[] PROGMEM = "close";
   const char *msg = refused ? UPDATE_BUSY : (this->ota_success_ ? UPDATE_SUCCESS : UPDATE_FAILED);
-  response = request->beginResponse_P(200, TEXT_PLAIN, msg);
+  // KAUF: beginResponse_P is deprecated in ESPAsyncWebServer 3.x; the uint8_t*/len overload builds the
+  // same PROGMEM-safe AsyncProgmemResponse (plain const char* would use AsyncBasicResponse and read flash as RAM)
+  response = request->beginResponse(200, TEXT_PLAIN, reinterpret_cast<const uint8_t *>(msg), strlen_P(msg));
   response->addHeader(CONNECTION_STR, CLOSE_STR);
 #else
   const char *msg = refused              ? "Update Failed! Another update is in progress, retry later."
