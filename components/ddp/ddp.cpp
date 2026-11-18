@@ -10,7 +10,7 @@
 namespace esphome {
 namespace ddp {
 
-static const char *const TAG = "ddp";
+ESPHOME_LOG_TAG(TAG, "ddp");
 
 DDPComponent::DDPComponent() {}
 DDPComponent::~DDPComponent() {}

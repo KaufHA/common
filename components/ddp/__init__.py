@@ -28,6 +28,7 @@ def AUTO_LOAD() -> list[str]:
 
 
 DEPENDENCIES = ["network"]
+DOMAIN = "ddp"
 
 
 def _consume_ddp_sockets(config):
@@ -107,7 +108,7 @@ async def to_code(config):
         cv.GenerateID(CONF_DDP_ID): cv.use_id(DDPComponent),
         cv.Optional(CONF_DDP_TIMEOUT): cv.positive_time_period_milliseconds,
         cv.Optional(CONF_DDP_DIS_GAMMA): cv.boolean,
-        cv.Optional(CONF_DDP_SCALING): cv.one_of(*DDP_SCALING, upper=True),
+        cv.Optional(CONF_DDP_SCALING): cv.enum(DDP_SCALING, upper=True),
     },
 )
 @register_addressable_effect(
@@ -118,7 +119,7 @@ async def to_code(config):
         cv.GenerateID(CONF_DDP_ID): cv.use_id(DDPComponent),
         cv.Optional(CONF_DDP_TIMEOUT): cv.positive_time_period_milliseconds,
         cv.Optional(CONF_DDP_DIS_GAMMA): cv.boolean,
-        cv.Optional(CONF_DDP_SCALING): cv.one_of(*DDP_SCALING, upper=True),
+        cv.Optional(CONF_DDP_SCALING): cv.enum(DDP_SCALING, upper=True),
         cv.Optional(CONF_ACTIVE_SENSOR, default=False): cv.Any(
             cv.boolean,
             cv.Schema({}, extra=cv.ALLOW_EXTRA),
@@ -127,20 +128,12 @@ async def to_code(config):
     _normalize_active_sensor,
 )
 async def ddp_light_effect_to_code(config, effect_id):
-    parent = await cg.get_variable(config[CONF_DDP_ID])
-
     effect = cg.new_Pvariable(effect_id, config[CONF_NAME])
 
-    cg.add(effect.set_ddp(parent))
-
-    if CONF_DDP_TIMEOUT in config:
-        cg.add(effect.set_timeout(config[CONF_DDP_TIMEOUT]))
-
-    if CONF_DDP_DIS_GAMMA in config:
-        cg.add(effect.set_disable_gamma(config[CONF_DDP_DIS_GAMMA]))
-
-    if CONF_DDP_SCALING in config:
-        cg.add(effect.set_scaling_mode(DDP_SCALING[config[CONF_DDP_SCALING]]))
+    await cg.add_variable(effect.set_ddp, config[CONF_DDP_ID])
+    cg.add_optional(effect.set_timeout, config.get(CONF_DDP_TIMEOUT))
+    cg.add_optional(effect.set_disable_gamma, config.get(CONF_DDP_DIS_GAMMA))
+    cg.add_optional(effect.set_scaling_mode, config.get(CONF_DDP_SCALING))
 
     if config.get(CONF_ACTIVE_SENSOR):
         sensor = await binary_sensor.new_binary_sensor(config[CONF_ACTIVE_SENSOR])

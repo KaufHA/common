@@ -10,7 +10,7 @@
 namespace esphome {
 namespace ddp {
 
-static const char *const TAG = "ddp_addressable_light_effect";
+ESPHOME_LOG_TAG(TAG, "ddp_addressable_light_effect");
 
 DDPAddressableLightEffect::DDPAddressableLightEffect(const char *name) : AddressableLightEffect(name) {}
 
@@ -19,9 +19,7 @@ esphome::StringRef DDPAddressableLightEffect::get_name() const { return Addressa
 #ifdef USE_BINARY_SENSOR
 void DDPAddressableLightEffect::set_effect_active_sensor(binary_sensor::BinarySensor *sensor) {
   this->effect_active_sensor_ = sensor;
-  if (this->effect_active_sensor_ != nullptr) {
-    this->effect_active_sensor_->publish_state(false);
-  }
+  PUBLISH_STATE(this->effect_active_sensor_, false);
 }
 #endif
 
@@ -63,7 +61,7 @@ void DDPAddressableLightEffect::apply(light::AddressableLight &it, const Color &
   // apply function is not needed normally to display changes to the light
   // from Home Assistant, but it is needed to restore value on timeout.
   if ( this->timeout_check() ) {
-    ESP_LOGD(TAG,"DDP stream for '%s->%s' timed out.", this->state_->get_name().c_str(), this->get_name());
+    ESP_LOGD(TAG,"DDP stream for '%s->%s' timed out.", LOG_STR_ARG(this->state_->get_log_name()), this->get_name().c_str());
     this->next_packet_will_be_first_ = true;
 
     auto call = this->state_->turn_on();
@@ -123,7 +121,7 @@ uint16_t DDPAddressableLightEffect::process_(const uint8_t *payload, uint16_t si
 
   if ( num_pixels < 1 ) { return 0; }
 
-  ESP_LOGV(TAG, "Applying DDP data for '%s' (size: %d - used: %d - num_pixels: %d)", get_name(), size, used, num_pixels);
+  ESP_LOGV(TAG, "Applying DDP data for '%s' (size: %d - used: %d - num_pixels: %d)", get_name().c_str(), size, used, num_pixels);
 
   // will be multiplied by RGB values in scale_* scaling modes
   float multiplier = 1.0f;
@@ -225,9 +223,7 @@ void DDPAddressableLightEffect::set_effect_active_(light::AddressableLight *it, 
   }
   it->set_effect_active(active);
 #ifdef USE_BINARY_SENSOR
-  if (this->effect_active_sensor_ != nullptr) {
-    this->effect_active_sensor_->publish_state(active);
-  }
+  PUBLISH_STATE(this->effect_active_sensor_, active);
 #endif
 }
 

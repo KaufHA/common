@@ -8,7 +8,7 @@
 namespace esphome {
 namespace ddp {
 
-static const char *const TAG = "ddp";
+ESPHOME_LOG_TAG(TAG, "ddp");
 static const int PORT = 4048;
 
 void DDPComponent::loop() {

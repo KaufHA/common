@@ -10,7 +10,7 @@
 namespace esphome {
 namespace ddp {
 
-class DDPLightEffect : public DDPLightEffectBase, public light::LightEffect {
+class DDPLightEffect : public light::LightEffect, public DDPLightEffectBase {
  public:
   DDPLightEffect(const char *name);
 

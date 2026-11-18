@@ -15,7 +15,7 @@ class BinarySensor;
 namespace esphome {
 namespace ddp {
 
-class DDPAddressableLightEffect : public DDPLightEffectBase, public light::AddressableLightEffect {
+class DDPAddressableLightEffect : public light::AddressableLightEffect, public DDPLightEffectBase {
  public:
   DDPAddressableLightEffect(const char *name);
 
