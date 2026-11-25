@@ -2742,7 +2742,13 @@ void WebServer::handleRequest(AsyncWebServerRequest *request) {
   // Parse URL for component routing
   // Pass HTTP method to disambiguate 3-segment URLs (GET=sub-device state, POST=main device action)
   UrlMatch match = match_url(url.c_str(), url.length(), false, request->method() == HTTP_POST);
-  match.include_internal = this->include_internal_;
+  // KAUF: allow REST access to internal entities while the factory routine is running, matching the
+  // entity list shown in the UI, so the internal stop button can be pressed.
+  match.include_internal = this->include_internal_
+#ifdef KAUF_FACTORY
+                           || (this->factory_condition_ != nullptr && *this->factory_condition_)
+#endif
+      ;
 
   // Route to appropriate handler based on domain
   // NOLINTNEXTLINE(readability-simplify-boolean-expr)

@@ -7,6 +7,7 @@ server_index_v2.h
 web_server.cpp
   - outputs more device details to UI
   - adds endpoints for "/reset", "/clear", "/wifisave",
+  - with KAUF_FACTORY, shows and allows REST access to internal entities while the factory routine runs
 
 
 web_server.h
